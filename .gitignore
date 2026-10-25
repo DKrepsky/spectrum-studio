@@ -1,0 +1,10 @@
+/target
+/node_modules
+/dist
+/e2e/.tauri-driver
+/e2e/logs
+/coverage
+*.log
+.DS_Store
+.claude/settings.local.json
+/src-tauri/gen

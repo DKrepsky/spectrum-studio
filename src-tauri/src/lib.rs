@@ -1,0 +1,72 @@
+//! Tauri shell: wires the core session to IPC commands and events. Domain logic lives in
+//! `spectrum-core`.
+
+mod commands;
+mod error;
+mod sink;
+mod state;
+
+use std::sync::Arc;
+
+use spectrum_core::store::ConfigStore;
+use spectrum_core::{DriverRegistry, SessionManager};
+use tauri::{Manager, RunEvent};
+
+use crate::sink::EventSink;
+use crate::state::AppState;
+
+pub fn run() {
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let store = ConfigStore::open(app.path().app_config_dir()?);
+            let session = SessionManager::new(
+                DriverRegistry::with_builtin_drivers(),
+                Arc::new(EventSink(app.handle().clone())),
+                store.preferences().processing,
+            );
+            app.manage(AppState {
+                session: Arc::new(session),
+                store: Arc::new(store),
+            });
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::get_status,
+            commands::list_drivers,
+            commands::discover_devices,
+            commands::connect_source,
+            commands::disconnect_source,
+            commands::start_acquisition,
+            commands::stop_acquisition,
+            commands::apply_source_settings,
+            commands::set_processing,
+            commands::reset_holds,
+            commands::dismiss_notice,
+            commands::next_frame,
+            commands::get_preferences,
+            commands::store_warnings,
+            commands::save_display_preferences,
+            commands::list_saved_sources,
+            commands::save_source,
+            commands::delete_saved_source,
+            commands::export_csv,
+        ])
+        .build(tauri::generate_context!());
+
+    let app = match app {
+        Ok(app) => app,
+        Err(e) => {
+            eprintln!("Spectrum Studio failed to start: {e}");
+            std::process::exit(1);
+        }
+    };
+    app.run(|handle, event| {
+        if let RunEvent::Exit = event {
+            // Stop acquisition and release the device before the process exits.
+            if let Some(state) = handle.try_state::<AppState>() {
+                state.session.disconnect();
+            }
+        }
+    });
+}
