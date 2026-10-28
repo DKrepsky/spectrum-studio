@@ -19,12 +19,14 @@ running application.
 | 10 | Preferences retained after restart | Done | E2E `persistence`, store tests |
 | — | IQ recordings (SigMF, raw) and CSV traces | Done | E2E `files`, format and session tests |
 | — | Failure handling (connect failure, device loss, end of stream, invalid files) | Done | E2E `failures`/`files`, session tests |
+| — | TI SA430 hardware source | Done | Session tests with mock link, ignored real-device test |
 | — | `.deb` and AppImage packages | Done | `npm run tauri build` |
 
 ## Known limitations
 
-- No real hardware integrations yet; SoapySDR, rtl_tcp, SCPI-over-LAN and tinySA are listed as
-  planned.
+- The only real hardware integration is the TI SA430; SoapySDR, rtl_tcp, SCPI-over-LAN and tinySA
+  are listed as planned.
+- SA430: no RBW readout, sweeps limited to 800 points and not interruptible (see `sources.md`).
 - No amplitude calibration: IQ spectra are dBFS only.
 - One spectrum per frame from the newest samples (no overlapped Welch averaging within a block);
   the frame rate is capped at 30 fps by the simulator and file playback.
@@ -35,8 +37,7 @@ running application.
 
 ## Next steps (suggested order)
 
-1. **First hardware integration** once a device is chosen — likely SoapySDR (covers RTL-SDR,
-   HackRF, Airspy) via the `soapysdr` crate, or rtl_tcp (pure network protocol, no native deps).
+1. Next hardware: SoapySDR (RTL-SDR, HackRF, Airspy) or rtl_tcp (pure network protocol, no native deps).
 2. Gain/AGC and PPM correction as SDR `ParamSpec`s; DC-spike handling.
 3. Optional calibration profile (offset table) to turn dBFS into dBm, with clear labelling.
 4. SCPI analyzer driver (trace sources, dBm) using a mock TCP server in tests.

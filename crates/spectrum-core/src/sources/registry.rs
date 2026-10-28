@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use super::files::{IqFileDriver, TraceFileDriver};
 use super::planned::planned_drivers;
+use super::sa430::Sa430Driver;
 use super::simulator::SimulatorDriver;
 use super::{SourceDriver, SourceError};
 use crate::model::{DeviceDescriptor, DriverInfo, DriverStatus};
@@ -23,6 +24,7 @@ impl DriverRegistry {
         registry.register(SimulatorDriver::new());
         registry.register(IqFileDriver::new());
         registry.register(TraceFileDriver);
+        registry.register(Sa430Driver::new());
         for driver in planned_drivers() {
             registry.register(driver);
         }

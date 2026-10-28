@@ -35,6 +35,7 @@ Then, in an X11 or Wayland desktop session:
 ```sh
 npm run e2e        # builds target/debug/spectrum-studio (no bundle) and runs all specs
 npm run e2e:run    # reuse the existing debug binary
+SPECTRUM_E2E_SA430=1 npm run e2e:run -- --spec e2e/specs/sa430.e2e.ts   # real TI SA430 on USB (skipped by default)
 ```
 
 Each spec file starts the app through `tauri-driver` with `XDG_CONFIG_HOME` pointing to a fresh

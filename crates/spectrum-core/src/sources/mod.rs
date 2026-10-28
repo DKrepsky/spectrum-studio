@@ -8,6 +8,7 @@ pub mod files;
 pub mod pacer;
 pub mod planned;
 pub mod registry;
+pub mod sa430;
 pub mod simulator;
 
 use rustfft::num_complex::Complex32;

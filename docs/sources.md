@@ -65,10 +65,35 @@ queued to the worker and applied between reads.
 | `simulator` | Signal simulator | Simulator / Internal | Available |
 | `iq-file` | IQ recording (SigMF, cf32, cs16, cu8, cs8) | File / File | Available |
 | `trace-csv` | Spectrum trace (CSV) | File / File | Available |
+| `sa430` | TI SA430 spectrum analyzer | Analyzer / Serial | Available |
 | `soapysdr` | SoapySDR devices (RTL-SDR, HackRF, Airspy, …) | SDR / USB | Planned |
 | `rtl_tcp` | rtl_tcp server | SDR / Network | Planned |
 | `scpi_lan` | SCPI spectrum analyzer (LAN) | Analyzer / Network | Planned |
 | `tinysa` | tinySA | Analyzer / Serial | Planned |
+
+### TI SA430
+
+Code: `sources/sa430.rs`, on top of the [`sa430`](https://crates.io/crates/sa430) crate (same
+author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmware 2.5).
+
+- **Data:** `Trace`, factory-calibrated **dBm** (calibration is read from the device flash on
+  connect). RBW is selected by the device from the step and is not reported yet (`rbw_hz: None`).
+- **Discovery:** USB scan by vendor/product id (udev on Linux); connecting without a chosen device
+  or port uses the first one found. Needs `libudev` at build/run time and membership of the
+  `dialout` group.
+- **Bands:** the instrument measures 300–348, 389–464 and 779–928 MHz; a sweep cannot cross
+  bands. Centre and span select the window; if it sticks out of the band it is **shifted** back
+  inside (the reported centre is the one actually swept). A centre between bands or a span wider
+  than its band is rejected.
+- **Settings:** spans 1–149 MHz; *Frequency step* 10–500 kHz; *Reference level* −35…−70 dBm.
+- **Sweep time** is ≈1.3 ms per point and a sweep cannot be interrupted, so requests above 800
+  points (~1 s) are rejected with a hint to raise the step. Stop/Disconnect therefore take effect
+  after the current sweep, which can exceed the usual 250 ms `read` budget for large sweeps.
+- **Errors:** open failures explain `dialout`/unplugged causes; a read timeout is recoverable
+  (*Restart*); a broken pipe or serial error disconnects the session.
+- **Tests:** `tests/sa430.rs` runs the session against the library's mock channel (including
+  silent device and unplugging). `cargo test -p spectrum-core --test sa430 -- --ignored --nocapture`
+  runs a sweep session on a real device.
 
 ### Simulator
 
