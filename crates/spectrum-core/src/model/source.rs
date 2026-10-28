@@ -1,14 +1,14 @@
 //! Descriptions of drivers, devices, capabilities and settings.
 
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use super::params::{ParamMap, ParamSpec};
 use super::units::AmplitudeUnit;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum SourceKind {
     /// Software-defined radio delivering raw IQ samples.
     Sdr,
@@ -20,9 +20,10 @@ pub enum SourceKind {
     Simulator,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum Transport {
     Usb,
     Serial,
@@ -31,9 +32,10 @@ pub enum Transport {
     Internal,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum DriverStatus {
     /// Implemented and usable.
     Available,
@@ -42,9 +44,10 @@ pub enum DriverStatus {
 }
 
 /// Static information about an integration type.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct DriverInfo {
     pub id: String,
     pub name: String,
@@ -58,9 +61,10 @@ pub struct DriverInfo {
 }
 
 /// A device instance found by discovery.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct DeviceDescriptor {
     pub driver_id: String,
     pub device_id: String,
@@ -69,9 +73,10 @@ pub struct DeviceDescriptor {
     pub details: Vec<(String, String)>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum DataKind {
     /// Complex baseband samples; the application computes the spectrum.
     Iq,
@@ -79,9 +84,10 @@ pub enum DataKind {
     Trace,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct FrequencyRange {
     pub min_hz: f64,
     pub max_hz: f64,
@@ -94,9 +100,10 @@ impl FrequencyRange {
 }
 
 /// What an opened source can do. Controls absent here are hidden or disabled in the UI.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct Capabilities {
     pub data_kind: DataKind,
     /// Tunable centre-frequency range; `None` if the source cannot be tuned.
@@ -111,9 +118,10 @@ pub struct Capabilities {
 }
 
 /// Settings currently in effect on an opened source.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct SourceSettings {
     pub center_hz: f64,
     /// Displayed span; equal to the complex sample rate for IQ sources.
@@ -122,9 +130,10 @@ pub struct SourceSettings {
 }
 
 /// A requested change of source settings; absent fields stay unchanged.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", default)]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct SettingsPatch {
     pub center_hz: Option<f64>,
     pub span_hz: Option<f64>,
@@ -138,9 +147,10 @@ impl SettingsPatch {
 }
 
 /// Everything needed to (re)open a source; this is what saved configurations store.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct SourceConfig {
     pub driver_id: String,
     /// Device chosen from discovery, if the driver supports several devices.

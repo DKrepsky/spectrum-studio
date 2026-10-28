@@ -16,7 +16,7 @@ These apply to humans and AI agents alike.
 - Edition 2024, `cargo fmt`, `cargo clippy --all-targets -- -D warnings`.
 - Errors: `thiserror` enums per module; messages are complete sentences a user can act on.
   No `unwrap()`/`expect()` outside tests except for documented invariants.
-- Types crossing the IPC boundary derive `Serialize`/`Deserialize` and `ts_rs::TS`, use
+- Types crossing the IPC boundary derive `Serialize`/`Deserialize` and, behind the `bindings` feature, `ts_rs::TS` (`#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]`), use
   `#[serde(rename_all = "camelCase")]`, and provide `validate()` when they carry user input.
 - Blocking work (device I/O, file parsing) never runs on the Tauri main thread: use the session
   worker or `spawn_blocking`.

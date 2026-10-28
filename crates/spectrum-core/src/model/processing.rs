@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum WindowKind {
     Rectangular,
     Hann,
@@ -16,9 +16,10 @@ pub const MAX_FFT_SIZE: u32 = 32768;
 pub const MAX_AVERAGING: u32 = 1000;
 pub const MAX_PEAKS: u32 = 50;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct PeakSettings {
     pub enabled: bool,
     /// Maximum number of peaks reported, strongest first.
@@ -44,9 +45,10 @@ impl Default for PeakSettings {
 }
 
 /// How spectra are computed and post-processed. Applies to every source.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct ProcessingSettings {
     /// FFT length for IQ sources (power of two, 256..=32768). Ignored for trace sources.
     pub fft_size: u32,

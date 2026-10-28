@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e/tsconfig.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "bindings": "cargo test -p spectrum-core --lib export_bindings && prettier --write src/bindings",
+    "bindings": "cargo test -p spectrum-core --features bindings --lib export_bindings && prettier --write src/bindings",
     "check:rust": "cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace",
     "check:web": "prettier --write src/bindings && npm run format:check && npm run lint && npm run typecheck && npm test",
     "check": "npm run check:rust && npm run check:web",

@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 /// Unit of the amplitude axis.
 ///
 /// IQ-derived spectra are relative to the converter's full scale (`Dbfs`) unless a calibration
 /// is applied. Only `Dbm` denotes an absolute, calibrated power.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum AmplitudeUnit {
     /// Decibels relative to full scale: a complex sinusoid with magnitude 1.0 reads 0 dBFS.
     Dbfs,

@@ -29,7 +29,7 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 
 | Module | Responsibility | Must not |
 | --- | --- | --- |
-| `model` | Plain data types shared by all layers (serde + ts-rs). | Contain behaviour beyond validation. |
+| `model` | Plain data types shared by all layers (serde; ts-rs behind the `bindings` feature). | Contain behaviour beyond validation. |
 | `dsp` | Pure numeric functions/structs. Deterministic, no I/O, no threads. | Know about sources or UI. |
 | `sources` | Talk to devices/files; expose capabilities; produce `SourceData`. | Do spectrum post-processing or UI logic. |
 | `session` | One active source at a time; lifecycle, threading, error recovery, feeding the DSP pipeline. | Know about specific devices. |

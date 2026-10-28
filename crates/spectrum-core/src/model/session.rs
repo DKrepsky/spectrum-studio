@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use super::processing::ProcessingSettings;
 use super::source::{Capabilities, SourceConfig, SourceKind, SourceSettings, Transport};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum SessionState {
     Disconnected,
     Connecting,
@@ -17,9 +17,10 @@ pub enum SessionState {
     Disconnecting,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum NoticeKind {
     /// Opening the source failed.
     ConnectFailed,
@@ -33,9 +34,10 @@ pub enum NoticeKind {
     Internal,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct SessionNotice {
     pub kind: NoticeKind,
     pub message: String,
@@ -43,9 +45,10 @@ pub struct SessionNotice {
 }
 
 /// The connected source as seen by the UI.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct ActiveSource {
     pub config: SourceConfig,
     pub driver_name: String,
@@ -58,9 +61,10 @@ pub struct ActiveSource {
 }
 
 /// Authoritative session state pushed to the UI on every change.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct SessionStatus {
     /// Increments on every change so the UI can drop out-of-order updates.
     pub revision: u32,

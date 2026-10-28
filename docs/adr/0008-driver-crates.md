@@ -18,3 +18,8 @@ registers hardware drivers.
 - Core builds and tests without any device library; the dependency direction is enforced by Cargo.
 - Adding a device touches only its crate plus one line in `driver_registry()`.
 - Driver tests use only the public core API.
+
+## Addendum: bindings feature
+`ts-rs` is an optional dependency of `spectrum-core`, enabled by the `bindings` feature. The domain
+crate no longer depends on a frontend tool at runtime; `npm run bindings` builds with the feature
+enabled to regenerate `src/bindings`.

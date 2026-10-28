@@ -6,12 +6,12 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 /// A parameter value as submitted by the UI or stored in a configuration.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(untagged)]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum ParamValue {
     Bool(bool),
     Number(f64),
@@ -20,21 +20,23 @@ pub enum ParamValue {
 
 pub type ParamMap = BTreeMap<String, ParamValue>;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct ChoiceOption {
     pub value: String,
     pub label: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(
     tag = "type",
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum ParamKind {
     Number {
         min: f64,
@@ -56,9 +58,10 @@ pub enum ParamKind {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct ParamSpec {
     pub id: String,
     pub label: String,

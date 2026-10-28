@@ -10,7 +10,6 @@ use std::sync::Mutex;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use crate::model::session::now_ms;
 use crate::model::{ProcessingSettings, SourceConfig};
@@ -21,9 +20,10 @@ pub const SCHEMA_VERSION: u32 = 1;
 const MAX_NAME_LENGTH: usize = 80;
 const MAX_SAVED_SOURCES: usize = 200;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum Palette {
     #[default]
     Classic,
@@ -31,9 +31,10 @@ pub enum Palette {
     Grayscale,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", default)]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct DisplayPreferences {
     pub reference_level: f64,
     pub range_db: f64,
@@ -64,9 +65,10 @@ impl DisplayPreferences {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", default)]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct Preferences {
     pub version: u32,
     pub processing: ProcessingSettings,
@@ -93,9 +95,10 @@ impl Preferences {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct SavedSource {
     pub id: String,
     pub name: String,

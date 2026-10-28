@@ -12,7 +12,11 @@ rustfft.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-ts-rs.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[features]
+# Derives `ts_rs::TS` on the IPC types; used by `npm run bindings` to generate `src/bindings`.
+bindings = ["dep:ts-rs"]
 
 [dev-dependencies]
 tempfile.workspace = true

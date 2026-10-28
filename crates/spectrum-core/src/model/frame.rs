@@ -1,7 +1,6 @@
 //! Processed spectrum frames and their binary wire format (see ADR 0003).
 
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use super::processing::WindowKind;
 use super::source::DataKind;
@@ -10,9 +9,10 @@ use super::units::AmplitudeUnit;
 /// Version of the binary frame layout; bump when the layout changes.
 pub const FRAME_FORMAT_VERSION: u32 = 1;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct Peak {
     /// Interpolated peak frequency.
     pub frequency_hz: f64,
@@ -23,9 +23,10 @@ pub struct Peak {
     pub prominence_db: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub enum TraceKind {
     /// The current (possibly averaged) trace.
     Live,
@@ -34,9 +35,10 @@ pub enum TraceKind {
 }
 
 /// Metadata describing exactly how a frame was produced.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "bindings", ts(export))]
 pub struct FrameHeader {
     pub version: u32,
     /// Monotonic for the lifetime of the application; the UI uses it to detect new frames.
