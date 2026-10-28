@@ -13,7 +13,7 @@ Read `docs/sources.md` first; it defines the `SourceDriver` / `Source` contracts
    - IQ devices return `SourceData::Iq`; instruments that measure spectra return
      `SourceData::Trace` with the instrument's own unit — never convert a trace into fake IQ.
    - Declare only capabilities the device really has (`tuning: None` if it cannot tune).
-   - Map device errors to `SourceError` with a message a user can act on.
+   - Map device errors to `SourceError` (constructors such as `SourceError::unavailable(msg)`) with a message a user can act on, and attach the original error with `.with_cause(e)`.
    - `read` must return within ~250 ms (use timeouts) so stop/disconnect stays responsive.
 2. Put hardware drivers in their own crate `crates/spectrum-driver-<name>` (depends on `spectrum-core`) and register it in `driver_registry()` in `src-tauri/src/lib.rs`. Drivers with no extra dependencies may live in `spectrum-core/src/sources/` and register in `DriverRegistry::with_core_drivers`. If it is not yet
    working, register it with `DriverStatus::Planned` so the UI shows it as unavailable.

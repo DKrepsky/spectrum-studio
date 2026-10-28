@@ -43,14 +43,14 @@ impl DriverRegistry {
             .iter()
             .find(|d| d.info().id == id)
             .cloned()
-            .ok_or_else(|| SourceError::Unsupported(format!("Unknown source type \"{id}\".")))
+            .ok_or_else(|| SourceError::unsupported(format!("Unknown source type \"{id}\".")))
     }
 
     pub fn discover(&self, id: &str) -> Result<Vec<DeviceDescriptor>, SourceError> {
         let driver = self.get(id)?;
         let info = driver.info();
         if info.status != DriverStatus::Available {
-            return Err(SourceError::Unsupported(format!(
+            return Err(SourceError::unsupported(format!(
                 "{} support is not implemented yet.",
                 info.name
             )));

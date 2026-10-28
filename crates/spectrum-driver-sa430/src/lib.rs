@@ -124,7 +124,8 @@ impl SourceDriver for Sa430Driver {
 
     fn discover(&self) -> Result<Vec<DeviceDescriptor>, SourceError> {
         let ports = self.backend.scan().map_err(|e| {
-            SourceError::Unavailable(format!("Could not search for SA430 devices: {e}."))
+            SourceError::unavailable(format!("Could not search for SA430 devices: {e}."))
+                .with_cause(e)
         })?;
         Ok(ports
             .iter()
@@ -151,7 +152,7 @@ impl SourceDriver for Sa430Driver {
 
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError> {
         let connection = resolve_params(&connection_params(), &config.connection)
-            .map_err(SourceError::InvalidSettings)?;
+            .map_err(SourceError::invalid_settings)?;
         let typed = connection.text("port").unwrap_or_default().trim();
         let port = if let Some(id) = &config.device_id {
             id.clone()
@@ -163,9 +164,8 @@ impl SourceDriver for Sa430Driver {
                 .next()
                 .map(|d| d.device_id)
                 .ok_or_else(|| {
-                    SourceError::Unavailable(
-                        "No SA430 found. Connect the analyzer with its USB cable and try again."
-                            .into(),
+                    SourceError::unavailable(
+                        "No SA430 found. Connect the analyzer with its USB cable and try again.",
                     )
                 })?
         };
@@ -183,17 +183,18 @@ impl SourceDriver for Sa430Driver {
                     .to_string()
             })
             .map_err(|e| {
-                SourceError::Unavailable(format!(
+                SourceError::unavailable(format!(
                     "{port} did not answer like an SA430 ({e}). Unplug and reconnect the \
                      analyzer, then try again."
                 ))
+                .with_cause(e)
             })?;
 
         let settings = SourceSettings {
             center_hz: DEFAULT_CENTER_HZ,
             span_hz: DEFAULT_SPAN_HZ,
             params: resolve_params(&runtime_params(), &ParamMap::new())
-                .map_err(SourceError::InvalidSettings)?,
+                .map_err(SourceError::invalid_settings)?,
         };
         Ok(OpenedSource {
             source: Box::new(Sa430Source {
@@ -234,25 +235,29 @@ fn open_error(port: &str, error: &sa430::Error) -> SourceError {
         },
         _ => String::new(),
     };
-    SourceError::Unavailable(format!("Could not open {port}: {error}.{hint}"))
+    SourceError::unavailable(format!("Could not open {port}: {error}.{hint}"))
 }
 
 /// Maps a library error that happened while talking to an open device.
 fn io_error(error: sa430::Error) -> SourceError {
     match error {
-        sa430::Error::InvalidParameter(m) => SourceError::InvalidSettings(m),
-        sa430::Error::Serial(e) => SourceError::Disconnected(format!(
+        sa430::Error::InvalidParameter(m) => SourceError::invalid_settings(m),
+        sa430::Error::Serial(e) => SourceError::disconnected(format!(
             "The SA430 connection failed ({e}). Reconnect the analyzer."
-        )),
+        ))
+        .with_cause(e),
         sa430::Error::Io(e) => match e.kind() {
             io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted => {
-                SourceError::Io("The SA430 did not answer in time. Try starting again.".into())
+                SourceError::io("The SA430 did not answer in time. Try starting again.")
+                    .with_cause(e)
             }
-            _ => SourceError::Disconnected(format!(
+            _ => SourceError::disconnected(format!(
                 "The SA430 connection was lost ({e}). Reconnect the analyzer."
-            )),
+            ))
+            .with_cause(e),
         },
-        other => SourceError::Io(format!("The SA430 sent an unexpected reply ({other}).")),
+        other => SourceError::io(format!("The SA430 sent an unexpected reply ({other})."))
+            .with_cause(other),
     }
 }
 
@@ -271,13 +276,13 @@ fn sweep_window(center_hz: f64, span_hz: f64) -> Result<(f64, f64), SourceError>
         .iter()
         .find(|(low, high)| (*low..=*high).contains(&center))
         .ok_or_else(|| {
-            SourceError::InvalidSettings(format!(
+            SourceError::invalid_settings(format!(
                 "The SA430 cannot measure around {center} MHz. Choose a centre frequency in \
                  300–348, 389–464 or 779–928 MHz."
             ))
         })?;
     if span > high - low {
-        return Err(SourceError::InvalidSettings(format!(
+        return Err(SourceError::invalid_settings(format!(
             "A {span} MHz span is wider than the {low}–{high} MHz band. Choose a smaller span."
         )));
     }
@@ -291,7 +296,7 @@ impl Sa430Source {
         let step_khz = settings.params.number("stepKhz").unwrap_or(100.0);
         let points = (stop - start) * 1e3 / step_khz + 1.0;
         if points > MAX_SWEEP_POINTS {
-            return Err(SourceError::InvalidSettings(format!(
+            return Err(SourceError::invalid_settings(format!(
                 "A {} MHz span with {step_khz} kHz steps needs {points:.0} points, more than the \
                  {MAX_SWEEP_POINTS} the SA430 can sweep responsively. Increase the frequency step \
                  or choose a smaller span.",
@@ -341,11 +346,11 @@ impl Source for Sa430Source {
         let (request, _, _) = self.request(&self.settings)?;
         let points = self.device.measure(&request).map_err(io_error)?;
         let (Some(first), Some(last)) = (points.first(), points.last()) else {
-            return Err(SourceError::Io("The SA430 returned an empty sweep.".into()));
+            return Err(SourceError::io("The SA430 returned an empty sweep."));
         };
         if points.len() < 2 {
-            return Err(SourceError::Io(
-                "The SA430 returned a sweep with a single point.".into(),
+            return Err(SourceError::io(
+                "The SA430 returned a sweep with a single point.",
             ));
         }
         Ok(SourceData::Trace(TraceBlock {
@@ -365,6 +370,7 @@ impl Source for Sa430Source {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use spectrum_core::sources::SourceErrorKind;
 
     #[test]
     fn window_is_centred_inside_the_band() {
@@ -391,10 +397,10 @@ mod tests {
     #[test]
     fn library_errors_map_to_actionable_source_errors() {
         let timeout = sa430::Error::Io(io::Error::new(io::ErrorKind::TimedOut, "t"));
-        assert!(matches!(io_error(timeout), SourceError::Io(_)));
+        assert!(io_error(timeout).kind() == SourceErrorKind::Io);
         let gone = sa430::Error::Io(io::Error::new(io::ErrorKind::BrokenPipe, "p"));
         assert!(io_error(gone).is_fatal());
         let bad = sa430::Error::InvalidData("x".into());
-        assert!(matches!(io_error(bad), SourceError::Io(_)));
+        assert!(io_error(bad).kind() == SourceErrorKind::Io);
     }
 }

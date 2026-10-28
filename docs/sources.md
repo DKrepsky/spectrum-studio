@@ -34,7 +34,7 @@ enum SourceData { Iq(IqBlock), Trace(TraceBlock), EndOfStream }
 
 ### Errors
 
-| `SourceError` | Meaning | Session reaction |
+| `SourceErrorKind` | Meaning | Session reaction |
 | --- | --- | --- |
 | `Unavailable` | Cannot open (missing, busy, permission) | Connect fails, notice shown |
 | `InvalidSettings` | Settings rejected | Command fails, previous settings kept |
@@ -42,7 +42,11 @@ enum SourceData { Iq(IqBlock), Trace(TraceBlock), EndOfStream }
 | `Disconnected` | Device gone | Source closed, *Reconnect* offered |
 | `Unsupported` | Not implemented | Shown as is |
 
-Messages are shown to the user verbatim — write complete, actionable sentences.
+Build errors with the constructors (`SourceError::unavailable("…")`, `::io`, `::disconnected`,
+`::invalid_settings`, `::unsupported`) and match on `error.kind()`. Messages are shown to the user
+verbatim — write complete, actionable sentences. When a lower-level error caused the failure, attach
+it with `.with_cause(e)`; it stays out of the UI text but is available through
+`std::error::Error::source()` for logging.
 
 ## Session lifecycle
 

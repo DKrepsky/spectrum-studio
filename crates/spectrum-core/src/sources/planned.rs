@@ -27,7 +27,7 @@ impl SourceDriver for PlannedDriver {
     }
 
     fn open(&self, _config: &SourceConfig) -> Result<OpenedSource, SourceError> {
-        Err(SourceError::Unsupported(format!(
+        Err(SourceError::unsupported(format!(
             "{} support is not implemented yet.",
             self.name
         )))

@@ -20,29 +20,83 @@ use crate::model::{
 
 pub use registry::DriverRegistry;
 
-#[derive(Debug, Clone, PartialEq, Error)]
-pub enum SourceError {
+/// What went wrong, independent of the user-facing message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum SourceErrorKind {
     /// The device is gone or the connection broke; the source must be closed.
-    #[error("{0}")]
-    Disconnected(String),
+    Disconnected,
     /// The source could not be opened (not found, busy, permission denied...).
-    #[error("{0}")]
-    Unavailable(String),
+    Unavailable,
     /// Configuration or settings rejected by the source.
-    #[error("{0}")]
-    InvalidSettings(String),
+    InvalidSettings,
     /// A recoverable I/O or protocol error; acquisition may be retried.
-    #[error("{0}")]
-    Io(String),
+    Io,
     /// The driver does not support this operation.
-    #[error("{0}")]
-    Unsupported(String),
+    Unsupported,
+}
+
+type Cause = Box<dyn std::error::Error + Send + Sync + 'static>;
+
+/// An error reported by a driver. `Display` is the message meant for the user; the underlying
+/// error, when there is one, is available through [`std::error::Error::source`] for logging.
+#[derive(Debug, Error)]
+#[error("{message}")]
+pub struct SourceError {
+    kind: SourceErrorKind,
+    message: String,
+    #[source]
+    cause: Option<Cause>,
 }
 
 impl SourceError {
+    pub fn new(kind: SourceErrorKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+            cause: None,
+        }
+    }
+
+    pub fn disconnected(message: impl Into<String>) -> Self {
+        Self::new(SourceErrorKind::Disconnected, message)
+    }
+
+    pub fn unavailable(message: impl Into<String>) -> Self {
+        Self::new(SourceErrorKind::Unavailable, message)
+    }
+
+    pub fn invalid_settings(message: impl Into<String>) -> Self {
+        Self::new(SourceErrorKind::InvalidSettings, message)
+    }
+
+    pub fn io(message: impl Into<String>) -> Self {
+        Self::new(SourceErrorKind::Io, message)
+    }
+
+    pub fn unsupported(message: impl Into<String>) -> Self {
+        Self::new(SourceErrorKind::Unsupported, message)
+    }
+
+    /// Attaches the underlying error.
+    #[must_use]
+    pub fn with_cause(mut self, cause: impl std::error::Error + Send + Sync + 'static) -> Self {
+        self.cause = Some(Box::new(cause));
+        self
+    }
+
+    pub fn kind(&self) -> SourceErrorKind {
+        self.kind
+    }
+
+    /// The user-facing message (same text as `Display`).
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
     /// Whether the source can no longer be used after this error.
     pub fn is_fatal(&self) -> bool {
-        matches!(self, Self::Disconnected(_))
+        self.kind == SourceErrorKind::Disconnected
     }
 }
 
@@ -125,13 +179,13 @@ pub fn validate_patch(
 ) -> Result<(), SourceError> {
     if let Some(center) = patch.center_hz {
         if !center.is_finite() {
-            return Err(SourceError::InvalidSettings(
-                "Center frequency must be a finite number.".into(),
+            return Err(SourceError::invalid_settings(
+                "Center frequency must be a finite number.",
             ));
         }
         match &caps.tuning {
             Some(range) if !range.contains(center) => {
-                return Err(SourceError::InvalidSettings(format!(
+                return Err(SourceError::invalid_settings(format!(
                     "Center frequency {} is outside the tunable range {} – {}.",
                     crate::format::hz(center),
                     crate::format::hz(range.min_hz),
@@ -139,8 +193,8 @@ pub fn validate_patch(
                 )));
             }
             None if center != current.center_hz => {
-                return Err(SourceError::InvalidSettings(
-                    "This source cannot be tuned.".into(),
+                return Err(SourceError::invalid_settings(
+                    "This source cannot be tuned.",
                 ));
             }
             _ => {}
@@ -150,7 +204,7 @@ pub fn validate_patch(
         && span != current.span_hz
         && !caps.span_options_hz.contains(&span)
     {
-        return Err(SourceError::InvalidSettings(
+        return Err(SourceError::invalid_settings(
             if caps.span_options_hz.is_empty() {
                 "This source has a fixed span.".into()
             } else {
@@ -159,7 +213,7 @@ pub fn validate_patch(
         ));
     }
     crate::model::params::check_partial(&caps.params, &patch.params)
-        .map_err(SourceError::InvalidSettings)
+        .map_err(SourceError::invalid_settings)
 }
 
 #[cfg(test)]
@@ -187,6 +241,23 @@ mod tests {
             span_hz: 1e6,
             params: ParamMap::new(),
         }
+    }
+
+    #[test]
+    fn errors_expose_kind_message_and_cause() {
+        use std::error::Error as _;
+
+        let plain = SourceError::io("Timeout.");
+        assert_eq!(plain.kind(), SourceErrorKind::Io);
+        assert_eq!(plain.to_string(), "Timeout.");
+        assert!(plain.source().is_none() && !plain.is_fatal());
+
+        let cause = std::io::Error::new(std::io::ErrorKind::BrokenPipe, "pipe");
+        let gone = SourceError::disconnected("Device lost.").with_cause(cause);
+        assert!(gone.is_fatal());
+        // The user-facing text stays clean; the cause is reachable for logging.
+        assert_eq!(gone.message(), "Device lost.");
+        assert_eq!(gone.source().unwrap().to_string(), "pipe");
     }
 
     #[test]

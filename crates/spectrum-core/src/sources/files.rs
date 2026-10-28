@@ -39,8 +39,8 @@ const IQ_EXTENSIONS: [&str; 10] = [
 impl From<FormatError> for SourceError {
     fn from(e: FormatError) -> Self {
         match e {
-            FormatError::Unsupported(m) => SourceError::Unsupported(m),
-            other => SourceError::Unavailable(other.to_string()),
+            FormatError::Unsupported(m) => SourceError::unsupported(m),
+            other => SourceError::unavailable(other.to_string()).with_cause(other),
         }
     }
 }
@@ -136,10 +136,10 @@ impl SourceDriver for IqFileDriver {
 
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError> {
         let params = resolve_params(&iq_connection_params(), &config.connection)
-            .map_err(SourceError::InvalidSettings)?;
+            .map_err(SourceError::invalid_settings)?;
         let path = path_param(&params);
         if !path.is_file() {
-            return Err(SourceError::Unavailable(format!(
+            return Err(SourceError::unavailable(format!(
                 "The file {} does not exist.",
                 path.display()
             )));
@@ -149,14 +149,13 @@ impl SourceDriver for IqFileDriver {
         } else {
             let format = match params.text("format").unwrap_or("auto") {
                 "auto" => SampleFormat::from_extension(&path).ok_or_else(|| {
-                    SourceError::InvalidSettings(
+                    SourceError::invalid_settings(
                         "The sample format cannot be inferred from the file extension; choose it \
-                         explicitly."
-                            .into(),
+                         explicitly.",
                     )
                 })?,
                 id => SampleFormat::from_id(id).ok_or_else(|| {
-                    SourceError::InvalidSettings(format!("Unknown sample format \"{id}\"."))
+                    SourceError::invalid_settings(format!("Unknown sample format \"{id}\"."))
                 })?,
             };
             raw_recording(
@@ -245,7 +244,7 @@ impl Source for IqFileSource {
         let mut params = self.settings.params.clone();
         params.extend(patch.params.clone());
         self.settings.params =
-            resolve_params(&self.caps.params, &params).map_err(SourceError::InvalidSettings)?;
+            resolve_params(&self.caps.params, &params).map_err(SourceError::invalid_settings)?;
         self.caps.finite = !self.looping();
         Ok(())
     }
@@ -262,11 +261,11 @@ impl Source for IqFileSource {
 
     fn read(&mut self, samples_wanted: usize) -> Result<SourceData, SourceError> {
         if !self.running {
-            return Err(SourceError::Io("Playback is not running.".into()));
+            return Err(SourceError::io("Playback is not running."));
         }
         let total = self.reader.info().total_samples;
         if (samples_wanted as u64) > total {
-            return Err(SourceError::InvalidSettings(format!(
+            return Err(SourceError::invalid_settings(format!(
                 "The recording has only {total} samples; choose an FFT size of at most {total}."
             )));
         }
@@ -282,7 +281,10 @@ impl Source for IqFileSource {
         self.pacer.wait(self.block);
         self.reader
             .read_at(self.position, samples_wanted, &mut self.buffer)
-            .map_err(|e| SourceError::Disconnected(format!("Reading the recording failed: {e}")))?;
+            .map_err(|e| {
+                SourceError::disconnected(format!("Reading the recording failed: {e}"))
+                    .with_cause(e)
+            })?;
         self.block += 1;
         self.position += self.hop();
         Ok(SourceData::Iq(IqBlock {
@@ -342,10 +344,11 @@ impl SourceDriver for TraceFileDriver {
 
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError> {
         let params = resolve_params(&trace_connection_params(), &config.connection)
-            .map_err(SourceError::InvalidSettings)?;
+            .map_err(SourceError::invalid_settings)?;
         let path = path_param(&params);
         let file = std::fs::File::open(&path).map_err(|e| {
-            SourceError::Unavailable(format!("Could not open {}: {e}", path.display()))
+            SourceError::unavailable(format!("Could not open {}: {e}", path.display()))
+                .with_cause(e)
         })?;
         let trace = read_spectrum_csv(std::io::BufReader::new(file))?;
         let unit = match params.text("unit").unwrap_or("auto") {
@@ -429,6 +432,7 @@ impl Source for TraceFileSource {
 mod tests {
     use super::*;
     use crate::model::ParamValue;
+    use crate::sources::SourceErrorKind;
     use std::io::Write;
 
     fn config(driver: &str, params: &[(&str, ParamValue)]) -> SourceConfig {
@@ -516,7 +520,7 @@ mod tests {
             blocks += 1;
         }
         assert_eq!(blocks, 3); // positions 0, 1000, 2000 fit; 3000 + 1024 > 4000
-        assert!(matches!(src.read(1024), Err(SourceError::Io(_))));
+        assert!(matches!(src.read(1024), Err(e) if e.kind() == SourceErrorKind::Io));
         let err = {
             src.start().unwrap();
             src.read(8192).unwrap_err()
@@ -618,7 +622,7 @@ mod tests {
             ))
             .err()
             .unwrap();
-        assert!(matches!(err, SourceError::Unsupported(_)));
+        assert!(err.kind() == SourceErrorKind::Unsupported);
         assert!(err.to_string().contains("evenly spaced"));
     }
 }

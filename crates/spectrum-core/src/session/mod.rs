@@ -27,7 +27,7 @@ const OPEN_TIMEOUT: Duration = Duration::from_secs(30);
 /// How long to wait for the worker to answer a command.
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
 
-#[derive(Debug, Clone, PartialEq, Error)]
+#[derive(Debug, Error)]
 pub enum SessionError {
     #[error("No source is connected.")]
     NotConnected,
@@ -146,7 +146,7 @@ impl SessionManager {
         let driver = self.registry.get(&config.driver_id)?;
         let info = driver.info();
         if info.status != DriverStatus::Available {
-            return Err(SourceError::Unsupported(format!(
+            return Err(SourceError::unsupported(format!(
                 "{} support is not implemented yet.",
                 info.name
             ))

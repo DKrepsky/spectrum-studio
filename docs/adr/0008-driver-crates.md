@@ -23,3 +23,9 @@ registers hardware drivers.
 `ts-rs` is an optional dependency of `spectrum-core`, enabled by the `bindings` feature. The domain
 crate no longer depends on a frontend tool at runtime; `npm run bindings` builds with the feature
 enabled to regenerate `src/bindings`.
+
+## Addendum: structured source errors
+`SourceError` was an enum of `String`s, which lost the underlying error and forced `Clone +
+PartialEq`. It is now a struct with a `SourceErrorKind` (`non_exhaustive`), the user-facing message
+and an optional boxed cause, exposed through `Error::source()`. Callers match on `kind()`.
+`SessionError` is no longer `Clone`/`PartialEq` as a consequence.

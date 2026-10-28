@@ -99,12 +99,11 @@ impl SourceDriver for SimulatorDriver {
 
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError> {
         let connection = resolve_params(&connection_params(), &config.connection)
-            .map_err(SourceError::InvalidSettings)?;
+            .map_err(SourceError::invalid_settings)?;
         if connection.flag("failConnect") == Some(true) {
-            return Err(SourceError::Unavailable(
+            return Err(SourceError::unavailable(
                 "The simulator refused the connection because \"Fail to connect\" is enabled in \
-                 its Testing options."
-                    .into(),
+                 its Testing options.",
             ));
         }
         Ok(OpenedSource {
@@ -174,7 +173,7 @@ impl Source for SimulatorSource {
         let mut params = self.settings.params.clone();
         params.extend(patch.params.clone());
         let params =
-            resolve_params(&self.caps.params, &params).map_err(SourceError::InvalidSettings)?;
+            resolve_params(&self.caps.params, &params).map_err(SourceError::invalid_settings)?;
         let scene = Scene::from_params(&params);
         if scene.seed != self.scene.seed {
             self.rng = Rng::new(scene.seed);
@@ -201,12 +200,12 @@ impl Source for SimulatorSource {
 
     fn read(&mut self, samples_wanted: usize) -> Result<SourceData, SourceError> {
         if !self.running {
-            return Err(SourceError::Io("The simulator is not running.".into()));
+            return Err(SourceError::io("The simulator is not running."));
         }
         let elapsed_s = (self.block_index - self.started_at_block) as f64 / BLOCK_RATE_HZ;
         if self.scene.fault_after_s > 0.0 && elapsed_s >= self.scene.fault_after_s {
             self.running = false;
-            return Err(SourceError::Disconnected(format!(
+            return Err(SourceError::disconnected(format!(
                 "Simulated device loss after {} s (fault injection is enabled in the simulator's \
                  Testing settings).",
                 self.scene.fault_after_s
@@ -242,6 +241,7 @@ mod tests {
     use super::*;
     use crate::dsp::{SpectrumEstimator, find_peaks, noise_floor};
     use crate::model::{ParamValue, PeakSettings, WindowKind};
+    use crate::sources::SourceErrorKind;
 
     fn read_iq(src: &mut SimulatorSource, n: usize) -> IqBlock {
         match src.read(n).unwrap() {
@@ -377,7 +377,7 @@ mod tests {
             .connection
             .insert("failConnect".into(), ParamValue::Bool(true));
         let err = SimulatorDriver::unpaced().open(&config).err().unwrap();
-        assert!(matches!(err, SourceError::Unavailable(_)));
+        assert!(err.kind() == SourceErrorKind::Unavailable);
         assert!(
             SimulatorDriver::unpaced()
                 .open(&SourceConfig::new(DRIVER_ID))

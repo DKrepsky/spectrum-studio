@@ -11,7 +11,7 @@ use spectrum_core::model::{
 };
 use spectrum_core::sources::simulator::{self, SimulatorDriver};
 use spectrum_core::sources::{
-    OpenedSource, Source, SourceData, SourceDriver, SourceError, TraceBlock,
+    OpenedSource, Source, SourceData, SourceDriver, SourceError, SourceErrorKind, TraceBlock,
 };
 use spectrum_core::{DriverRegistry, SessionError, SessionManager, SessionSink};
 
@@ -91,7 +91,7 @@ impl Source for ScriptedSource {
         self.reads += 1;
         std::thread::sleep(Duration::from_millis(5));
         match self.reads {
-            3 => Err(SourceError::Io("Timeout reading trace.".into())),
+            3 => Err(SourceError::io("Timeout reading trace.")),
             6 => Ok(SourceData::EndOfStream),
             _ => Ok(SourceData::Trace(TraceBlock {
                 values: vec![-90.0, -40.0, -90.0, -90.0, -90.0],
@@ -145,7 +145,7 @@ fn wait_until(m: &SessionManager, pred: impl Fn(&SessionStatus) -> bool) -> Sess
 fn full_lifecycle_with_simulator() {
     let (m, sink) = manager();
     assert_eq!(m.status().state, SessionState::Disconnected);
-    assert_eq!(m.start(), Err(SessionError::NotConnected));
+    assert!(matches!(m.start(), Err(SessionError::NotConnected)));
 
     let status = m.connect(sim_config()).unwrap();
     assert_eq!(status.state, SessionState::Connected);
@@ -275,7 +275,7 @@ fn device_loss_disconnects_and_reconnect_recovers() {
     assert_eq!(notice.kind, NoticeKind::DeviceLost);
     assert!(notice.message.contains("Simulated device loss"));
     assert!(s.source.is_none());
-    assert_eq!(m.start(), Err(SessionError::NotConnected));
+    assert!(matches!(m.start(), Err(SessionError::NotConnected)));
 
     // Reconnect with the remembered configuration (fault injection disabled this time).
     let mut again = s.last_config.unwrap();
@@ -295,8 +295,8 @@ fn connection_failures_are_reported() {
         .insert("failConnect".into(), ParamValue::Bool(true));
     let err = m.connect(config).unwrap_err();
     assert!(matches!(
-        err,
-        SessionError::Source(SourceError::Unavailable(_))
+        &err,
+        SessionError::Source(e) if e.kind() == SourceErrorKind::Unavailable
     ));
     let s = m.status();
     assert_eq!(s.state, SessionState::Disconnected);
