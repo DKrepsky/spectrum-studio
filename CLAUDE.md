@@ -8,6 +8,8 @@ non-trivial changes; `docs/architecture.md` explains module boundaries.
 
 - `crates/spectrum-core/` — pure Rust domain library: units, DSP, source abstraction, simulator,
   file formats, CSV export, acquisition session. No Tauri dependency; most logic and tests live here.
+- `crates/spectrum-driver-*/` — one crate per hardware driver (e.g. `spectrum-driver-sa430`); depend on
+  `spectrum-core`, registered by `src-tauri`.
 - `src-tauri/` — thin Tauri shell: IPC commands, event/channel bridge, persistence paths, packaging.
 - `src/` — React UI. `src/bindings/` is **generated** from Rust by ts-rs (`npm run bindings`); never
   edit it by hand.
@@ -30,7 +32,7 @@ non-trivial changes; `docs/architecture.md` explains module boundaries.
 
 - Run `npm run check` after every significant change and fix failures before moving on.
 - A feature is done only when it works end to end and is covered by tests — UI existing is not enough.
-- Hardware/format specifics stay inside a source driver (`crates/spectrum-core/src/sources/`). The
+- Hardware/format specifics stay inside a source driver (`crates/spectrum-driver-*/`, or `crates/spectrum-core/src/sources/` for dependency-free ones). The
   UI, DSP and session code must not know about specific devices. See `docs/sources.md`.
 - Never fabricate devices or show an unimplemented integration as working. Unimplemented drivers are
   listed with `DriverStatus::Planned` and cannot be connected.

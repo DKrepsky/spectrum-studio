@@ -73,7 +73,8 @@ message. Rules:
 
 ## Extensibility
 
-New hardware is added by implementing two traits in `sources/` and registering the driver (see
+New hardware is added as a `crates/spectrum-driver-*` crate implementing the two traits from
+`spectrum-core::sources` and registered in `src-tauri` (see
 `docs/sources.md`). Sources describe themselves with `Capabilities` (output kind, tuning range,
 sample rates, amplitude unit) and a list of generic `ParamSpec`s for device-specific settings; the
 UI renders forms and enables controls from these descriptions, so most integrations need no UI

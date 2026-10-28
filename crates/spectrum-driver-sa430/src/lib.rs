@@ -11,12 +11,14 @@ use sa430::port::Port;
 use sa430::spectrum::{FREQUENCY_RANGES_MHZ, REF_LEVELS_DBM};
 use sa430::{Sa430, SweepRequest};
 
-use super::{OpenedSource, Source, SourceData, SourceDriver, SourceError, TraceBlock};
-use crate::model::params::resolve_params;
-use crate::model::{
+use spectrum_core::model::params::resolve_params;
+use spectrum_core::model::{
     AmplitudeUnit, Capabilities, DataKind, DeviceDescriptor, DriverInfo, DriverStatus,
     FrequencyRange, ParamKind, ParamMap, ParamMapExt, ParamSpec, ParamValue, SettingsPatch,
     SourceConfig, SourceKind, SourceSettings, Transport,
+};
+use spectrum_core::sources::{
+    OpenedSource, Source, SourceData, SourceDriver, SourceError, TraceBlock,
 };
 
 pub const DRIVER_ID: &str = "sa430";

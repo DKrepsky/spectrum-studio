@@ -1,0 +1,18 @@
+[package]
+name = "spectrum-driver-sa430"
+description = "Texas Instruments SA430 spectrum analyzer driver for Spectrum Studio"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+spectrum-core = { path = "../spectrum-core" }
+sa430.workspace = true
+
+[dev-dependencies]
+sa430 = { workspace = true, features = ["test-utils"] }
+
+[lints]
+workspace = true

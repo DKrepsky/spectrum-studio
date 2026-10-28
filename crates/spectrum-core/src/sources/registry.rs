@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use super::files::{IqFileDriver, TraceFileDriver};
 use super::planned::planned_drivers;
-use super::sa430::Sa430Driver;
 use super::simulator::SimulatorDriver;
 use super::{SourceDriver, SourceError};
 use crate::model::{DeviceDescriptor, DriverInfo, DriverStatus};
@@ -18,13 +17,13 @@ impl DriverRegistry {
         Self::default()
     }
 
-    /// All integrations shipped with the application, including planned ones.
-    pub fn with_builtin_drivers() -> Self {
+    /// The integrations that live in this crate (simulator, file readers) plus the planned ones.
+    /// Hardware drivers live in their own crates and are registered by the application.
+    pub fn with_core_drivers() -> Self {
         let mut registry = Self::new();
         registry.register(SimulatorDriver::new());
         registry.register(IqFileDriver::new());
         registry.register(TraceFileDriver);
-        registry.register(Sa430Driver::new());
         for driver in planned_drivers() {
             registry.register(driver);
         }
@@ -66,7 +65,7 @@ mod tests {
 
     #[test]
     fn builtin_registry_has_simulator_and_planned_drivers() {
-        let registry = DriverRegistry::with_builtin_drivers();
+        let registry = DriverRegistry::with_core_drivers();
         let infos = registry.infos();
         let sim = infos.iter().find(|i| i.id == "simulator").unwrap();
         assert_eq!(sim.status, DriverStatus::Available);
@@ -77,7 +76,7 @@ mod tests {
 
     #[test]
     fn planned_drivers_refuse_discovery_and_unknown_ids_error() {
-        let registry = DriverRegistry::with_builtin_drivers();
+        let registry = DriverRegistry::with_core_drivers();
         assert!(registry.discover("soapysdr").is_err());
         assert!(registry.get("nope").is_err());
         assert_eq!(registry.discover("simulator").unwrap().len(), 1);

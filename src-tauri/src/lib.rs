@@ -10,10 +10,18 @@ use std::sync::Arc;
 
 use spectrum_core::store::ConfigStore;
 use spectrum_core::{DriverRegistry, SessionManager};
+use spectrum_driver_sa430::Sa430Driver;
 use tauri::{Manager, RunEvent};
 
 use crate::sink::EventSink;
 use crate::state::AppState;
+
+/// Composition root for signal sources: the core's drivers plus every hardware driver crate.
+fn driver_registry() -> DriverRegistry {
+    let mut registry = DriverRegistry::with_core_drivers();
+    registry.register(Sa430Driver::new());
+    registry
+}
 
 pub fn run() {
     let app = tauri::Builder::default()
@@ -21,7 +29,7 @@ pub fn run() {
         .setup(|app| {
             let store = ConfigStore::open(app.path().app_config_dir()?);
             let session = SessionManager::new(
-                DriverRegistry::with_builtin_drivers(),
+                driver_registry(),
                 Arc::new(EventSink(app.handle().clone())),
                 store.preferences().processing,
             );

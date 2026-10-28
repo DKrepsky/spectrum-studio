@@ -16,6 +16,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 spectrum-core = { path = "../crates/spectrum-core" }
+spectrum-driver-sa430 = { path = "../crates/spectrum-driver-sa430" }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde.workspace = true

@@ -19,7 +19,7 @@ npm install
 ## Project layout
 
 ```
-Cargo.toml                 Rust workspace (crates/spectrum-core, src-tauri)
+Cargo.toml                 Rust workspace (crates/spectrum-core, crates/spectrum-driver-*, src-tauri)
 crates/spectrum-core/      domain library: model, dsp, sources, session, formats, store
   tests/                   cross-module integration tests (session, files)
 src-tauri/                 Tauri shell: commands.rs, sink.rs, capabilities/, tauri.conf.json, icons/

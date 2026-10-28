@@ -1,5 +1,5 @@
 //! SA430 driver scenarios through `SessionManager`, with a scripted serial link, plus one
-//! `#[ignore]`d test against real hardware (`cargo test -p spectrum-core --test sa430 -- --ignored`).
+//! `#[ignore]`d test against real hardware (`cargo test -p spectrum-driver-sa430 -- --ignored -- --ignored`).
 #![allow(clippy::unwrap_used)] // test helpers outside #[test] functions
 
 use std::io;
@@ -17,8 +17,8 @@ use spectrum_core::model::{
     AmplitudeUnit, DataKind, NoticeKind, ParamValue, ProcessingSettings, SessionState,
     SessionStatus, SettingsPatch, SourceConfig,
 };
-use spectrum_core::sources::sa430::{DRIVER_ID, Sa430Backend, Sa430Driver};
 use spectrum_core::{DriverRegistry, SessionError, SessionManager, SessionSink};
+use spectrum_driver_sa430::{DRIVER_ID, Sa430Backend, Sa430Driver};
 
 const WAIT: Duration = Duration::from_secs(5);
 
@@ -279,7 +279,7 @@ fn unplugging_the_analyzer_disconnects_the_session() {
     );
 }
 
-/// Needs an SA430 on USB: `cargo test -p spectrum-core --test sa430 -- --ignored --nocapture`.
+/// Needs an SA430 on USB: `cargo test -p spectrum-driver-sa430 -- --ignored -- --ignored --nocapture`.
 #[test]
 #[ignore = "requires a connected SA430"]
 fn real_hardware_sweeps() {

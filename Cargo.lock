@@ -3040,12 +3040,19 @@ name = "spectrum-core"
 version = "0.1.0"
 dependencies = [
  "rustfft",
- "sa430",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
  "ts-rs",
+]
+
+[[package]]
+name = "spectrum-driver-sa430"
+version = "0.1.0"
+dependencies = [
+ "sa430",
+ "spectrum-core",
 ]
 
 [[package]]
@@ -3055,6 +3062,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spectrum-core",
+ "spectrum-driver-sa430",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

@@ -15,11 +15,11 @@ Read `docs/sources.md` first; it defines the `SourceDriver` / `Source` contracts
    - Declare only capabilities the device really has (`tuning: None` if it cannot tune).
    - Map device errors to `SourceError` with a message a user can act on.
    - `read` must return within ~250 ms (use timeouts) so stop/disconnect stays responsive.
-2. Register the driver in `sources::registry::DriverRegistry::with_builtin_drivers`. If it is not yet
+2. Put hardware drivers in their own crate `crates/spectrum-driver-<name>` (depends on `spectrum-core`) and register it in `driver_registry()` in `src-tauri/src/lib.rs`. Drivers with no extra dependencies may live in `spectrum-core/src/sources/` and register in `DriverRegistry::with_core_drivers`. If it is not yet
    working, register it with `DriverStatus::Planned` so the UI shows it as unavailable.
 3. Tests (required):
    - unit tests for protocol/format parsing with recorded or synthetic fixtures;
-   - a session-level test in `crates/spectrum-core/tests/` that connects, acquires frames, and
+   - a session-level test in the driver crate's `tests/` that connects, acquires frames, and
      disconnects through `SessionManager`, including at least one failure path.
 4. If the driver needs new user-visible types, run `npm run bindings`. The UI renders driver
    parameters generically from `ParamSpec`; avoid driver-specific UI code.

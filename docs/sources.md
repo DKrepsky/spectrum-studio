@@ -73,7 +73,7 @@ queued to the worker and applied between reads.
 
 ### TI SA430
 
-Code: `sources/sa430.rs`, on top of the [`sa430`](https://crates.io/crates/sa430) crate (same
+Code: `crates/spectrum-driver-sa430`, on top of the [`sa430`](https://crates.io/crates/sa430) crate (same
 author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmware 2.5).
 
 - **Data:** `Trace`, factory-calibrated **dBm** (calibration is read from the device flash on
@@ -91,8 +91,8 @@ author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmw
   after the current sweep, which can exceed the usual 250 ms `read` budget for large sweeps.
 - **Errors:** open failures explain `dialout`/unplugged causes; a read timeout is recoverable
   (*Restart*); a broken pipe or serial error disconnects the session.
-- **Tests:** `tests/sa430.rs` runs the session against the library's mock channel (including
-  silent device and unplugging). `cargo test -p spectrum-core --test sa430 -- --ignored --nocapture`
+- **Tests:** `crates/spectrum-driver-sa430/tests/session.rs` runs the session against the library's mock channel (including
+  silent device and unplugging). `cargo test -p spectrum-driver-sa430 -- --ignored --nocapture`
   runs a sweep session on a real device.
 
 ### Simulator
@@ -119,7 +119,7 @@ one `Trace` block, then end of stream.
 
 1. Implement `SourceDriver` and `Source` in `sources/<name>.rs`. Keep protocol code testable
    without hardware (parse functions over byte slices, mock transports).
-2. Register it in `DriverRegistry::with_builtin_drivers` (or update the planned entry).
+2. Register it in `driver_registry()` in `src-tauri/src/lib.rs` (or update the planned entry). Hardware drivers get their own `crates/spectrum-driver-<name>` crate that depends on `spectrum-core`; only drivers with no extra dependencies belong in `spectrum-core` itself.
 3. Test: protocol/format unit tests plus a session test in `tests/` that connects, acquires and
    disconnects, including one failure path. `tests/session.rs` contains a scripted trace source
    that shows the pattern.
