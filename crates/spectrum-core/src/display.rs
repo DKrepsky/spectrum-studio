@@ -1,4 +1,5 @@
-//! Human-readable formatting for user-facing messages.
+//! Human-readable rendering of values (frequencies, timestamps) for user-facing messages and exports.
+//! Not to be confused with `formats`, which reads and writes files.
 
 /// Formats a frequency with an SI prefix, e.g. `100.2 MHz`.
 pub fn hz(value: f64) -> String {

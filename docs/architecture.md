@@ -21,6 +21,7 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 │ dsp/       windows, FFT → power spectrum, averaging, holds, peak search     │
 │ model/     units, params, capabilities, settings, frames, session status    │
 │ formats/   SigMF / raw IQ readers, CSV trace import/export                  │
+│ display.rs value rendering for messages (Hz with SI prefix, ISO 8601 time)  │
 │ store.rs   versioned JSON persistence (preferences, saved sources)          │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```

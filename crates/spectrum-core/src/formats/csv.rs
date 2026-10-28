@@ -17,7 +17,7 @@
 use std::io::{BufRead, Write};
 
 use super::FormatError;
-use crate::format::iso8601_utc;
+use crate::display::iso8601_utc;
 use crate::model::session::now_ms;
 use crate::model::{AmplitudeUnit, DataKind, SpectrumFrame, TraceKind, WindowKind};
 

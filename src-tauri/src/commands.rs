@@ -183,7 +183,7 @@ pub async fn export_csv(
     };
     let file_name = format!(
         "spectrum-{}.csv",
-        spectrum_core::format::iso8601_utc(frame.frame.header.timestamp_ms)
+        spectrum_core::display::iso8601_utc(frame.frame.header.timestamp_ms)
             .replace([':', '.'], "-")
     );
     let directory = app

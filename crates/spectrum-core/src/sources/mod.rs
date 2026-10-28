@@ -187,9 +187,9 @@ pub fn validate_patch(
             Some(range) if !range.contains(center) => {
                 return Err(SourceError::invalid_settings(format!(
                     "Center frequency {} is outside the tunable range {} – {}.",
-                    crate::format::hz(center),
-                    crate::format::hz(range.min_hz),
-                    crate::format::hz(range.max_hz)
+                    crate::display::hz(center),
+                    crate::display::hz(range.min_hz),
+                    crate::display::hz(range.max_hz)
                 )));
             }
             None if center != current.center_hz => {
@@ -208,7 +208,7 @@ pub fn validate_patch(
             if caps.span_options_hz.is_empty() {
                 "This source has a fixed span.".into()
             } else {
-                format!("Span {} is not supported.", crate::format::hz(span))
+                format!("Span {} is not supported.", crate::display::hz(span))
             },
         ));
     }
