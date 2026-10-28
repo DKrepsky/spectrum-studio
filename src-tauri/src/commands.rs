@@ -57,7 +57,7 @@ pub async fn connect_source(
     let config = status.source.as_ref().map(|a| a.config.clone());
     // Remember the selection for the next start; a failure here must not fail the connection.
     if let Err(e) = state.store.update_preferences(|p| p.last_source = config) {
-        eprintln!("{e}");
+        tracing::warn!(error = %e, "could not save the last used source");
     }
     Ok(status)
 }

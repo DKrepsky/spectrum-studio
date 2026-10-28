@@ -17,6 +17,8 @@ thiserror = "2"
 ts-rs = "12"
 tempfile = "3"
 sa430 = "0.2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

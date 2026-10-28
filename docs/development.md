@@ -79,5 +79,6 @@ delete the non-Linux variants).
 ## Debugging tips
 
 - Run `npm run tauri dev` and open the webview inspector with right-click → Inspect.
-- Backend messages go to the terminal that started the app.
+- The backend logs to stderr with `tracing` (default level `info`). Raise it with `RUST_LOG`, e.g.
+  `RUST_LOG=spectrum_core=debug npm run tauri dev`. Errors are logged with their cause chain.
 - The app's config directory can be redirected with `XDG_CONFIG_HOME=/tmp/x` for a clean state.

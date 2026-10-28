@@ -6,7 +6,7 @@ use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread::JoinHandle;
 
 use super::pipeline::{FrameContext, Pipeline};
-use super::{SessionError, Shared};
+use super::{SessionError, Shared, error_chain};
 use crate::model::session::now_ms;
 use crate::model::{
     ActiveSource, NoticeKind, ProcessingSettings, SessionNotice, SessionState, SettingsPatch,
@@ -91,6 +91,7 @@ fn open(
             Some((source, active))
         }
         Err(e) => {
+            tracing::debug!(driver = %info.id, error = %error_chain(&e), "opening source failed");
             let _ = reply.send(Err(SessionError::Source(e)));
             None
         }
@@ -197,6 +198,7 @@ impl Worker {
             Ok(SourceData::Iq(block)) => self.pipeline.push_iq(block, &ctx),
             Ok(SourceData::Trace(block)) => self.pipeline.push_trace(block, &ctx),
             Ok(SourceData::EndOfStream) => {
+                tracing::info!(device = %self.label, "end of stream");
                 let _ = self.stop_acquisition();
                 self.set_state(
                     SessionState::Connected,
@@ -208,6 +210,7 @@ impl Worker {
                 return true;
             }
             Err(e) if e.is_fatal() => {
+                tracing::error!(device = %self.label, error = %error_chain(&e), "source lost");
                 self.acquiring = false;
                 self.shared.update(|s| {
                     s.state = SessionState::Disconnected;
@@ -217,6 +220,7 @@ impl Worker {
                 return false;
             }
             Err(e) => {
+                tracing::warn!(device = %self.label, error = %error_chain(&e), "acquisition stopped by read error");
                 let _ = self.stop_acquisition();
                 self.set_state(
                     SessionState::Connected,

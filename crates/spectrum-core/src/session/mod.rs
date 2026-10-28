@@ -68,6 +68,18 @@ pub(crate) struct Shared {
     next_seq: AtomicU32,
 }
 
+/// Renders an error with its chain of causes for logs, e.g. `Could not open x: Permission denied`.
+pub(crate) fn error_chain(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut cause = error.source();
+    while let Some(e) = cause {
+        text.push_str(": ");
+        text.push_str(&e.to_string());
+        cause = e.source();
+    }
+    text
+}
+
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     // A panic while holding these locks leaves plain data behind; keep going with it.
     m.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -166,7 +178,9 @@ impl SessionManager {
             s.last_config = Some(config.clone());
         });
 
+        tracing::info!(driver = %info.id, "connecting source");
         let failed = |error: SessionError| {
+            tracing::warn!(driver = %info.id, error = %error_chain(&error), "could not connect source");
             self.shared.update(|s| {
                 s.state = SessionState::Disconnected;
                 s.last_notice = Some(notice(
@@ -181,6 +195,7 @@ impl SessionManager {
             worker::spawn(driver, config, processing, self.shared.clone()).map_err(&failed)?;
         match opened.recv_timeout(OPEN_TIMEOUT) {
             Ok(Ok(active)) => {
+                tracing::info!(driver = %info.id, device = %active.device_label, "source connected");
                 *worker = Some(handle);
                 self.shared.update(|s| {
                     s.state = SessionState::Connected;
@@ -200,6 +215,9 @@ impl SessionManager {
             }
             Err(RecvTimeoutError::Disconnected) => {
                 let panicked = handle.thread.join().is_err();
+                if panicked {
+                    tracing::error!(driver = %info.id, "source driver panicked while connecting");
+                }
                 Err(failed(SessionError::Internal(if panicked {
                     "the source driver crashed while connecting".into()
                 } else {
@@ -226,6 +244,10 @@ impl SessionManager {
         });
         let _ = handle.tx.send(Command::Shutdown);
         let panicked = handle.thread.join().is_err();
+        if panicked {
+            tracing::error!("acquisition worker panicked");
+        }
+        tracing::debug!("source disconnected");
         self.shared.update(|s| {
             s.state = SessionState::Disconnected;
             s.source = None;

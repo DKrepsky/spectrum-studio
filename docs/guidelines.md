@@ -21,6 +21,8 @@ These apply to humans and AI agents alike.
 - Blocking work (device I/O, file parsing) never runs on the Tauri main thread: use the session
   worker or `spawn_blocking`.
 - Threads are always joined; resources are released in `Drop` or explicit `close`.
+- Log with `tracing` (`info!`/`warn!`/`error!` with structured fields), never `println!`/`eprintln!`.
+  Library crates only emit events; the application installs the subscriber.
 
 ## TypeScript / React
 

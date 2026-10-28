@@ -23,7 +23,19 @@ fn driver_registry() -> DriverRegistry {
     registry
 }
 
+/// Logs to stderr. `RUST_LOG` overrides the default level (e.g. `RUST_LOG=spectrum_core=debug`).
+fn init_logging() {
+    use tracing_subscriber::EnvFilter;
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    // Ignore the error: a subscriber may already be installed (tests, embedding).
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .try_init();
+}
+
 pub fn run() {
+    init_logging();
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
@@ -65,7 +77,7 @@ pub fn run() {
     let app = match app {
         Ok(app) => app,
         Err(e) => {
-            eprintln!("Spectrum Studio failed to start: {e}");
+            tracing::error!(error = %e, "Spectrum Studio failed to start");
             std::process::exit(1);
         }
     };
