@@ -39,9 +39,13 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let store = ConfigStore::open(app.path().app_config_dir()?);
+            let registry = driver_registry();
+            let store =
+                ConfigStore::open_with(app.path().app_config_dir()?, &|driver, id, label| {
+                    registry.normalize_device_id(driver, id, label)
+                });
             let session = SessionManager::new(
-                driver_registry(),
+                registry,
                 Arc::new(EventSink(app.handle().clone())),
                 store.preferences().processing,
             );
@@ -55,6 +59,9 @@ pub fn run() {
             commands::get_status,
             commands::list_drivers,
             commands::discover_devices,
+            commands::list_sources,
+            commands::discover_all,
+            commands::connect_remembered,
             commands::connect_source,
             commands::disconnect_source,
             commands::start_acquisition,
@@ -67,9 +74,11 @@ pub fn run() {
             commands::get_preferences,
             commands::store_warnings,
             commands::save_display_preferences,
-            commands::list_saved_sources,
-            commands::save_source,
-            commands::delete_saved_source,
+            commands::add_source,
+            commands::update_source,
+            commands::test_source,
+            commands::forget_source,
+            commands::restore_source,
             commands::export_csv,
         ])
         .build(tauri::generate_context!());

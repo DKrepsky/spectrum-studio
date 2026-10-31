@@ -3,19 +3,25 @@ import '../test/mockApi';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { useSession } from '../state/session';
+import { SIMULATOR_CONFIG, useSession } from '../state/session';
+import { useSources } from '../state/sources';
 import { activeSimulator, simulatorDriver, status } from '../test/fixtures';
 import { apiMock } from '../test/mockApi';
 import { Toolbar } from './Toolbar';
 
 function renderToolbar() {
-  return render(<Toolbar onOpenSources={vi.fn()} onExport={vi.fn()} />);
+  return render(<Toolbar onExport={vi.fn()} />);
 }
 
 describe('Toolbar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useSession.setState({ status: null, drivers: [simulatorDriver], busy: null, savedSources: [] });
+    useSession.setState({ status: null, drivers: [simulatorDriver], busy: null });
+    useSources.setState({
+      drivers: [simulatorDriver],
+      list: [],
+      active: { id: null, title: 'Signal simulator', config: SIMULATOR_CONFIG },
+    });
   });
 
   it('shows only actions that are valid while disconnected', () => {
@@ -27,6 +33,32 @@ describe('Toolbar', () => {
     expect(screen.queryByTestId('simulated-badge')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Center frequency')).toBeDisabled();
     expect(screen.getByTestId('export-button')).toBeDisabled();
+  });
+
+  it('has one source control and none of the old connect buttons', () => {
+    useSession.getState().receiveStatus(status({ revision: 1 }));
+    renderToolbar();
+    expect(screen.getByTestId('source-button')).toHaveTextContent('Signal simulator');
+    expect(
+      screen.queryByRole('button', { name: /^(Connect|Disconnect|Switch|Sources…)$/ }),
+    ).toBeNull();
+    expect(screen.queryByTestId('connect-button')).not.toBeInTheDocument();
+  });
+
+  it('disables Run with a hint until a source is chosen', () => {
+    useSources.setState({ active: null });
+    useSession.getState().receiveStatus(status({ revision: 1 }));
+    renderToolbar();
+    expect(screen.getByTestId('source-button')).toHaveTextContent('Choose a source');
+    expect(screen.getByTestId('run-button')).toBeDisabled();
+    expect(screen.getByTestId('run-button')).toHaveAttribute('title', 'Choose a source first');
+    expect(screen.getByTestId('run-button')).toHaveTextContent('▶ Run');
+  });
+
+  it('disables Run while a transition is in flight', () => {
+    useSession.getState().receiveStatus(status({ revision: 1, state: 'connecting' }));
+    renderToolbar();
+    expect(screen.getByTestId('run-button')).toBeDisabled();
   });
 
   it('reflects an acquiring simulated source', () => {

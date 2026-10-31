@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "sources": [
+    {
+      "id": "src-1a19264b6bb",
+      "name": "",
+      "label": "SA430 08FF41E50F8B3A34",
+      "config": {
+        "driverId": "sa430",
+        "deviceId": null,
+        "connection": {},
+        "settings": {
+          "centerHz": 433920000.0,
+          "spanHz": 10000000.0,
+          "params": {
+            "refLevelDbm": "-35",
+            "stepKhz": 100.0
+          }
+        }
+      },
+      "createdMs": 1793457436347.0,
+      "updatedMs": 1793459794802.0,
+      "lastUsedMs": 1793459794802.0
+    },
+    {
+      "id": "src-1a192659456",
+      "name": "",
+      "label": "SA430 08FF41E50F8B3A34",
+      "config": {
+        "driverId": "sa430",
+        "deviceId": "/dev/ttyACM0",
+        "connection": {},
+        "settings": {
+          "centerHz": 433920000.0,
+          "spanHz": 10000000.0,
+          "params": {
+            "refLevelDbm": "-35",
+            "stepKhz": 100.0
+          }
+        }
+      },
+      "createdMs": 1793457493078.0,
+      "updatedMs": 1793459343177.0,
+      "lastUsedMs": 1793459343177.0
+    }
+  ]
+}

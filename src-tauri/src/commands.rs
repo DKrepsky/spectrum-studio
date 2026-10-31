@@ -8,10 +8,11 @@ use serde::Serialize;
 use spectrum_core::SessionManager;
 use spectrum_core::formats::csv::write_spectrum_csv;
 use spectrum_core::model::{
-    DeviceDescriptor, DriverInfo, ProcessingSettings, SessionStatus, SettingsPatch, SourceConfig,
-    SourceSettings,
+    DeviceDescriptor, DiscoveryResult, DriverInfo, ParamMap, ProcessingSettings, SessionStatus,
+    SettingsPatch, SourceConfig, SourceSettings, SourceTestResult, SourceUpdate,
 };
-use spectrum_core::store::{DisplayPreferences, Preferences, SavedSource};
+use spectrum_core::remember;
+use spectrum_core::store::{DisplayPreferences, Preferences, SavedSource, SourceList};
 use tauri::ipc::Response;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -49,17 +50,40 @@ pub async fn discover_devices(
 }
 
 #[tauri::command]
+pub fn list_sources(state: State<'_, AppState>) -> SourceList {
+    state.store.source_list(&state.session.drivers())
+}
+
+/// Scans every driver that can enumerate devices. A failing driver is reported in its result.
+#[tauri::command]
+pub async fn discover_all(state: State<'_, AppState>) -> CommandResult<Vec<DiscoveryResult>> {
+    blocking(&state.session, |s| s.discover_all()).await
+}
+
+/// Connects the remembered source `id` with its stored settings.
+#[tauri::command]
+pub async fn connect_remembered(
+    state: State<'_, AppState>,
+    id: String,
+) -> CommandResult<SessionStatus> {
+    let store = state.store.clone();
+    Ok(blocking(&state.session, move |s| {
+        remember::connect_remembered(s, &store, &id)
+    })
+    .await??)
+}
+
+/// Connects an ad hoc configuration and remembers it if the connection succeeds.
+#[tauri::command]
 pub async fn connect_source(
     state: State<'_, AppState>,
     config: SourceConfig,
 ) -> CommandResult<SessionStatus> {
-    let status = blocking(&state.session, move |s| s.connect(config)).await??;
-    let config = status.source.as_ref().map(|a| a.config.clone());
-    // Remember the selection for the next start; a failure here must not fail the connection.
-    if let Err(e) = state.store.update_preferences(|p| p.last_source = config) {
-        tracing::warn!(error = %e, "could not save the last used source");
-    }
-    Ok(status)
+    let store = state.store.clone();
+    Ok(blocking(&state.session, move |s| {
+        remember::connect_new(s, &store, config)
+    })
+    .await??)
 }
 
 #[tauri::command]
@@ -82,7 +106,15 @@ pub async fn apply_source_settings(
     state: State<'_, AppState>,
     patch: SettingsPatch,
 ) -> CommandResult<SourceSettings> {
-    Ok(blocking(&state.session, move |s| s.apply_settings(patch)).await??)
+    let settings = blocking(&state.session, move |s| s.apply_settings(patch)).await??;
+    // Remember the effective settings with the selected source; the change itself is applied,
+    // so a persistence problem is only logged.
+    if let Some(id) = state.store.preferences().last_source_id
+        && let Err(e) = state.store.update_source_settings(&id, &settings)
+    {
+        tracing::warn!(error = %e, "could not save the source settings");
+    }
+    Ok(settings)
 }
 
 #[tauri::command]
@@ -142,24 +174,62 @@ pub fn save_display_preferences(
     Ok(())
 }
 
+/// Creates a record without connecting.
 #[tauri::command]
-pub fn list_saved_sources(state: State<'_, AppState>) -> Vec<SavedSource> {
-    state.store.saved_sources()
-}
-
-#[tauri::command]
-pub fn save_source(
+pub async fn add_source(
     state: State<'_, AppState>,
-    id: Option<String>,
     name: String,
     config: SourceConfig,
-) -> CommandResult<SavedSource> {
-    Ok(state.store.save_source(id.as_deref(), &name, config)?)
+) -> CommandResult<SourceList> {
+    let store = state.store.clone();
+    blocking(&state.session, move |s| {
+        remember::add_source(s, &store, &name, config).map(|_| store.source_list(&s.drivers()))
+    })
+    .await?
+    .map_err(CommandError::new)
+}
+
+/// Edits a record's name and connection (the connection is locked while it is the live source).
+#[tauri::command]
+pub async fn update_source(
+    state: State<'_, AppState>,
+    id: String,
+    update: SourceUpdate,
+) -> CommandResult<SourceList> {
+    let store = state.store.clone();
+    blocking(&state.session, move |s| {
+        remember::update_source(s, &store, &id, &update).map(|_| store.source_list(&s.drivers()))
+    })
+    .await?
+    .map_err(CommandError::new)
+}
+
+/// Opens a device with exactly `connection` and closes it again, without touching the session.
+#[tauri::command]
+pub async fn test_source(
+    state: State<'_, AppState>,
+    driver_id: String,
+    connection: ParamMap,
+) -> CommandResult<SourceTestResult> {
+    Ok(blocking(&state.session, move |s| {
+        s.test_source(&driver_id, connection)
+    })
+    .await??)
 }
 
 #[tauri::command]
-pub fn delete_saved_source(state: State<'_, AppState>, id: String) -> CommandResult<()> {
-    Ok(state.store.delete_source(&id)?)
+pub fn forget_source(state: State<'_, AppState>, id: String) -> CommandResult<SourceList> {
+    state.store.forget_source(&id)?;
+    Ok(state.store.source_list(&state.session.drivers()))
+}
+
+#[tauri::command]
+pub fn restore_source(
+    state: State<'_, AppState>,
+    source: SavedSource,
+) -> CommandResult<SourceList> {
+    state.store.restore_source(source)?;
+    Ok(state.store.source_list(&state.session.drivers()))
 }
 
 #[derive(Serialize)]

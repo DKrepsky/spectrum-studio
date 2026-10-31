@@ -88,7 +88,8 @@ impl SourceDriver for SimulatorDriver {
         Ok(vec![DeviceDescriptor {
             driver_id: DRIVER_ID.into(),
             device_id: "sim0".into(),
-            label: "Built-in simulator".into(),
+            location: None,
+            label: "Signal simulator".into(),
             details: vec![
                 ("Type".into(), "Virtual IQ receiver".into()),
                 ("Tuning".into(), "0 Hz – 6 GHz".into()),
@@ -108,8 +109,10 @@ impl SourceDriver for SimulatorDriver {
         }
         Ok(OpenedSource {
             source: Box::new(SimulatorSource::new(self.pacing)),
-            label: "Built-in simulator".into(),
+            label: "Signal simulator".into(),
             simulated: true,
+            device_id: None,
+            connection: ParamMap::new(),
         })
     }
 }

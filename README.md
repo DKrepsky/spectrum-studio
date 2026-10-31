@@ -18,10 +18,14 @@ built-in, repeatable signal simulator.
   table, up to four markers with delta readouts, peak search and marker → center.
 - **Display:** live spectrum with zoom/pan, waterfall with time scale, crosshair readout,
   explicit LIVE / HOLD / stale indication so old data is never mistaken for current data.
-- **Source management:** discovery, connection forms generated from driver descriptions, saved
-  configurations, safe switching between sources, reconnect after failures.
+- **Source management:** one menu to pick a source (picking connects), automatic discovery of
+  plugged-in devices, one row per physical device that keeps its name when replugged, Add/Edit
+  source with a non-destructive *Test connection*, sources remembered with their last settings,
+  safe switching, reconnect after failures.
+
+  ![The source menu: status circles, names, kind badges and port or path per row](docs/images/source-menu.png)
 - **Export:** CSV with frequency, levels, units and full measurement metadata.
-- **Persistence:** preferences and saved sources survive restarts (`~/.config/io.github.spectrumstudio`).
+- **Persistence:** preferences and remembered sources survive restarts (`~/.config/io.github.spectrumstudio`).
 
 ## Quick start
 

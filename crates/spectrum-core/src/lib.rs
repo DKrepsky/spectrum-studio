@@ -5,6 +5,7 @@ pub mod display;
 pub mod dsp;
 pub mod formats;
 pub mod model;
+pub mod remember;
 pub mod session;
 pub mod sources;
 pub mod store;

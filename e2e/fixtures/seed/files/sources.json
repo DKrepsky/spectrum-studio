@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "sources": [
+    {
+      "id": "seed-iq",
+      "name": "Seeded IQ tone",
+      "label": "",
+      "config": {
+        "driverId": "iq-file",
+        "connection": {
+          "path": "{{REPO}}/e2e/fixtures/recordings/tone.sigmf-meta"
+        }
+      },
+      "createdMs": 2000,
+      "updatedMs": 2000,
+      "lastUsedMs": 2000
+    },
+    {
+      "id": "seed-trace",
+      "name": "Seeded CSV trace",
+      "label": "",
+      "config": {
+        "driverId": "trace-csv",
+        "connection": {
+          "path": "{{REPO}}/e2e/fixtures/recordings/trace.csv"
+        }
+      },
+      "createdMs": 1000,
+      "updatedMs": 1000,
+      "lastUsedMs": 1000
+    }
+  ]
+}

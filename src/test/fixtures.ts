@@ -1,4 +1,6 @@
 import type { ActiveSource } from '../bindings/ActiveSource';
+import type { SavedSource } from '../bindings/SavedSource';
+import type { DeviceDescriptor } from '../bindings/DeviceDescriptor';
 import type { DriverInfo } from '../bindings/DriverInfo';
 import type { ProcessingSettings } from '../bindings/ProcessingSettings';
 import type { SessionStatus } from '../bindings/SessionStatus';
@@ -69,7 +71,7 @@ export const plannedDriver: DriverInfo = {
 export const activeSimulator: ActiveSource = {
   config: emptyConfig('simulator'),
   driverName: 'Signal simulator',
-  deviceLabel: 'Built-in simulator',
+  deviceLabel: 'Signal simulator',
   kind: 'simulator',
   transport: 'internal',
   simulated: true,
@@ -93,5 +95,56 @@ export function status(overrides: Partial<SessionStatus> = {}): SessionStatus {
     lastConfig: null,
     processing,
     ...overrides,
+  };
+}
+
+export function savedSource(overrides: Partial<SavedSource> = {}): SavedSource {
+  return {
+    id: 'src-1',
+    name: '',
+    label: 'Signal simulator',
+    config: emptyConfig('simulator'),
+    createdMs: 1,
+    updatedMs: 1,
+    lastUsedMs: 1,
+    ...overrides,
+  };
+}
+
+export const SA430_SERIAL = '08FF41E50F8B3A34';
+export const OTHER_SA430_SERIAL = 'B7C100A2E9D41F05';
+
+/** The SA430 as the backend exposes it: USB, discoverable, one serial-port parameter. */
+export const sa430Driver: DriverInfo = {
+  id: 'sa430',
+  name: 'SA430 spectrum analyzer',
+  description: 'TI SA430',
+  kind: 'spectrumAnalyzer',
+  transport: 'usb',
+  status: 'available',
+  supportsDiscovery: true,
+  connectionParams: [
+    {
+      id: 'port',
+      label: 'Serial port',
+      group: null,
+      help: "Path of the device's serial port, for example /dev/ttyACM0.",
+      kind: { type: 'text', maxLength: 256 },
+      default: '',
+      required: false,
+    },
+  ],
+};
+
+export function sa430Device(
+  deviceId = SA430_SERIAL,
+  location: string | null = '/dev/ttyACM0',
+): DeviceDescriptor {
+  return {
+    driverId: 'sa430',
+    deviceId,
+    label: `SA430 ${deviceId}`,
+    location,
+    details: [['Serial', deviceId]],
   };
 }

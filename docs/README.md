@@ -15,5 +15,5 @@ Start with [architecture.md](architecture.md) for the big picture, then the topi
 | [roadmap.md](roadmap.md) | What works today, known limitations, next steps. |
 | [adr/](adr/) | Architecture decision records (why things are the way they are). |
 
-AI agents: see also `/CLAUDE.md` and the skills in `/.claude/skills/` (`verify`,
-`add-source-integration`).
+AI agents: see also `/CLAUDE.md`, the skills in `/.claude/skills/`, and the agent team in
+`/.claude/team/README.md` (product manager, designer, staff engineer, developer, QA).

@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "old-sim",
+      "name": "Old simulator setup",
+      "config": {
+        "driverId": "simulator",
+        "settings": {
+          "centerHz": 88000000.0
+        }
+      },
+      "createdMs": 3000,
+      "updatedMs": 3000
+    },
+    {
+      "id": "old-trace",
+      "name": "Old CSV trace",
+      "config": {
+        "driverId": "trace-csv",
+        "connection": {
+          "path": "{{REPO}}/e2e/fixtures/recordings/trace.csv"
+        }
+      },
+      "createdMs": 2000,
+      "updatedMs": 2000
+    },
+    {
+      "id": "old-ghost",
+      "name": "Retired analyzer",
+      "config": {
+        "driverId": "ghost",
+        "deviceId": "g-1",
+        "connection": {
+          "port": 1
+        }
+      },
+      "createdMs": 1500,
+      "updatedMs": 1500
+    },
+    {
+      "id": "old-soapy",
+      "name": "Soapy later",
+      "config": {
+        "driverId": "soapysdr"
+      },
+      "createdMs": 1000,
+      "updatedMs": 1000
+    }
+  ]
+}

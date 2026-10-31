@@ -1,33 +1,55 @@
-import { $, browser, expect } from '@wdio/globals';
+import { $, $$, browser, expect } from '@wdio/globals';
 
 import {
   byTestId,
+  closeSourceMenu,
   ensureDisconnected,
   livenessKind,
-  runSimulator,
+  openSourceMenu,
+  selectSource,
   setInput,
+  sourceRow,
+  textOf,
   waitForState,
+  failureBanner,
 } from './helpers';
 
+// Seeded sources (e2e/fixtures/seed/failures/sources.json): a plain simulator, a simulator whose
+// connection always fails, a CSV file with uneven spacing and an IQ recording that does not exist.
 describe('Failure handling', () => {
-  it('reports a failed connection and stays disconnected', async () => {
-    await (await byTestId('sources-button')).click();
-    await (await byTestId('driver-simulator')).click();
-    await $('#conn-simulator-failConnect').click();
-    await (await byTestId('manager-connect')).click();
-    const notice = await byTestId('session-notice');
-    await expect(notice).toBeDisplayed();
-    await expect(notice).toHaveText(expect.stringContaining('Could not connect'));
+  it('reports a failed pick, marks the entry Failed and stays disconnected', async () => {
+    await selectSource('source-entry-seed-fail');
+    const notice = await failureBanner();
+    await notice.waitForDisplayed();
+    await expect(notice).toHaveText(expect.stringContaining('refused the connection'));
     await expect(await byTestId('session-state')).toHaveText('Disconnected');
-    await browser.keys(['Escape']);
-    await (await $('[data-testid="session-notice"] button[aria-label="Dismiss"]')).click();
+
+    await openSourceMenu();
+    expect(await textOf(await sourceRow('seed-fail'))).toContain('Failed');
+    await closeSourceMenu();
+  });
+
+  it('explains why an invalid file cannot be opened', async () => {
+    await selectSource('source-entry-seed-uneven');
+    await expect(await failureBanner()).toHaveText(expect.stringContaining('evenly spaced'));
+    await expect(await byTestId('session-state')).toHaveText('Disconnected');
+  });
+
+  it('explains a recording that is missing', async () => {
+    await selectSource('source-entry-seed-missing');
+    await browser.waitUntil(
+      async () => /missing\.sigmf-meta|No such file|not found/i.test(await commandError()),
+      { timeoutMsg: 'no useful message for a missing file' },
+    );
+    await expect(await byTestId('session-state')).toHaveText('Disconnected');
   });
 
   it('detects device loss during acquisition and recovers with Reconnect', async () => {
-    // The failed attempt above left the failing configuration selected; pick the plain simulator.
-    await (await byTestId('source-select')).selectByAttribute('value', 'driver:simulator');
-    await runSimulator();
-    await $('summary=Source settings').click();
+    await selectSource('source-entry-seed-sim');
+    await waitForState('Connected');
+    await (await byTestId('run-button')).click();
+    await waitForState('Acquiring');
+    await setSourceSettingsOpen(true);
     await setInput('#source-faultAfterS', '1');
     await waitForState('Disconnected');
     const notice = await byTestId('session-notice');
@@ -39,17 +61,36 @@ describe('Failure handling', () => {
     await (await byTestId('run-button')).click();
     await waitForState('Acquiring');
     await browser.waitUntil(async () => (await livenessKind()) === 'live');
-    await $('summary=Source settings').click();
+    await setSourceSettingsOpen(false);
     await ensureDisconnected();
   });
 
-  it('lists planned integrations honestly without a connect action', async () => {
-    await (await byTestId('sources-button')).click();
-    await (await byTestId('driver-soapysdr')).click();
-    await expect(await byTestId('planned-notice')).toHaveText(
-      expect.stringContaining('Not implemented yet'),
-    );
-    await expect(await byTestId('manager-connect')).not.toBeExisting();
-    await browser.keys(['Escape']);
+  it('never offers planned integrations, which cannot be connected', async () => {
+    await openSourceMenu();
+    const menu = await byTestId('source-menu');
+    const text = await textOf(menu);
+    expect(text).not.toMatch(/soapy|tinysa|rtl_tcp|scpi/i);
+    expect(await $$('[data-testid^="source-pick-"]')).toHaveLength(0);
+    await closeSourceMenu();
+    await expect(await $('[data-testid^="driver-"]')).not.toBeExisting();
   });
 });
+
+async function commandError(): Promise<string> {
+  const els = await $$('[data-testid="session-notice"], [data-testid="command-error"]');
+  return els.length ? els[0].getText() : '';
+}
+
+/** Opens or closes the collapsible Source settings; clicking blindly toggles it twice if a re-render raced. */
+async function setSourceSettingsOpen(open: boolean) {
+  const summary = await $('summary=Source settings');
+  await browser.waitUntil(async () => {
+    const isOpen = await browser.execute(
+      (el) => (el.parentElement as HTMLDetailsElement).open,
+      summary,
+    );
+    if (isOpen === open) return true;
+    await summary.click();
+    return false;
+  });
+}

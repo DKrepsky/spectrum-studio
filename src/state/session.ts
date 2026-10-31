@@ -8,6 +8,9 @@ import type { SettingsPatch } from '../bindings/SettingsPatch';
 import type { SourceConfig } from '../bindings/SourceConfig';
 import { api, errorMessage } from '../ipc/commands';
 import { frameStore } from './frames';
+import { sameIdentity } from './sourceConfig';
+import { configKey, fallbackTitle, isRemembered, rowKey, rowTitle } from './sourceEntries';
+import { useSources } from './sources';
 import { persistDisplayPreferences, useView } from './view';
 
 export const SIMULATOR_CONFIG: SourceConfig = {
@@ -17,29 +20,32 @@ export const SIMULATOR_CONFIG: SourceConfig = {
   settings: { centerHz: null, spanHz: null, params: {} },
 };
 
+/** What to connect to: a remembered entry (by id) or an ad hoc configuration. */
+export type ConnectTarget =
+  { type: 'remembered'; id: string } | { type: 'config'; config: SourceConfig; title?: string };
+
 export type BusyOperation = 'connecting' | 'disconnecting' | 'starting' | 'stopping' | 'applying';
 
 export interface SessionStore {
   /** Last status received from the backend; `null` until the first one arrives. */
   status: SessionStatus | null;
   drivers: DriverInfo[];
-  /** Source the toolbar's Connect/Run buttons will use. */
-  selectedConfig: SourceConfig;
   busy: BusyOperation | null;
   /** Error from the last failed command, shown until dismissed. */
   commandError: string | null;
+  /** The operation whose failure produced `commandError` (null for other errors). */
+  commandErrorFrom: BusyOperation | null;
   /** Confirmation of a completed action (e.g. an export), shown briefly. */
   info: string | null;
-  savedSources: SavedSource[];
 
   init: () => Promise<() => void>;
   receiveStatus: (status: SessionStatus) => void;
-  select: (config: SourceConfig) => void;
-  connect: (config?: SourceConfig) => Promise<boolean>;
+  /** Connects (replacing any connected source); tracks the target as the active entry. */
+  connectTo: (target: ConnectTarget) => Promise<boolean>;
   disconnect: () => Promise<void>;
   start: () => Promise<void>;
   stop: () => Promise<void>;
-  /** Connects the selected source if needed, then starts acquisition. */
+  /** Connects the active source if needed, then starts acquisition; no-op without one. */
   run: () => Promise<void>;
   applySettings: (patch: SettingsPatch) => Promise<boolean>;
   setProcessing: (change: Partial<ProcessingSettings>) => Promise<void>;
@@ -47,23 +53,33 @@ export interface SessionStore {
   dismissNotice: () => Promise<void>;
   clearCommandError: () => void;
   showInfo: (message: string | null) => void;
-  refreshSavedSources: () => Promise<void>;
-  saveSource: (name: string, config: SourceConfig, id?: string) => Promise<SavedSource | null>;
-  deleteSavedSource: (id: string) => Promise<void>;
   exportCsv: () => Promise<void>;
 }
 
 let infoTimer: ReturnType<typeof setTimeout> | undefined;
 
+function titleOf(entry: SavedSource): string {
+  return rowTitle(entry, useSources.getState().drivers);
+}
+
+/** Target for the active entry: its remembered record if it still exists, else its config. */
+function targetForActive(): ConnectTarget | null {
+  const { active, list } = useSources.getState();
+  if (!active) return null;
+  return isRemembered(list, active.id)
+    ? { type: 'remembered', id: active.id }
+    : { type: 'config', config: active.config, title: active.title };
+}
+
 export const useSession = create<SessionStore>()((set, get) => {
   /** Runs a command, tracking busy state and surfacing errors. Returns false on failure. */
   const command = async (busy: BusyOperation | null, fn: () => Promise<unknown>) => {
-    set({ busy, commandError: null });
+    set({ busy, commandError: null, commandErrorFrom: null });
     try {
       await fn();
       return true;
     } catch (error) {
-      set({ commandError: errorMessage(error) });
+      set({ commandError: errorMessage(error), commandErrorFrom: busy });
       return false;
     } finally {
       set({ busy: null });
@@ -73,30 +89,28 @@ export const useSession = create<SessionStore>()((set, get) => {
   return {
     status: null,
     drivers: [],
-    selectedConfig: SIMULATOR_CONFIG,
     busy: null,
     commandError: null,
+    commandErrorFrom: null,
     info: null,
-    savedSources: [],
 
     init: async () => {
       const unlisten = await api.onStatus((s) => get().receiveStatus(s));
       let stopPersisting: () => void = () => undefined;
       try {
-        const [status, drivers, preferences, warnings, savedSources] = await Promise.all([
+        const [status, drivers, preferences, warnings] = await Promise.all([
           api.getStatus(),
           api.listDrivers(),
           api.getPreferences(),
           api.storeWarnings(),
-          api.listSavedSources(),
         ]);
         useView.getState().hydrate(preferences.display);
         set({
           drivers,
-          savedSources,
-          selectedConfig: preferences.lastSource ?? SIMULATOR_CONFIG,
           commandError: warnings.length ? warnings.join(' ') : null,
         });
+        useSources.getState().setDrivers(drivers);
+        await useSources.getState().init();
         get().receiveStatus(status);
         stopPersisting = persistDisplayPreferences(api.saveDisplayPreferences, (e) =>
           set({ commandError: `Could not save display settings: ${errorMessage(e)}` }),
@@ -120,18 +134,68 @@ export const useSession = create<SessionStore>()((set, get) => {
           JSON.stringify(previous.source.config) !== JSON.stringify(status.source.config));
       if (switched) frameStore.clear();
       set({ status });
-      // Follow the connected source only when the connection itself changes, so a selection
-      // the user just made is not overwritten by unrelated status updates.
-      const newConnection =
-        status.source != null &&
-        JSON.stringify(previous?.source?.config) !== JSON.stringify(status.source.config);
-      if (newConnection) set({ selectedConfig: status.source!.config });
+      // An external reconnect (or a connection we did not start) changes the connected source:
+      // follow it. While we are connecting ourselves the target is already the active entry.
+      const source = status.source;
+      const { active, list } = useSources.getState();
+      if (
+        source != null &&
+        get().busy !== 'connecting' &&
+        !sameIdentity(active?.config, source.config)
+      ) {
+        const entry = list.find((e) => sameIdentity(e.config, source.config));
+        useSources
+          .getState()
+          .setActive(
+            entry
+              ? { id: entry.id, title: titleOf(entry), config: entry.config }
+              : { id: null, title: source.deviceLabel, config: source.config },
+          );
+      }
     },
 
-    select: (config) => set({ selectedConfig: config }),
-
-    connect: (config) =>
-      command('connecting', () => api.connectSource(config ?? get().selectedConfig)),
+    connectTo: async (target) => {
+      const sources = useSources.getState();
+      const entry =
+        target.type === 'remembered' ? sources.list.find((e) => e.id === target.id) : undefined;
+      if (target.type === 'remembered' && !entry) return false;
+      const key = entry ? rowKey(entry) : configKey((target as { config: SourceConfig }).config);
+      sources.setFailed(null);
+      if (entry) {
+        sources.setActive({ id: entry.id, title: titleOf(entry), config: entry.config });
+      } else if (target.type === 'config') {
+        sources.setActive({
+          id: null,
+          title: target.title ?? fallbackTitle(target.config, sources.drivers),
+          config: target.config,
+        });
+      }
+      const ok = await command('connecting', () =>
+        target.type === 'remembered'
+          ? api.connectRemembered(target.id)
+          : api.connectSource(target.config),
+      );
+      await useSources.getState().refresh();
+      if (ok) {
+        const { list, activeId } = useSources.getState();
+        const connected = list.find((e) => e.id === activeId);
+        if (connected)
+          useSources
+            .getState()
+            .setActive({ id: connected.id, title: titleOf(connected), config: connected.config });
+      } else {
+        useSources.getState().setFailed(key);
+        // A merge may have removed the entry we targeted: follow the list's active id.
+        const { list, activeId, active } = useSources.getState();
+        const adopted = active?.id != null && !list.some((e) => e.id === active.id);
+        const survivor = adopted ? list.find((e) => e.id === activeId) : undefined;
+        if (survivor)
+          useSources
+            .getState()
+            .setActive({ id: survivor.id, title: titleOf(survivor), config: survivor.config });
+      }
+      return ok;
+    },
 
     disconnect: async () => {
       await command('disconnecting', () => api.disconnectSource());
@@ -146,9 +210,11 @@ export const useSession = create<SessionStore>()((set, get) => {
     },
 
     run: async () => {
+      if (!useSources.getState().active) return;
       const state = get().status?.state;
       if (state !== 'connected' && state !== 'acquiring') {
-        if (!(await get().connect())) return;
+        const target = targetForActive();
+        if (!target || !(await get().connectTo(target))) return;
       }
       await get().start();
     },
@@ -169,32 +235,12 @@ export const useSession = create<SessionStore>()((set, get) => {
       await command(null, () => api.dismissNotice());
     },
 
-    clearCommandError: () => set({ commandError: null }),
+    clearCommandError: () => set({ commandError: null, commandErrorFrom: null }),
 
     showInfo: (info) => {
       clearTimeout(infoTimer);
       set({ info });
       if (info) infoTimer = setTimeout(() => set({ info: null }), 8000);
-    },
-
-    refreshSavedSources: async () => {
-      await command(null, async () => set({ savedSources: await api.listSavedSources() }));
-    },
-
-    saveSource: async (name, config, id) => {
-      let saved: SavedSource | null = null;
-      const ok = await command(null, async () => {
-        saved = await api.saveSource(id ?? null, name, config);
-        set({ savedSources: await api.listSavedSources() });
-      });
-      return ok ? saved : null;
-    },
-
-    deleteSavedSource: async (id) => {
-      await command(null, async () => {
-        await api.deleteSavedSource(id);
-        set({ savedSources: await api.listSavedSources() });
-      });
     },
 
     exportCsv: async () => {

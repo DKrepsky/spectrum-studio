@@ -15,5 +15,8 @@ description: Run the full Spectrum Studio quality gate (format, lint, type check
    - `npm run e2e` when `WebKitWebDriver` is installed (see `docs/testing.md`); failures leave
      screenshots in `e2e/logs/`. Prefer WebDriver over synthetic X input (xdotool clicks are
      unreliable with WebKitGTK). `npm run docs:screenshot` refreshes the README screenshot.
+   For UI changes also look at the result: screenshot (`npm run docs:screenshot`, or a WebDriver
+   screenshot) with realistic data, long names and a narrow window, open it with the Read tool, and
+   check overflow/cropping/alignment. Passing tests do not prove the UI looks right.
 4. Update `docs/roadmap.md` status and any affected docs. Only mark a feature done when it works
    end to end and has tests.

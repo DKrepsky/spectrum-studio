@@ -5,9 +5,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use spectrum_core::model::{
-    AmplitudeUnit, Capabilities, DataKind, DriverInfo, DriverStatus, NoticeKind, ParamValue,
-    ProcessingSettings, SessionState, SessionStatus, SettingsPatch, SourceConfig, SourceKind,
-    SourceSettings, Transport,
+    AmplitudeUnit, Capabilities, DataKind, DriverInfo, DriverStatus, NoticeKind, ParamMap,
+    ParamValue, ProcessingSettings, SessionState, SessionStatus, SettingsPatch, SourceConfig,
+    SourceKind, SourceSettings, Transport,
 };
 use spectrum_core::sources::simulator::{self, SimulatorDriver};
 use spectrum_core::sources::{
@@ -69,7 +69,41 @@ impl SourceDriver for ScriptedDriver {
             }),
             label: "Scripted #1".into(),
             simulated: false,
+            device_id: None,
+            connection: ParamMap::new(),
         })
+    }
+}
+
+/// Reports the identity and connection it "actually" opened, like a real device driver.
+struct IdentityDriver {
+    device_id: Option<String>,
+    connection: ParamMap,
+}
+
+impl SourceDriver for IdentityDriver {
+    fn info(&self) -> DriverInfo {
+        DriverInfo {
+            id: "identity".into(),
+            name: "Identity analyzer".into(),
+            connection_params: vec![spectrum_core::model::ParamSpec {
+                id: "port".into(),
+                label: "Port".into(),
+                group: None,
+                help: None,
+                kind: spectrum_core::model::ParamKind::Text { max_length: 64 },
+                default: ParamValue::Text(String::new()),
+                required: false,
+            }],
+            ..ScriptedDriver.info()
+        }
+    }
+
+    fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError> {
+        let mut opened = ScriptedDriver.open(config)?;
+        opened.device_id = self.device_id.clone();
+        opened.connection = self.connection.clone();
+        Ok(opened)
     }
 }
 
@@ -366,4 +400,215 @@ fn reset_holds_and_processing_without_connection() {
     let f = m.wait_frame(0, WAIT).unwrap();
     assert_eq!(f.frame.header.bins, 512);
     assert!(f.frame.max_hold.is_some());
+}
+
+/// A discovery-capable driver whose scan result is scripted.
+struct ScanDriver {
+    id: &'static str,
+    transport: Transport,
+    status: DriverStatus,
+    fail: bool,
+}
+
+impl SourceDriver for ScanDriver {
+    fn info(&self) -> DriverInfo {
+        DriverInfo {
+            id: self.id.into(),
+            name: self.id.into(),
+            description: String::new(),
+            kind: SourceKind::Sdr,
+            transport: self.transport,
+            status: self.status,
+            supports_discovery: true,
+            connection_params: vec![],
+        }
+    }
+
+    fn discover(&self) -> Result<Vec<spectrum_core::model::DeviceDescriptor>, SourceError> {
+        if self.fail {
+            return Err(SourceError::unavailable("Scan failed."));
+        }
+        Ok(vec![spectrum_core::model::DeviceDescriptor {
+            driver_id: self.id.into(),
+            device_id: "dev0".into(),
+            label: "Device 0".into(),
+            location: None,
+            details: vec![],
+        }])
+    }
+
+    fn open(&self, _config: &SourceConfig) -> Result<OpenedSource, SourceError> {
+        Err(SourceError::unavailable("not openable"))
+    }
+}
+
+fn scan_driver(
+    id: &'static str,
+    transport: Transport,
+    status: DriverStatus,
+    fail: bool,
+) -> ScanDriver {
+    ScanDriver {
+        id,
+        transport,
+        status,
+        fail,
+    }
+}
+
+#[test]
+fn discover_all_filters_drivers_and_isolates_failures() {
+    let mut registry = DriverRegistry::with_core_drivers();
+    registry.register(scan_driver(
+        "usbgood",
+        Transport::Usb,
+        DriverStatus::Available,
+        false,
+    ));
+    registry.register(scan_driver(
+        "usbbad",
+        Transport::Usb,
+        DriverStatus::Available,
+        true,
+    ));
+    registry.register(scan_driver(
+        "planned",
+        Transport::Usb,
+        DriverStatus::Planned,
+        false,
+    ));
+    registry.register(scan_driver(
+        "internal",
+        Transport::Internal,
+        DriverStatus::Available,
+        false,
+    ));
+    registry.register(scan_driver(
+        "file",
+        Transport::File,
+        DriverStatus::Available,
+        false,
+    ));
+    let m = SessionManager::new(
+        registry,
+        Arc::new(RecordingSink::default()),
+        ProcessingSettings::default(),
+    );
+
+    let results = m.discover_all();
+    let ids: Vec<_> = results.iter().map(|r| r.driver_id.as_str()).collect();
+    assert_eq!(ids, ["usbgood", "usbbad"]);
+    assert_eq!(results[0].devices.len(), 1);
+    assert_eq!(results[0].error, None);
+    assert!(results[1].devices.is_empty());
+    assert_eq!(results[1].error.as_deref(), Some("Scan failed."));
+}
+
+#[test]
+fn discover_all_does_not_disturb_an_acquiring_source() {
+    let mut registry = DriverRegistry::new();
+    registry.register(SimulatorDriver::unpaced());
+    registry.register(scan_driver(
+        "usbgood",
+        Transport::Usb,
+        DriverStatus::Available,
+        false,
+    ));
+    let m = SessionManager::new(
+        registry,
+        Arc::new(RecordingSink::default()),
+        ProcessingSettings::default(),
+    );
+    m.connect(sim_config()).unwrap();
+    m.start().unwrap();
+    let f = m.wait_frame(0, WAIT).expect("frame");
+    assert_eq!(m.discover_all().len(), 1);
+    assert_eq!(m.status().state, SessionState::Acquiring);
+    assert!(m.wait_frame(f.frame.header.seq, WAIT).is_some());
+}
+
+#[test]
+fn switching_stops_the_old_source_and_failed_connects_leave_the_new_one_unset() {
+    let (m, _) = manager();
+    m.connect(sim_config()).unwrap();
+    m.start().unwrap();
+    assert_eq!(m.status().state, SessionState::Acquiring);
+
+    let status = m.connect(SourceConfig::new("scripted")).unwrap();
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(status.source.unwrap().device_label, "Scripted #1");
+
+    let mut bad = sim_config();
+    bad.settings.center_hz = Some(7e9);
+    assert!(m.connect(bad).is_err());
+    let s = m.status();
+    assert_eq!(s.state, SessionState::Disconnected);
+    assert!(s.source.is_none());
+}
+
+#[test]
+fn stale_settings_fall_back_to_defaults() {
+    let (m, _) = manager();
+    let mut stale = sim_config();
+    stale.settings.center_hz = Some(7e9);
+
+    match m.connect(stale.clone()) {
+        Err(SessionError::Source(e)) => assert_eq!(e.kind(), SourceErrorKind::InvalidSettings),
+        other => panic!("expected rejected settings, got {other:?}"),
+    }
+    let status = m.connect_with_default_fallback(stale).unwrap();
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(
+        status.source.unwrap().settings.center_hz,
+        simulator::DEFAULT_CENTER_HZ
+    );
+
+    // Other failures are not retried: an unknown driver still fails with its own error.
+    assert!(
+        m.connect_with_default_fallback(SourceConfig::new("nope"))
+            .is_err()
+    );
+}
+
+fn identity_manager(device_id: Option<&str>, port: Option<&str>) -> SessionManager {
+    let mut registry = DriverRegistry::new();
+    registry.register(IdentityDriver {
+        device_id: device_id.map(Into::into),
+        connection: port
+            .map(|p| ParamMap::from([("port".to_string(), ParamValue::Text(p.into()))]))
+            .unwrap_or_default(),
+    });
+    SessionManager::new(
+        registry,
+        Arc::new(RecordingSink::default()),
+        ProcessingSettings::default(),
+    )
+}
+
+#[test]
+fn connect_stores_the_identity_and_connection_the_driver_reports() {
+    let m = identity_manager(Some("X1"), Some("/dev/x"));
+    let status = m.connect(SourceConfig::new("identity")).unwrap();
+    let config = status.source.unwrap().config;
+    assert_eq!(config.device_id.as_deref(), Some("X1"));
+    assert_eq!(
+        config.connection.get("port"),
+        Some(&ParamValue::Text("/dev/x".into()))
+    );
+    // The remembered config stays exactly what the caller asked for.
+    let last = m.status().last_config.unwrap();
+    assert_eq!(last.device_id, None);
+    assert!(last.connection.is_empty());
+}
+
+#[test]
+fn connect_keeps_the_given_config_when_the_driver_reports_nothing() {
+    let m = identity_manager(None, None);
+    let mut given = SourceConfig::new("identity");
+    given.device_id = Some("given".into());
+    given
+        .connection
+        .insert("port".into(), ParamValue::Text("/dev/given".into()));
+    let status = m.connect(given.clone()).unwrap();
+    assert_eq!(status.source.unwrap().config, given);
 }

@@ -5,7 +5,7 @@ import { ParamForm } from '../ParamForm';
 export function SourcePanel() {
   const source = useSession((s) => s.status?.source);
   const busy = useSession((s) => s.busy);
-  if (!source) return <p className="hint panel-body">Connect a source to see its settings.</p>;
+  if (!source) return <p className="hint panel-body">Choose a source to see its settings.</p>;
   const { params } = source.capabilities;
   if (params.length === 0)
     return <p className="hint panel-body">This source has no additional settings.</p>;

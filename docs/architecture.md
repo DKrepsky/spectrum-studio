@@ -6,7 +6,7 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 
 ```
 ┌──────────────────────────── WebView (React + TS) ───────────────────────────┐
-│ Toolbar · Source manager · Spectrum canvas · Waterfall · Markers · Peaks    │
+│ Toolbar · Source menu · Spectrum canvas · Waterfall · Markers · Peaks      │
 │        ▲ SessionStatus events          ▲ binary frames (next_frame poll)    │
 └────────┼───────────────────────────────┼────────────────────────────────────┘
          │ invoke(commands)              │
@@ -22,7 +22,7 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 │ model/     units, params, capabilities, settings, frames, session status    │
 │ formats/   SigMF / raw IQ readers, CSV trace import/export                  │
 │ display.rs value rendering for messages (Hz with SI prefix, ISO 8601 time)  │
-│ store.rs   versioned JSON persistence (preferences, saved sources)          │
+│ store.rs   versioned JSON persistence (preferences, remembered sources)     │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -35,13 +35,16 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 | `sources` | Talk to devices/files; expose capabilities; produce `SourceData`. | Do spectrum post-processing or UI logic. |
 | `session` | One active source at a time; lifecycle, threading, error recovery, feeding the DSP pipeline. | Know about specific devices. |
 | `formats` | Parse/write files with explicit validation errors. | Touch the session. |
-| `store` | Load/save JSON atomically, migrate/repair. | Hold application state. |
+| `store` | Load/save JSON atomically, migrate/repair (`sources.json` v3 with a backup of the old file), merge records of one device. | Hold application state. |
 | `src-tauri` | Translate IPC ⇄ core API; choose filesystem paths; native dialogs. | Contain domain logic. |
 | `src/` (UI) | Present state, collect user intent, draw plots. | Compute spectra or assume backend state. |
 
 ## Data flow during acquisition
 
-1. The UI calls `connect_source(config)`. `SessionManager` stops and joins any previous worker, then
+1. The UI calls `connect_remembered(id)` (a source from the menu's *Your sources*) or
+   `connect_source(config)` (a detected device, a file, a form). On success the store upserts the
+   remembered entry (identity, label, effective settings, last-used time); a failure remembers
+   nothing ([ADR 0009](adr/0009-automatic-source-memory.md)). `SessionManager` stops and joins any previous worker, then
    spawns a worker thread that opens the source through its driver. Status transitions
    (`Connecting` → `Connected` or `Disconnected { error }`) are pushed as `SessionStatus` events.
 2. `start_acquisition` puts the worker into its acquisition loop:
@@ -53,7 +56,16 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
    ([ADR 0003](adr/0003-binary-frame-transport.md)), decodes them into a frame store outside React
    state, and the canvases redraw on `requestAnimationFrame`; text readouts refresh at 2–4 Hz.
    React re-renders are not on the hot path.
-4. Commands that change settings while running are queued to the worker and applied between reads;
+4. Remembered sources are managed without connecting through `add_source` (a typed source, or
+   a detected device the user chose to remember), `update_source` (name, connection, identity),
+   `forget_source` / `restore_source` (Undo) and `test_source` (open a device with exactly the
+   given connection, read its identity, close it; never touches the running session). Each
+   returns or leads to a refreshed `SourceList`; validation (unique name and identity, locked
+   connection while the source is live) happens in Rust (`remember.rs`). On connect the worker
+   publishes the *resolved* configuration (`OpenedSource.device_id` and `.connection`: the
+   identity and port actually used), which is what gets remembered; see
+   [ADR 0010](adr/0010-stable-device-identity.md) and [sources.md](sources.md).
+5. Commands that change settings while running are queued to the worker and applied between reads;
    the next frame reflects the new settings (frames carry their own settings in the header so the
    UI never labels a frame with settings that did not produce it).
 

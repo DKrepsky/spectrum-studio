@@ -14,8 +14,8 @@ use rustfft::num_complex::Complex32;
 use thiserror::Error;
 
 use crate::model::{
-    AmplitudeUnit, Capabilities, DeviceDescriptor, DriverInfo, SettingsPatch, SourceConfig,
-    SourceSettings,
+    AmplitudeUnit, Capabilities, DeviceDescriptor, DriverInfo, ParamMap, SettingsPatch,
+    SourceConfig, SourceSettings,
 };
 
 pub use registry::DriverRegistry;
@@ -140,6 +140,13 @@ pub trait SourceDriver: Send + Sync {
     /// Opens a connection. `config.connection` has been validated against
     /// `info().connection_params` by the caller.
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError>;
+
+    /// Called only by the store migration with the stored id (if any) and the automatic label.
+    /// Returns the new stable id, or `None` to leave the entry as it is. May enumerate devices,
+    /// never opens them.
+    fn normalize_device_id(&self, _device_id: Option<&str>, _label: &str) -> Option<String> {
+        None
+    }
 }
 
 pub struct OpenedSource {
@@ -147,6 +154,11 @@ pub struct OpenedSource {
     /// Human-readable name of the opened device (e.g. "RTL2838 SN 0001" or a file name).
     pub label: String,
     pub simulated: bool,
+    /// Identity the driver actually opened (`None` for files and the simulator).
+    pub device_id: Option<String>,
+    /// Connection params that reach the device now (e.g. `{"port": "/dev/ttyACM0"}`); empty
+    /// means there is nothing to refresh.
+    pub connection: ParamMap,
 }
 
 /// An open connection. All methods are called from a single worker thread.

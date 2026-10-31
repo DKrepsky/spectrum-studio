@@ -1,0 +1,51 @@
+{
+  "version": 3,
+  "sources": [
+    {
+      "id": "doc-sim",
+      "name": "Signal simulator",
+      "label": "",
+      "config": { "driverId": "simulator" },
+      "createdMs": 4000,
+      "updatedMs": 4000,
+      "lastUsedMs": 4000
+    },
+    {
+      "id": "doc-sa430",
+      "name": "SA430 08FF41E50F8B3A34",
+      "label": "SA430 08FF41E50F8B3A34",
+      "config": {
+        "driverId": "sa430",
+        "deviceId": "08FF41E50F8B3A34",
+        "connection": { "port": "/dev/ttyACM0" }
+      },
+      "createdMs": 3000,
+      "updatedMs": 3000,
+      "lastUsedMs": 3000
+    },
+    {
+      "id": "doc-iq",
+      "name": "FM broadcast recording",
+      "label": "",
+      "config": {
+        "driverId": "iq-file",
+        "connection": { "path": "/home/user/captures/fm-broadcast.sigmf-meta" }
+      },
+      "createdMs": 2000,
+      "updatedMs": 2000,
+      "lastUsedMs": 2000
+    },
+    {
+      "id": "doc-csv",
+      "name": "Bench trace (CSV)",
+      "label": "",
+      "config": {
+        "driverId": "trace-csv",
+        "connection": { "path": "/home/user/captures/bench-trace.csv" }
+      },
+      "createdMs": 1000,
+      "updatedMs": 1000,
+      "lastUsedMs": 1000
+    }
+  ]
+}

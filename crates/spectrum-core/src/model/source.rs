@@ -69,8 +69,54 @@ pub struct DeviceDescriptor {
     pub driver_id: String,
     pub device_id: String,
     pub label: String,
+    /// Where the device is attached now (e.g. a serial port). Display text and connection hint.
+    #[serde(default)]
+    pub location: Option<String>,
     /// Human-readable key/value details (serial number, firmware, address...).
     pub details: Vec<(String, String)>,
+}
+
+/// Edits to a remembered source: its name and how it is reached.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "bindings", ts(export))]
+pub struct SourceUpdate {
+    /// Trimmed, 1..=60 characters.
+    pub name: String,
+    /// `None` keeps the stored identity; `Some` (re)binds the entry to this identity.
+    pub device_id: Option<String>,
+    /// The new connection hint / manual parameters.
+    pub connection: ParamMap,
+}
+
+/// Outcome of a non-destructive connection test.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "bindings", ts(export))]
+pub struct SourceTestResult {
+    pub ok: bool,
+    /// Success: "Connection OK. <driver name> found."; failure: the backend message verbatim.
+    pub message: String,
+    /// Identity read from the device (only when `ok`).
+    pub device_id: Option<String>,
+    /// Automatic label, e.g. "SA430 08FF41E50F8B3A34" (only when `ok`).
+    pub label: Option<String>,
+    /// True when the port belongs to the active source (`ok` is then false).
+    pub in_use: bool,
+}
+
+/// Outcome of scanning one driver for devices; a failing driver reports `error` instead of
+/// failing the whole scan.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "bindings", ts(export))]
+pub struct DiscoveryResult {
+    pub driver_id: String,
+    pub devices: Vec<DeviceDescriptor>,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

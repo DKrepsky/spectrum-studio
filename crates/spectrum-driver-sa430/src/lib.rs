@@ -55,6 +55,19 @@ pub struct Sa430Driver {
     backend: Arc<dyn Sa430Backend>,
 }
 
+/// Message for an expected-vs-found serial mismatch; `serial` is empty when the device reports none.
+fn mismatch_message(expected: &str, port: &str, serial: &str) -> String {
+    let found = if serial.is_empty() {
+        "an SA430 that reports no serial number".to_string()
+    } else {
+        format!("SA430 {serial}")
+    };
+    format!(
+        "Expected SA430 {expected} but {port} is {found}. Open Edit source and test the \
+         connection to use this one, or choose the right port."
+    )
+}
+
 impl Sa430Driver {
     pub fn new() -> Self {
         Self::with_backend(Arc::new(SerialBackend))
@@ -76,7 +89,7 @@ fn connection_params() -> Vec<ParamSpec> {
         id: "port".into(),
         label: "Serial port".into(),
         group: None,
-        help: Some("For example /dev/ttyACM0. Leave empty to use the first SA430 found.".into()),
+        help: Some("Path of the device's serial port, for example /dev/ttyACM0.".into()),
         kind: ParamKind::Text { max_length: 256 },
         default: ParamValue::Text(String::new()),
         required: false,
@@ -115,7 +128,7 @@ impl SourceDriver for Sa430Driver {
                           (300–348, 389–464 and 779–928 MHz), calibrated dBm."
                 .into(),
             kind: SourceKind::SpectrumAnalyzer,
-            transport: Transport::Serial,
+            transport: Transport::Usb,
             status: DriverStatus::Available,
             supports_discovery: true,
             connection_params: connection_params(),
@@ -127,9 +140,10 @@ impl SourceDriver for Sa430Driver {
             SourceError::unavailable(format!("Could not search for SA430 devices: {e}."))
                 .with_cause(e)
         })?;
-        Ok(ports
-            .iter()
-            .map(|port| {
+        Ok(device_ids(&ports)
+            .into_iter()
+            .zip(&ports)
+            .map(|(device_id, port)| {
                 let mut details = vec![("Port".to_string(), port.name().to_string())];
                 if let Some(sn) = port.serial_number() {
                     details.push(("Serial number".into(), sn.into()));
@@ -139,11 +153,12 @@ impl SourceDriver for Sa430Driver {
                 }
                 DeviceDescriptor {
                     driver_id: DRIVER_ID.into(),
-                    device_id: port.name().to_string(),
-                    label: match port.serial_number() {
+                    device_id,
+                    label: match usb_serial(port) {
                         Some(sn) => format!("SA430 {sn}"),
                         None => format!("SA430 on {}", port.name()),
                     },
+                    location: Some(port.name().to_string()),
                     details,
                 }
             })
@@ -154,21 +169,7 @@ impl SourceDriver for Sa430Driver {
         let connection = resolve_params(&connection_params(), &config.connection)
             .map_err(SourceError::invalid_settings)?;
         let typed = connection.text("port").unwrap_or_default().trim();
-        let port = if let Some(id) = &config.device_id {
-            id.clone()
-        } else if !typed.is_empty() {
-            typed.to_string()
-        } else {
-            self.discover()?
-                .into_iter()
-                .next()
-                .map(|d| d.device_id)
-                .ok_or_else(|| {
-                    SourceError::unavailable(
-                        "No SA430 found. Connect the analyzer with its USB cable and try again.",
-                    )
-                })?
-        };
+        let (port, expected) = self.resolve_port(config.device_id.as_deref(), typed)?;
 
         let mut device = self
             .backend
@@ -179,7 +180,8 @@ impl SourceDriver for Sa430Driver {
             .calibration()
             .map(|c| {
                 String::from_utf8_lossy(&c.serial_number)
-                    .trim_end_matches('\0')
+                    .trim_matches('\0')
+                    .trim()
                     .to_string()
             })
             .map_err(|e| {
@@ -189,6 +191,13 @@ impl SourceDriver for Sa430Driver {
                 ))
                 .with_cause(e)
             })?;
+        if let Some(expected) = expected
+            && expected != serial
+        {
+            return Err(SourceError::unavailable(mismatch_message(
+                &expected, &port, &serial,
+            )));
+        }
 
         let settings = SourceSettings {
             center_hz: DEFAULT_CENTER_HZ,
@@ -218,8 +227,117 @@ impl SourceDriver for Sa430Driver {
                 format!("SA430 {serial}")
             },
             simulated: false,
+            device_id: Some(if serial.is_empty() {
+                format!("{PORT_PREFIX}{port}")
+            } else {
+                serial
+            }),
+            connection: [("port".to_string(), ParamValue::Text(port))].into(),
         })
     }
+
+    fn normalize_device_id(&self, device_id: Option<&str>, label: &str) -> Option<String> {
+        if let Some(serial) = label
+            .strip_prefix("SA430 ")
+            .filter(|s| !s.is_empty() && !s.contains(char::is_whitespace))
+        {
+            return (device_id != Some(serial)).then(|| serial.to_string());
+        }
+        let path = device_id.filter(|id| looks_like_port_path(id))?;
+        let found = self
+            .backend
+            .scan()
+            .ok()
+            .and_then(|ports| ports.into_iter().find(|p| p.name() == path))
+            .and_then(|p| usb_serial(&p));
+        Some(found.unwrap_or_else(|| format!("{PORT_PREFIX}{path}")))
+    }
+}
+
+impl Sa430Driver {
+    /// The port to open and the serial the device there must report (when the caller named one).
+    fn resolve_port(
+        &self,
+        device_id: Option<&str>,
+        typed: &str,
+    ) -> Result<(String, Option<String>), SourceError> {
+        match device_id {
+            Some(id) if id.starts_with(PORT_PREFIX) => {
+                Ok((id[PORT_PREFIX.len()..].to_string(), None))
+            }
+            Some(serial) => {
+                // A failed scan is treated like a device that is not there.
+                let ports = self.backend.scan().unwrap_or_default();
+                let matching: Vec<&Port> = ports
+                    .iter()
+                    .filter(|p| usb_serial(p).as_deref() == Some(serial))
+                    .collect();
+                // A serial shared by several ports prefers the one the hint names.
+                let found = matching
+                    .iter()
+                    .find(|p| p.name() == typed)
+                    .or(matching.first());
+                let port = match (found, typed) {
+                    (Some(p), _) => p.name().to_string(),
+                    (None, t) if !t.is_empty() => t.to_string(),
+                    _ => {
+                        return Err(SourceError::unavailable(format!(
+                            "SA430 {serial} not found. Plug it in and check the cable."
+                        )));
+                    }
+                };
+                Ok((port, Some(serial.to_string())))
+            }
+            None if !typed.is_empty() => Ok((typed.to_string(), None)),
+            None => self
+                .discover()?
+                .into_iter()
+                .next()
+                .and_then(|d| d.location)
+                .map(|port| (port, None))
+                .ok_or_else(|| {
+                    SourceError::unavailable(
+                        "No SA430 found. Connect the analyzer with its USB cable and try again.",
+                    )
+                }),
+        }
+    }
+}
+
+const PORT_PREFIX: &str = "port:";
+
+/// The USB serial of a scanned port, when it reports a non-empty one.
+fn usb_serial(port: &Port) -> Option<String> {
+    port.serial_number()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Stable ids for scanned ports: the USB serial, or `port:<name>` when absent or shared by
+/// several ports.
+fn device_ids(ports: &[Port]) -> Vec<String> {
+    ports
+        .iter()
+        .map(|port| match usb_serial(port) {
+            Some(sn)
+                if ports
+                    .iter()
+                    .filter(|p| usb_serial(p).as_deref() == Some(&sn))
+                    .count()
+                    == 1 =>
+            {
+                sn
+            }
+            _ => format!("{PORT_PREFIX}{}", port.name()),
+        })
+        .collect()
+}
+
+fn looks_like_port_path(id: &str) -> bool {
+    id.starts_with("/dev/")
+        || id
+            .strip_prefix("COM")
+            .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
 }
 
 fn open_error(port: &str, error: &sa430::Error) -> SourceError {
@@ -402,5 +520,226 @@ mod tests {
         assert!(io_error(gone).is_fatal());
         let bad = sa430::Error::InvalidData("x".into());
         assert!(io_error(bad).kind() == SourceErrorKind::Io);
+    }
+
+    // ---- device identity ----
+
+    use sa430::test_utils::{MockChannel, add_calibration_responses};
+    use std::sync::Mutex;
+
+    /// Scans a fixed port list; every opened port answers like the device with serial
+    /// `08FF41E50F8B3A34` (the library's mock calibration) and is recorded.
+    struct Scripted {
+        ports: Vec<Port>,
+        opened: Mutex<Vec<String>>,
+        scan_fails: bool,
+    }
+
+    impl Scripted {
+        fn driver(ports: Vec<Port>) -> (Sa430Driver, Arc<Scripted>) {
+            Self::with(ports, false)
+        }
+
+        fn with(ports: Vec<Port>, scan_fails: bool) -> (Sa430Driver, Arc<Scripted>) {
+            let b = Arc::new(Scripted {
+                ports,
+                opened: Mutex::new(Vec::new()),
+                scan_fails,
+            });
+            (Sa430Driver::with_backend(b.clone()), b)
+        }
+    }
+
+    impl Sa430Backend for Scripted {
+        fn scan(&self) -> Result<Vec<Port>, sa430::Error> {
+            if self.scan_fails {
+                return Err(sa430::Error::Io(io::Error::other("scan failed")));
+            }
+            Ok(self.ports.clone())
+        }
+
+        fn open(&self, port_name: &str) -> Result<Sa430, sa430::Error> {
+            self.opened.lock().unwrap().push(port_name.to_string());
+            let mut channel = MockChannel::new();
+            add_calibration_responses(&mut channel);
+            Ok(Sa430::new(Box::new(channel)))
+        }
+    }
+
+    const SN: &str = "08FF41E50F8B3A34";
+
+    fn port(name: &str, serial: Option<&str>) -> Port {
+        Port::new(name, serial, None)
+    }
+
+    fn config(device_id: Option<&str>, hint: &str) -> SourceConfig {
+        let mut c = SourceConfig::new(DRIVER_ID);
+        c.device_id = device_id.map(String::from);
+        if !hint.is_empty() {
+            c.connection
+                .insert("port".into(), ParamValue::Text(hint.into()));
+        }
+        c
+    }
+
+    fn open(d: &Sa430Driver, c: &SourceConfig) -> Result<OpenedSource, SourceError> {
+        d.open(c)
+    }
+
+    #[test]
+    fn discovery_ids_are_serials_with_port_fallback() {
+        let (d, _) = Scripted::driver(vec![
+            port("/dev/ttyACM0", Some(SN)),
+            port("/dev/ttyACM1", None),
+        ]);
+        let found = d.discover().unwrap();
+        assert_eq!(found[0].device_id, SN);
+        assert_eq!(found[0].label, format!("SA430 {SN}"));
+        assert_eq!(found[0].location.as_deref(), Some("/dev/ttyACM0"));
+        assert_eq!(found[1].device_id, "port:/dev/ttyACM1");
+        assert_eq!(found[1].label, "SA430 on /dev/ttyACM1");
+        assert_eq!(d.info().transport, Transport::Usb);
+    }
+
+    #[test]
+    fn duplicated_serials_fall_back_to_port_ids() {
+        let (d, _) = Scripted::driver(vec![
+            port("/dev/ttyACM0", Some(SN)),
+            port("/dev/ttyACM1", Some(SN)),
+            port("/dev/ttyACM2", Some("OTHER")),
+        ]);
+        let ids: Vec<_> = d
+            .discover()
+            .unwrap()
+            .into_iter()
+            .map(|x| x.device_id)
+            .collect();
+        assert_eq!(ids, ["port:/dev/ttyACM0", "port:/dev/ttyACM1", "OTHER"]);
+    }
+
+    #[test]
+    fn open_by_serial_finds_the_device_on_another_port() {
+        let (d, b) = Scripted::driver(vec![port("/dev/ttyACM3", Some(SN))]);
+        let o = open(&d, &config(Some(SN), "/dev/ttyACM0")).unwrap();
+        assert_eq!(*b.opened.lock().unwrap(), ["/dev/ttyACM3"]);
+        assert_eq!(o.device_id.as_deref(), Some(SN));
+        assert_eq!(
+            o.connection.get("port"),
+            Some(&ParamValue::Text("/dev/ttyACM3".into()))
+        );
+        assert_eq!(o.label, format!("SA430 {SN}"));
+    }
+
+    #[test]
+    fn hint_is_used_when_the_serial_is_not_scanned() {
+        let (d, b) = Scripted::driver(vec![]);
+        let o = open(&d, &config(Some(SN), "/dev/ttyACM0")).unwrap();
+        assert_eq!(*b.opened.lock().unwrap(), ["/dev/ttyACM0"]);
+        assert_eq!(o.device_id.as_deref(), Some(SN));
+        // A failed scan behaves the same.
+        let (d, _) = Scripted::with(vec![], true);
+        assert!(open(&d, &config(Some(SN), "/dev/ttyACM0")).is_ok());
+    }
+
+    #[test]
+    fn missing_device_without_hint_is_not_found() {
+        let (d, b) = Scripted::driver(vec![]);
+        let e = open(&d, &config(Some(SN), "")).err().unwrap();
+        assert_eq!(
+            e.to_string(),
+            format!("SA430 {SN} not found. Plug it in and check the cable.")
+        );
+        assert!(b.opened.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn hint_reaching_another_serial_is_refused() {
+        let (d, _) = Scripted::driver(vec![]);
+        let e = open(&d, &config(Some("SOMEONEELSE"), "/dev/ttyACM0"))
+            .err()
+            .unwrap();
+        assert_eq!(
+            e.to_string(),
+            format!(
+                "Expected SA430 SOMEONEELSE but /dev/ttyACM0 is SA430 {SN}. Open Edit source \
+                 and test the connection to use this one, or choose the right port."
+            )
+        );
+    }
+
+    #[test]
+    fn mismatch_message_reads_clearly_without_a_serial() {
+        assert_eq!(
+            mismatch_message("ABC", "/dev/ttyACM0", ""),
+            "Expected SA430 ABC but /dev/ttyACM0 is an SA430 that reports no serial number. \
+             Open Edit source and test the connection to use this one, or choose the right port."
+        );
+    }
+
+    #[test]
+    fn port_ids_are_upgraded_to_the_serial() {
+        let (d, b) = Scripted::driver(vec![]);
+        let o = open(&d, &config(Some("port:/dev/ttyACM7"), "/dev/ignored")).unwrap();
+        assert_eq!(*b.opened.lock().unwrap(), ["/dev/ttyACM7"]);
+        assert_eq!(o.device_id.as_deref(), Some(SN));
+        assert_eq!(
+            o.connection.get("port"),
+            Some(&ParamValue::Text("/dev/ttyACM7".into()))
+        );
+    }
+
+    #[test]
+    fn open_without_an_id_picks_the_first_device_and_reports_its_identity() {
+        let (d, b) = Scripted::driver(vec![
+            port("/dev/ttyACM1", Some(SN)),
+            port("/dev/ttyACM2", None),
+        ]);
+        let o = open(&d, &config(None, "")).unwrap();
+        assert_eq!(*b.opened.lock().unwrap(), ["/dev/ttyACM1"]);
+        assert_eq!(o.device_id.as_deref(), Some(SN));
+        // A typed port wins over discovery.
+        let o = open(&d, &config(None, "/dev/ttyACM2")).unwrap();
+        assert_eq!(b.opened.lock().unwrap()[1], "/dev/ttyACM2");
+        assert_eq!(o.device_id.as_deref(), Some(SN));
+    }
+
+    #[test]
+    fn normalize_device_id_table() {
+        let (d, _) = Scripted::driver(vec![
+            port("/dev/ttyACM0", Some(SN)),
+            port("/dev/ttyACM1", None),
+        ]);
+        let n = |id: Option<&str>, label: &str| d.normalize_device_id(id, label);
+        // The label carries the serial.
+        assert_eq!(
+            n(Some("/dev/ttyACM9"), "SA430 ABC123").as_deref(),
+            Some("ABC123")
+        );
+        assert_eq!(n(None, "SA430 ABC123").as_deref(), Some("ABC123"));
+        // A path resolves through a scan, else becomes a port id.
+        assert_eq!(
+            n(Some("/dev/ttyACM0"), "SA430 on /dev/ttyACM0").as_deref(),
+            Some(SN)
+        );
+        assert_eq!(
+            n(Some("/dev/ttyACM1"), "SA430 on /dev/ttyACM1").as_deref(),
+            Some("port:/dev/ttyACM1")
+        );
+        assert_eq!(
+            n(Some("/dev/ttyACM5"), "My analyzer").as_deref(),
+            Some("port:/dev/ttyACM5")
+        );
+        assert_eq!(n(Some("COM3"), "x").as_deref(), Some("port:COM3"));
+        // Already stable, or nothing to go on.
+        assert_eq!(n(Some("ABC123"), "SA430 ABC123"), None);
+        assert_eq!(n(Some("ABC123"), "Bench"), None);
+        assert_eq!(n(Some("port:/dev/ttyACM1"), "Bench"), None);
+        assert_eq!(n(None, "Bench"), None);
+        // A failing scan never panics.
+        let (d, _) = Scripted::with(vec![], true);
+        assert_eq!(
+            d.normalize_device_id(Some("/dev/ttyACM0"), "x").as_deref(),
+            Some("port:/dev/ttyACM0")
+        );
     }
 }

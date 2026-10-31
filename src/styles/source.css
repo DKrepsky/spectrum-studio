@@ -1,0 +1,314 @@
+/* Source button and menu. Fixed column widths are a contract (see source.css.test.ts):
+   the name column of a row never depends on its badge, status text or hover actions. */
+.source-control {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 150px;
+  max-width: 280px;
+}
+.source-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 150px;
+  max-width: 280px;
+}
+.source-button.attention {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.source-button.attention:focus-visible {
+  outline-color: var(--info);
+}
+.src-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* Status glyph: one 10px circle (a bold cross for failed) centred in an 18px cell. */
+.src-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+  flex: none;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.src-dot[data-status]::before {
+  content: '';
+  display: block;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.src-dot[data-status='connected']::before,
+.src-dot[data-status='acquiring']::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(62, 224, 181, 0.28);
+}
+.src-dot[data-status='absent']::before {
+  border: 2px solid var(--text-muted);
+  background: transparent;
+}
+.src-dot[data-status='connecting']::before,
+.src-dot[data-status='disconnecting']::before {
+  background: var(--info);
+  animation: src-pulse 1s ease-in-out infinite;
+}
+.src-dot[data-status='failed'] {
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 13px;
+}
+.src-dot[data-status='failed']::before {
+  content: '✕';
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+}
+@keyframes src-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .src-dot[data-status='connecting']::before,
+  .src-dot[data-status='disconnecting']::before {
+    animation: none;
+    box-shadow: 0 0 0 2px rgba(90, 169, 255, 0.35);
+  }
+}
+.spinner {
+  display: inline-block;
+}
+.spinner::before {
+  content: '⟳';
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner::before {
+    content: '…';
+    animation: none;
+  }
+}
+
+.source-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: 360px;
+  min-width: 280px;
+  max-width: calc(100vw - 16px);
+  max-height: 70vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+.source-menu:focus {
+  outline: none;
+}
+.source-heading {
+  margin: 8px 6px 2px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.source-heading:first-child {
+  margin-top: 2px;
+}
+.source-yours {
+  /* 6 two-line rows, then the list scrolls inside the section */
+  max-height: calc(6 * 48px);
+  overflow-y: auto;
+}
+.source-fixed {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+/* A row: line 1 = glyph | name (ellipsis) | badge (fixed 64px); line 2 = status text + detail. */
+.source-row {
+  position: relative;
+}
+.source-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 64px;
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 5px 8px;
+  background: transparent;
+  border-color: transparent;
+  text-align: left;
+}
+.source-item.single {
+  min-height: 30px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.source-item:hover:not([aria-disabled='true']),
+.source-item:focus-visible {
+  background: var(--surface-3);
+}
+.source-item[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+}
+.source-item[aria-checked='true'] {
+  border-color: var(--border);
+}
+.source-item.dimmed .src-name {
+  color: var(--text-muted);
+}
+.src-badge {
+  width: 64px;
+  justify-self: stretch;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.row-sub {
+  grid-column: 2 / 3;
+  min-height: 17px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.row-sub .st {
+  flex: none;
+  white-space: nowrap;
+}
+.row-sub .st.ok {
+  color: var(--accent);
+}
+.row-sub .st.bad {
+  color: var(--danger);
+}
+.row-sub .st.busy {
+  color: var(--info);
+}
+.row-sub .sep {
+  flex: none;
+}
+.row-sub .detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+/* In the reserved badge column on line 2: never touches the name or the line-2 text. */
+.source-actions {
+  position: absolute;
+  right: 9px;
+  bottom: 2px;
+  width: 54px;
+  height: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  visibility: hidden;
+}
+.source-row:hover .source-actions,
+.source-row:focus-within .source-actions {
+  visibility: visible;
+}
+.source-actions button.icon {
+  min-width: 26px;
+  min-height: 20px;
+  height: 20px;
+  padding: 0 5px;
+  line-height: 1;
+  background: var(--surface-3);
+}
+.source-actions button.icon:hover {
+  border-color: var(--border);
+}
+.source-item[data-highlight] {
+  animation: src-fresh 3s ease-out;
+}
+@keyframes src-fresh {
+  0%,
+  70% {
+    background: rgba(62, 224, 181, 0.16);
+    border-color: var(--accent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-item[data-highlight] {
+    animation: none;
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+}
+.source-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--text-muted);
+}
+.source-toast button {
+  min-height: 26px;
+  color: var(--info);
+}
+.source-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.source-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px;
+}
+.source-form-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.source-form .error {
+  margin: 0;
+}

@@ -8,6 +8,10 @@ export type DeviceDescriptor = {
   deviceId: string;
   label: string;
   /**
+   * Where the device is attached now (e.g. a serial port). Display text and connection hint.
+   */
+  location: string | null;
+  /**
    * Human-readable key/value details (serial number, firmware, address...).
    */
   details: Array<[string, string]>;

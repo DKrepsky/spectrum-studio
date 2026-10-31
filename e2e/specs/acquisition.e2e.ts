@@ -6,6 +6,7 @@ import {
   livenessKind,
   runSimulator,
   setInput,
+  sourceButtonText,
   statusBarText,
   waitForState,
 } from './helpers';
@@ -14,6 +15,10 @@ describe('Simulator acquisition workflow', () => {
   it('starts disconnected with no data shown as live', async () => {
     await expect(await byTestId('session-state')).toHaveText('Disconnected');
     expect(await livenessKind()).toBe('noSource');
+    // First run: nothing remembered, so the button invites a choice and Run has nothing to run.
+    expect(await sourceButtonText()).toContain('Choose a source');
+    await expect(await byTestId('run-button')).toBeDisabled();
+    await expect(await byTestId('connect-button')).not.toBeExisting();
     await expect(await byTestId('simulated-badge')).not.toBeExisting();
   });
 
@@ -77,6 +82,8 @@ describe('Simulator acquisition workflow', () => {
   it('disconnects and releases the source', async () => {
     await ensureDisconnected();
     await expect(await byTestId('simulated-badge')).not.toBeExisting();
-    await expect(await byTestId('connect-button')).toBeEnabled();
+    // The source stays selected, so Run is available again without choosing anything.
+    expect(await sourceButtonText()).toContain('Signal simulator');
+    await expect(await byTestId('run-button')).toBeEnabled();
   });
 });

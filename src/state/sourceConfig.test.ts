@@ -1,12 +1,4 @@
-import type { ActiveSource } from '../bindings/ActiveSource';
-import {
-  canonical,
-  emptyConfig,
-  findSaved,
-  sameConfig,
-  snapshotConfig,
-  toParamMap,
-} from './sourceConfig';
+import { canonical, emptyConfig, sameConfig, sameIdentity, toParamMap } from './sourceConfig';
 
 describe('source config helpers', () => {
   it('compares configs independent of key order', () => {
@@ -18,16 +10,33 @@ describe('source config helpers', () => {
     expect(sameConfig(a, null)).toBe(false);
   });
 
-  it('snapshots the active settings and finds saved matches', () => {
-    const active = {
-      config: emptyConfig('simulator'),
-      settings: { centerHz: 1e6, spanHz: 2e6, params: { seed: 3 } },
-    } as unknown as ActiveSource;
-    const snap = snapshotConfig(active);
-    expect(snap.settings).toEqual({ centerHz: 1e6, spanHz: 2e6, params: { seed: 3 } });
-    const saved = [{ id: 'a', name: 'A', config: snap, createdMs: 0, updatedMs: 0 }];
-    expect(findSaved(saved, snapshotConfig(active))?.id).toBe('a');
-    expect(findSaved(saved, emptyConfig('simulator'))).toBeUndefined();
+  it('compares identity ignoring settings', () => {
+    const a = { ...emptyConfig('sim'), connection: { a: 1 } };
+    const b = { ...a, settings: { centerHz: 5, spanHz: null, params: {} } };
+    expect(sameIdentity(a, b)).toBe(true);
+    expect(sameConfig(a, b)).toBe(false);
+    expect(sameIdentity(a, { ...a, deviceId: 'x' })).toBe(false);
+    expect(sameIdentity(a, undefined)).toBe(false);
+  });
+
+  it('compares identity by device id when both have one, else by connection', () => {
+    const cfg = (deviceId: string | null, connection: Record<string, string> = {}) => ({
+      ...emptyConfig('sa430'),
+      deviceId,
+      connection,
+    });
+    const cases: [ReturnType<typeof cfg>, ReturnType<typeof cfg>, boolean][] = [
+      [cfg('S1'), cfg('S1'), true],
+      [cfg('S1', { port: '/dev/ttyACM0' }), cfg('S1', { port: '/dev/ttyACM1' }), true],
+      [cfg('S1'), cfg('S2'), false],
+      [cfg(null, { port: 'p' }), cfg(null, { port: 'p' }), true],
+      [cfg(null, { port: 'p' }), cfg(null, { port: 'q' }), false],
+      // resolved config (serial) vs stored config (no id) are different identities
+      [cfg('S1', { port: 'p' }), cfg(null, { port: 'p' }), false],
+      [cfg(null, { port: 'p' }), cfg('S1', { port: 'p' }), false],
+    ];
+    for (const [x, y, expected] of cases) expect(sameIdentity(x, y)).toBe(expected);
+    expect(sameIdentity(cfg('S1'), { ...cfg('S1'), driverId: 'other' })).toBe(false);
   });
 
   it('drops undefined parameters', () => {

@@ -7,8 +7,9 @@ Code: `crates/spectrum-core/src/sources/`. Decision record: [ADR 0004](adr/0004-
 ```rust
 trait SourceDriver: Send + Sync {          // one per integration type
     fn info(&self) -> DriverInfo;           // name, kind, transport, status, connection params
-    fn discover(&self) -> Result<Vec<DeviceDescriptor>, SourceError>;   // optional
+    fn discover(&self) -> Result<Vec<DeviceDescriptor>, SourceError>;   // optional, enumerates only
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError>;
+    fn normalize_device_id(&self, id: Option<&str>, label: &str) -> Option<String>; // migration
 }
 
 trait Source: Send {                         // an open connection, used by one worker thread
@@ -25,12 +26,65 @@ enum SourceData { Iq(IqBlock), Trace(TraceBlock), EndOfStream }
 
 - **DriverInfo.kind:** `Sdr`, `SpectrumAnalyzer`, `File`, `Simulator` — how the UI groups sources.
 - **DriverInfo.transport:** `Usb`, `Serial`, `Network`, `File`, `Internal` — shown as a badge.
-- **DriverInfo.status:** `Available` or `Planned` (listed honestly, cannot be opened).
+- **DriverInfo.status:** `Available` or `Planned` (cannot be opened). `list_drivers` still returns
+  planned drivers, but the UI does not show them anywhere (menu, forms): nothing that cannot work is
+  offered. They stay in `docs/roadmap.md` and in the registry so the plan remains tracked.
 - **Capabilities** declare only what the source really supports. `tuning: None` hides tuning;
   an empty `span_options_hz` means a fixed span; `amplitude_unit` is the truth about calibration.
+- **Discovery** (`discover`) only *enumerates*: it lists devices from the OS (udev, serial ports)
+  and must never open, probe or reset a device, because the UI calls it every few seconds while
+  the source menu is open, also while another source is acquiring. Drivers that cannot enumerate
+  without opening set `supports_discovery: false`. `discover_all` runs every available driver
+  with discovery (not `internal`/`file`) one at a time; a failing driver is reported in its
+  `error` and does not hide the others.
 - **ParamSpec** describes device-specific settings (number with range/unit, choice, bool, text,
   path). The UI renders forms from them; the core validates submitted values against them
   (`model/params.rs`), so drivers receive only valid, complete parameter maps.
+
+### Device identity ([ADR 0010](adr/0010-stable-device-identity.md))
+
+A remembered source follows the *device*, not the port it happened to be on. The contract for
+drivers that talk to hardware:
+
+- **`SourceConfig.device_id` is a stable identity chosen by the driver**, never invented by the
+  caller: for the SA430 its serial number, else `port:<name>` (explicitly unstable). It is what the
+  store matches on. `SourceConfig.connection` (for the SA430 the `port`) is only a *hint* of where
+  the device was last found.
+- **`open` resolves by identity first**, falls back to the hint, verifies the identity of the
+  device it actually opened, and fails with an "Expected X but P is Y" message on a mismatch. A
+  caller never silently receives a different device.
+- **`OpenedSource.device_id` and `.connection`** report the identity and the connection actually
+  used. The session writes them into `ActiveSource.config`, so a remembered entry is always saved
+  with its identity filled in and a fresh hint.
+- **`DeviceDescriptor.location`** is the transport address (the port) of a *discovered* device. The
+  UI uses it to pre-fill the Add/Edit dialog; it is not identity.
+- **`normalize_device_id(id, label)`** lets a driver translate legacy ids (for the SA430 a port
+  name or none, plus the automatic label) into the stable identity when `sources.json` is
+  migrated. It returns `None` when it cannot, and the entry is then kept as it was.
+- **`discover` only enumerates.** It never opens, probes or resets a device; the UI calls it every
+  few seconds while the menu is open, also during acquisition. Identity that needs an open (the
+  calibration serial) is read by `open` and by `test_source`, never by `discover`.
+- **`test_source(driver_id, connection)`** opens the device with exactly the given connection,
+  reads its identity, closes it and returns a `SourceTestResult { ok, message, deviceId, label,
+  inUse }` without touching the session: no `SessionStatus` is emitted, no revision is bumped and
+  an acquisition of another source continues. If the port belongs to the active source it returns
+  `inUse` instead of opening it a second time. Failures carry the driver's message verbatim.
+
+### Remembered sources
+
+The user rarely saves sources by hand. A successful connect (`connect_source` for a new device or
+file, `connect_remembered` for a listed one) upserts an entry in `sources.json` identified by
+`driverId` + `deviceId` (device sources; the connection is ignored) or by `driverId` + `connection`
+(file and simulator sources); stores the device label reported at connect time, and keeps the
+entry's effective settings up to date while it is in use (`apply_source_settings`). Records that
+share an identity are *merged*, never duplicated. A failed connect remembers nothing. The user can
+also create (`add_source`) and edit (`update_source`) entries without connecting; both are
+validated in Rust (unique name, unique identity, connection locked on the live source, file and
+simulator entries can only be renamed). Entries whose driver is unknown or `Planned` are hidden
+from the UI but preserved verbatim in the file. Presence ("Not detected") is derived by matching a
+remembered entry's `driverId` + `deviceId` against the latest discovery result, only for drivers
+that support discovery. Rationale and schema: [ADR 0009](adr/0009-automatic-source-memory.md),
+[ADR 0010](adr/0010-stable-device-identity.md).
 
 ### Errors
 
@@ -82,9 +136,17 @@ author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmw
 
 - **Data:** `Trace`, factory-calibrated **dBm** (calibration is read from the device flash on
   connect). RBW is selected by the device from the step and is not reported yet (`rbw_hz: None`).
+- **Identity ([ADR 0010](adr/0010-stable-device-identity.md)):** `deviceId` is the device's serial
+  number (the USB serial, verified equal to the calibration serial on real hardware), or
+  `port:<port name>` when a port reports none or two ports report the same serial. The `port`
+  connection param is only a hint. `open` finds the device by serial through a scan, falls back to
+  the hint, checks the calibration serial it reads, and fails with an "Expected SA430 X but P is
+  SA430 Y" message on a mismatch. `OpenedSource` reports the serial and the port actually used.
+  `normalize_device_id` migrates legacy port-name ids using the label or a scan.
 - **Discovery:** USB scan by vendor/product id (udev on Linux); connecting without a chosen device
-  or port uses the first one found. Needs `libudev` at build/run time and membership of the
-  `dialout` group.
+  or port uses the first one found. `discover` only enumerates (it never opens the device), so it
+  is safe while the analyzer is acquiring. The port name is reported as the device `location`.
+  Needs `libudev` at build/run time and membership of the `dialout` group.
 - **Bands:** the instrument measures 300–348, 389–464 and 779–928 MHz; a sweep cannot cross
   bands. Centre and span select the window; if it sticks out of the band it is **shifted** back
   inside (the reported centre is the one actually swept). A centre between bands or a span wider
@@ -97,7 +159,8 @@ author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmw
   (*Restart*); a broken pipe or serial error disconnects the session.
 - **Tests:** `crates/spectrum-driver-sa430/tests/session.rs` runs the session against the library's mock channel (including
   silent device and unplugging). `cargo test -p spectrum-driver-sa430 -- --ignored --nocapture`
-  runs a sweep session on a real device.
+  runs a sweep session on a real device; `tests/hardware.rs` (`SPECTRUM_E2E_SA430=1 cargo test -p
+  spectrum-driver-sa430 --test hardware -- --ignored`) checks the USB serial equals the calibration serial.
 
 ### Simulator
 

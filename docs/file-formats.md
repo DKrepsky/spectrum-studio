@@ -36,7 +36,7 @@ Code: `crates/spectrum-core/src/formats/csv.rs`.
 # format_version,1
 # exported_at,2026-10-25T17:49:23.266Z
 # measured_at,2026-10-25T17:48:58.459Z
-# source,Built-in simulator
+# source,Signal simulator
 # simulated,true
 # data_kind,iq
 # unit,dBFS
@@ -77,8 +77,26 @@ frequency (Hz) and level, with an optional header row. Rules:
 
 | File | Contents |
 | --- | --- |
-| `preferences.json` | `version`, `processing` (FFT, window, averaging, holds, peak settings), `display` (reference level, range, waterfall, palette), `lastSource` |
-| `sources.json` | `version`, `sources[]` with `id`, `name`, `config` (driver, device, connection, settings), timestamps |
+| `preferences.json` | `version`, `processing` (FFT, window, averaging, holds, peak settings), `display` (reference level, range, waterfall, palette), `lastSourceId` (the selected remembered source; v1 files had `lastSource`, migrated on load) |
+| `sources.json` | `version` (3), `sources[]` with `id`, `name` (user override, may be empty), `label` (automatic name captured at connect), `config` (`driverId`, `deviceId` = the device's stable identity such as the SA430 serial, `connection` = where it was last found, last effective `settings`), `createdMs`, `updatedMs`, `lastUsedMs`. Written when a source is connected, added, edited or forgotten |
+
+### `sources.json` upgrades
+
+An older file (version 1 or 2) is upgraded **when it is loaded**, not on the next change:
+
+1. each entry's driver normalizes its `deviceId` (SA430: the serial instead of a port name or none);
+2. records of the same device are merged into one (a record with the user's name wins, the oldest
+   `createdMs`, the newest settings and `lastUsedMs`; a different name that has to be dropped is
+   reported in a warning and stays in the backup); non-device entries merge only when driver, connection
+   and displayed name are all equal, so distinct named presets are never merged;
+3. the previous file is copied, untouched, to `sources.pre-v3-<epoch ms>.json` in the same
+   directory (a new name each time, nothing is overwritten);
+4. the result is written atomically as version 3. If the backup or the write fails, the upgraded
+   list is used in memory, a warning is shown and the upgrade is retried with the next change.
+
+Entries of unknown or planned drivers are kept as they were. Known limits: unknown JSON fields are
+not preserved, and a file with a *newer* version than this build is not protected from being
+overwritten on the next change (see [roadmap.md](roadmap.md)).
 
 Files are written atomically and validated on load. Missing fields take defaults (forward
 compatible); invalid files are renamed to `*.corrupt-<timestamp>.json` and replaced by defaults.

@@ -6,3 +6,4 @@ src-tauri/icons
 crates
 package-lock.json
 *.md
+.claude/team/work/**/prototype/

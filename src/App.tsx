@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { NoticeBanner } from './components/NoticeBanner';
 import { SidePanel } from './components/SidePanel';
-import { SourceManager, type Selection } from './components/sources/SourceManager';
+import { useSourceMenu } from './components/source/menuState';
 import { SpectrumView } from './components/SpectrumView';
 import { StatusBar } from './components/StatusBar';
 import { Toolbar } from './components/Toolbar';
@@ -14,8 +14,6 @@ import { useSession } from './state/session';
 import { useView } from './state/view';
 
 export function App() {
-  // `undefined` = closed; otherwise the selection the dialog opens with (`null` = default).
-  const [sources, setSources] = useState<Selection | null | undefined>(undefined);
   const showWaterfall = useView((s) => s.showWaterfall);
 
   useEffect(() => {
@@ -40,16 +38,23 @@ export function App() {
     };
   }, []);
 
-  const openSources = (initial?: Selection) => setSources(initial ?? null);
+  // Ctrl+K opens the source menu.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        useSourceMenu.getState().setOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div className="app">
-      <Toolbar
-        onOpenSources={openSources}
-        onExport={() => void useSession.getState().exportCsv()}
-      />
+      <Toolbar onExport={() => void useSession.getState().exportCsv()} />
       <div className="notices">
-        <NoticeBanner onOpenSources={openSources} />
+        <NoticeBanner />
       </div>
       <main className="workspace">
         <section
@@ -62,9 +67,6 @@ export function App() {
         <SidePanel />
       </main>
       <StatusBar />
-      {sources !== undefined && (
-        <SourceManager initial={sources ?? undefined} onClose={() => setSources(undefined)} />
-      )}
     </div>
   );
 }

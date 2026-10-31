@@ -1,0 +1,89 @@
+{
+  "version": 3,
+  "sources": [
+    {
+      "id": "vis-real",
+      "name": "SA430 08FF41E50F8B3A34",
+      "label": "",
+      "config": {
+        "driverId": "sa430",
+        "deviceId": "08FF41E50F8B3A34",
+        "connection": {
+          "port": "/dev/ttyACM0"
+        }
+      },
+      "createdMs": 6000,
+      "updatedMs": 6000,
+      "lastUsedMs": 6000
+    },
+    {
+      "id": "vis-fail",
+      "name": "Failing simulator",
+      "label": "",
+      "config": {
+        "driverId": "simulator",
+        "connection": {
+          "failConnect": true
+        }
+      },
+      "createdMs": 5000,
+      "updatedMs": 5000,
+      "lastUsedMs": 5000
+    },
+    {
+      "id": "vis-60",
+      "name": "Very long source name used to check that truncation is clean",
+      "label": "",
+      "config": {
+        "driverId": "sa430",
+        "deviceId": "DEADBEEF00000060",
+        "connection": {
+          "port": "/dev/ttyACM6"
+        }
+      },
+      "createdMs": 4000,
+      "updatedMs": 4000,
+      "lastUsedMs": 4000
+    },
+    {
+      "id": "vis-22",
+      "name": "Bench SA430 analyzer 2",
+      "label": "",
+      "config": {
+        "driverId": "sa430",
+        "deviceId": "DEADBEEF00000022",
+        "connection": {
+          "port": "/dev/ttyACM2"
+        }
+      },
+      "createdMs": 3000,
+      "updatedMs": 3000,
+      "lastUsedMs": 3000
+    },
+    {
+      "id": "vis-file",
+      "name": "Seeded IQ tone",
+      "label": "",
+      "config": {
+        "driverId": "iq-file",
+        "connection": {
+          "path": "{{REPO}}/e2e/fixtures/recordings/tone.sigmf-meta"
+        }
+      },
+      "createdMs": 2000,
+      "updatedMs": 2000,
+      "lastUsedMs": 2000
+    },
+    {
+      "id": "vis-sim",
+      "name": "Signal simulator",
+      "label": "",
+      "config": {
+        "driverId": "simulator"
+      },
+      "createdMs": 1000,
+      "updatedMs": 1000,
+      "lastUsedMs": 1000
+    }
+  ]
+}

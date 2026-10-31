@@ -8,7 +8,12 @@ export type Preferences = {
   processing: ProcessingSettings;
   display: DisplayPreferences;
   /**
-   * Source selected when the application was last used (not connected automatically).
+   * Deprecated: migrated into a remembered source and `last_source_id` when loaded.
    */
   lastSource: SourceConfig | null;
+  /**
+   * Remembered source selected when the application was last used (never connected
+   * automatically).
+   */
+  lastSourceId: string | null;
 };

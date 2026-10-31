@@ -7,6 +7,7 @@ import { fullView, panBy, zoomAt } from '../plot/viewport';
 import { frameStore } from '../state/frames';
 import { useLiveness } from '../state/liveness';
 import { useSession } from '../state/session';
+import { useSources } from '../state/sources';
 import { useView, type FrequencyView } from '../state/view';
 import { useCanvasSize } from './useCanvasSize';
 
@@ -35,6 +36,7 @@ export function SpectrumView() {
   const { containerRef, canvasRef, size } = useCanvasSize();
   const state = useSession((s) => s.status?.state);
   const sourceUnit = useSession((s) => s.status?.source?.capabilities.amplitudeUnit);
+  const noSource = useSources((s) => s.active === null);
   const live = useLiveness(state, frameStore.latest);
   const liveRef = useRef(false);
   const hover = useRef<{ x: number; y: number } | null>(null);
@@ -192,6 +194,11 @@ export function SpectrumView() {
       >
         {live.label}
       </div>
+      {noSource && (
+        <p className="plot-hint" data-testid="plot-hint">
+          Choose a source to begin. Try Signal simulator.
+        </p>
+      )}
       {view && (
         <button className="plot-zoom-reset" onClick={() => useView.getState().setZoom(null)}>
           Zoom: {formatFrequency(view.endHz - view.startHz, 100)} · reset

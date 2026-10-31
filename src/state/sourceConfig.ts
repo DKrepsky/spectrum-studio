@@ -1,6 +1,4 @@
-import type { ActiveSource } from '../bindings/ActiveSource';
 import type { ParamValue } from '../bindings/ParamValue';
-import type { SavedSource } from '../bindings/SavedSource';
 import type { SourceConfig } from '../bindings/SourceConfig';
 
 export function emptyConfig(driverId: string): SourceConfig {
@@ -30,23 +28,19 @@ export function sameConfig(
   return a != null && b != null && canonical(a) === canonical(b);
 }
 
-/** The connected source's configuration including its current settings, for saving a setup. */
-export function snapshotConfig(active: ActiveSource): SourceConfig {
-  return {
-    ...active.config,
-    settings: {
-      centerHz: active.settings.centerHz,
-      spanHz: active.settings.spanHz,
-      params: { ...active.settings.params },
-    },
-  };
-}
-
-export function findSaved(
-  saved: readonly SavedSource[],
-  config: SourceConfig,
-): SavedSource | undefined {
-  return saved.find((s) => sameConfig(s.config, config));
+/**
+ * Same device: driver + deviceId when both configs have one, else driver + connection (mirror of
+ * the Rust rule). Settings are ignored. A resolved config (with an id) and a stored one without
+ * an id are therefore different identities.
+ */
+export function sameIdentity(
+  a: SourceConfig | null | undefined,
+  b: SourceConfig | null | undefined,
+): boolean {
+  if (a == null || b == null || a.driverId !== b.driverId) return false;
+  if (a.deviceId != null && b.deviceId != null) return a.deviceId === b.deviceId;
+  if (a.deviceId != null || b.deviceId != null) return false;
+  return canonical(a.connection) === canonical(b.connection);
 }
 
 /** Drops undefined entries from a partially edited parameter map. */

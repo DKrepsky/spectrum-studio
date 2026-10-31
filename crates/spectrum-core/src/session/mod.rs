@@ -7,7 +7,7 @@
 pub mod pipeline;
 mod worker;
 
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Duration;
@@ -17,15 +17,18 @@ use thiserror::Error;
 use self::worker::{Command, WorkerHandle, notice};
 use crate::model::params::resolve_params;
 use crate::model::{
-    DeviceDescriptor, DriverInfo, DriverStatus, NoticeKind, ProcessingSettings, SessionState,
-    SessionStatus, SettingsPatch, SourceConfig, SourceSettings, SpectrumFrame,
+    DeviceDescriptor, DiscoveryResult, DriverInfo, DriverStatus, NoticeKind, ParamMap, ParamValue,
+    ProcessingSettings, SessionState, SessionStatus, SettingsPatch, SourceConfig, SourceSettings,
+    SourceTestResult, SpectrumFrame, Transport,
 };
-use crate::sources::{DriverRegistry, SourceError};
+use crate::sources::{DriverRegistry, SourceError, SourceErrorKind};
 
 /// How long to wait for a source to open before giving up.
 const OPEN_TIMEOUT: Duration = Duration::from_secs(30);
 /// How long to wait for the worker to answer a command.
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long a connection test waits for the device to answer.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 
 #[derive(Debug, Error)]
 pub enum SessionError {
@@ -80,6 +83,26 @@ pub(crate) fn error_chain(error: &dyn std::error::Error) -> String {
     text
 }
 
+/// Clears the connection-test flag when the test thread ends, even by panic.
+struct ProbeGuard(Arc<AtomicBool>);
+
+impl Drop for ProbeGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
+/// The first non-empty text value present in both maps, if any.
+fn shared_text_value<'a>(a: &'a ParamMap, b: &ParamMap) -> Option<&'a str> {
+    a.values().find_map(|v| match v {
+        ParamValue::Text(t) if !t.is_empty() => b
+            .values()
+            .any(|w| matches!(w, ParamValue::Text(u) if u == t))
+            .then_some(t.as_str()),
+        _ => None,
+    })
+}
+
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     // A panic while holding these locks leaves plain data behind; keep going with it.
     m.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -112,6 +135,12 @@ pub struct SessionManager {
     registry: DriverRegistry,
     shared: Arc<Shared>,
     worker: Mutex<Option<WorkerHandle>>,
+    /// Serialises device scans; separate from `worker` so scanning never blocks acquisition.
+    scan: Mutex<()>,
+    /// Set while a connection test is running (one at a time); cleared by the test's own thread,
+    /// so an abandoned (timed-out) open keeps the flag until it has released the device.
+    probing: Arc<AtomicBool>,
+    probe_timeout: Duration,
 }
 
 impl SessionManager {
@@ -135,7 +164,17 @@ impl SessionManager {
                 next_seq: AtomicU32::new(0),
             }),
             worker: Mutex::new(None),
+            scan: Mutex::new(()),
+            probing: Arc::new(AtomicBool::new(false)),
+            probe_timeout: PROBE_TIMEOUT,
         }
+    }
+
+    /// Overrides how long [`test_source`](Self::test_source) waits for the device (default 8 s).
+    #[must_use]
+    pub fn with_probe_timeout(mut self, timeout: Duration) -> Self {
+        self.probe_timeout = timeout;
+        self
     }
 
     pub fn status(&self) -> SessionStatus {
@@ -148,6 +187,166 @@ impl SessionManager {
 
     pub fn discover(&self, driver_id: &str) -> Result<Vec<DeviceDescriptor>, SessionError> {
         Ok(self.registry.discover(driver_id)?)
+    }
+
+    /// Scans every available driver that can enumerate devices (not the built-in simulator or
+    /// file readers). A failing driver is reported in its result. One scan runs at a time, and
+    /// the session worker is never locked, so this cannot stall a running acquisition.
+    pub fn discover_all(&self) -> Vec<DiscoveryResult> {
+        let _scan = lock(&self.scan);
+        self.registry
+            .infos()
+            .into_iter()
+            .filter(|i| {
+                i.status == DriverStatus::Available
+                    && i.supports_discovery
+                    && !matches!(i.transport, Transport::Internal | Transport::File)
+            })
+            .map(|info| match self.registry.discover(&info.id) {
+                Ok(devices) => DiscoveryResult {
+                    driver_id: info.id,
+                    devices,
+                    error: None,
+                },
+                Err(e) => {
+                    tracing::warn!(driver = %info.id, error = %error_chain(&e), "device scan failed");
+                    DiscoveryResult {
+                        driver_id: info.id,
+                        devices: vec![],
+                        error: Some(e.to_string()),
+                    }
+                }
+            })
+            .collect()
+    }
+
+    /// Checks that `connection` reaches a device of `driver_id` without touching the session:
+    /// opens it with exactly these parameters (no stored identity), reads its identity and closes
+    /// it again. Never changes the session status, takes the worker lock or touches the store.
+    ///
+    /// Expected failures are `ok: false` results (device error, timeout, busy, port in use by the
+    /// active source); only invalid arguments (unknown or unavailable driver, bad parameters)
+    /// are errors. One test runs at a time. After a timeout the abandoned open finishes and
+    /// drops its source on its own thread.
+    pub fn test_source(
+        &self,
+        driver_id: &str,
+        connection: ParamMap,
+    ) -> Result<SourceTestResult, SessionError> {
+        let driver = self.registry.get(driver_id)?;
+        let info = driver.info();
+        if info.status != DriverStatus::Available {
+            return Err(SourceError::unsupported(format!(
+                "{} support is not implemented yet.",
+                info.name
+            ))
+            .into());
+        }
+        resolve_params(&info.connection_params, &connection).map_err(SessionError::Invalid)?;
+
+        let failure = |message: String, in_use: bool| SourceTestResult {
+            ok: false,
+            message,
+            device_id: None,
+            label: None,
+            in_use,
+        };
+        let busy = || {
+            failure(
+                "Busy: a connection is in progress. Try again in a moment.".into(),
+                false,
+            )
+        };
+
+        let status = self.status();
+        match status.state {
+            SessionState::Connecting | SessionState::Disconnecting => return Ok(busy()),
+            SessionState::Connected | SessionState::Acquiring => {
+                if let Some(active) = &status.source
+                    && let Some(value) = shared_text_value(&connection, &active.config.connection)
+                {
+                    return Ok(failure(
+                        format!(
+                            "{value} is in use by the active source. Stop and disconnect it first."
+                        ),
+                        true,
+                    ));
+                }
+            }
+            SessionState::Disconnected => {}
+        }
+
+        if self.probing.swap(true, Ordering::AcqRel) {
+            return Ok(busy());
+        }
+        let release = ProbeGuard(self.probing.clone());
+        let config = SourceConfig {
+            connection,
+            ..SourceConfig::new(driver_id)
+        };
+        let (tx, rx) = mpsc::channel();
+        let spawned = std::thread::Builder::new()
+            .name("source-test".into())
+            .spawn(move || {
+                let _release = release;
+                let outcome = driver.open(&config).map(|opened| {
+                    let identity = (opened.device_id.clone(), opened.label.clone());
+                    // Release the device before reporting, so a follow-up connect finds it free.
+                    drop(opened);
+                    identity
+                });
+                let _ = tx.send(outcome);
+            });
+        if let Err(e) = spawned {
+            // The closure (and its guard) was dropped by the failed spawn.
+            return Err(SessionError::Internal(format!(
+                "could not start the connection test: {e}"
+            )));
+        }
+
+        let result = match rx.recv_timeout(self.probe_timeout) {
+            Ok(Ok((device_id, label))) => SourceTestResult {
+                ok: true,
+                message: format!("Connection OK. {} found.", info.name),
+                device_id,
+                label: Some(label),
+                in_use: false,
+            },
+            Ok(Err(e)) => {
+                tracing::debug!(driver = %info.id, error = %error_chain(&e), "connection test failed");
+                failure(e.message().to_string(), false)
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                tracing::debug!(driver = %info.id, "connection test timed out");
+                failure("The device did not answer in time.".into(), false)
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                tracing::error!(driver = %info.id, "source driver panicked during a connection test");
+                failure("The connection test failed unexpectedly.".into(), false)
+            }
+        };
+        Ok(result)
+    }
+
+    /// Like [`connect`](Self::connect), but when the source rejects the stored settings
+    /// (`InvalidSettings`) and the config had some, retries once with the settings cleared so a
+    /// stale remembered setting never makes a source unconnectable.
+    pub fn connect_with_default_fallback(
+        &self,
+        config: SourceConfig,
+    ) -> Result<SessionStatus, SessionError> {
+        match self.connect(config.clone()) {
+            Err(SessionError::Source(e))
+                if e.kind() == SourceErrorKind::InvalidSettings && !config.settings.is_empty() =>
+            {
+                tracing::warn!("stored settings rejected; retrying with defaults");
+                self.connect(SourceConfig {
+                    settings: SettingsPatch::default(),
+                    ..config
+                })
+            }
+            other => other,
+        }
     }
 
     /// Disconnects any current source, then opens `config`. Blocks until the source is open.

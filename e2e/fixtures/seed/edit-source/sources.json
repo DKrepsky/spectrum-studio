@@ -1,0 +1,26 @@
+{
+  "version": 3,
+  "sources": [
+    {
+      "id": "edit-sim",
+      "name": "Bench simulator",
+      "label": "Signal simulator",
+      "config": { "driverId": "simulator" },
+      "createdMs": 3000,
+      "updatedMs": 3000,
+      "lastUsedMs": 3000
+    },
+    {
+      "id": "edit-iq",
+      "name": "Seeded IQ tone",
+      "label": "",
+      "config": {
+        "driverId": "iq-file",
+        "connection": { "path": "{{REPO}}/e2e/fixtures/recordings/tone.sigmf-meta" }
+      },
+      "createdMs": 2000,
+      "updatedMs": 2000,
+      "lastUsedMs": 2000
+    }
+  ]
+}

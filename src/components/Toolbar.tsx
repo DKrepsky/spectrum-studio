@@ -1,11 +1,10 @@
 import type { SessionState } from '../bindings/SessionState';
 import { formatFrequencyShort } from '../format/frequency';
 import { useSession } from '../state/session';
-import { sameConfig } from '../state/sourceConfig';
+import { useSources } from '../state/sources';
 import { useFrameTick } from '../state/useFrameTick';
 import { FrequencyInput } from './FrequencyInput';
-import { SourceSelector } from './SourceSelector';
-import type { Selection } from './sources/SourceManager';
+import { SourceButton } from './source/SourceButton';
 
 const STATE_LABEL: Record<SessionState, string> = {
   disconnected: 'Disconnected',
@@ -15,24 +14,17 @@ const STATE_LABEL: Record<SessionState, string> = {
   disconnecting: 'Disconnecting…',
 };
 
-interface Props {
-  onOpenSources: (initial?: Selection) => void;
-  onExport: () => void;
-}
-
-export function Toolbar({ onOpenSources, onExport }: Props) {
+export function Toolbar({ onExport }: { onExport: () => void }) {
   const status = useSession((s) => s.status);
-  const selected = useSession((s) => s.selectedConfig);
+  const hasSource = useSources((s) => s.active !== null);
   const busy = useSession((s) => s.busy);
   const hasFrame = useFrameTick(1000) !== null;
-  const { connect, disconnect, run, stop, applySettings } = useSession.getState();
+  const { run, stop, applySettings } = useSession.getState();
 
   const state = status?.state ?? 'disconnected';
   const source = status?.source ?? null;
-  const connected = state === 'connected' || state === 'acquiring';
   const transitioning = state === 'connecting' || state === 'disconnecting' || busy !== null;
   const caps = source?.capabilities;
-  const switchPending = connected && source !== null && !sameConfig(source.config, selected);
 
   return (
     <header className="toolbar" role="toolbar" aria-label="Main toolbar">
@@ -43,35 +35,8 @@ export function Toolbar({ onOpenSources, onExport }: Props) {
         Spectrum Studio
       </div>
 
-      <div className="toolbar-group">
-        <SourceSelector onOpenSources={onOpenSources} />
-        {switchPending && (
-          <button
-            onClick={() => void connect()}
-            disabled={transitioning}
-            title="Stop the current source and connect the selected one"
-            data-testid="switch-button"
-          >
-            Switch
-          </button>
-        )}
-        {connected ? (
-          <button
-            onClick={() => void disconnect()}
-            disabled={transitioning}
-            data-testid="disconnect-button"
-          >
-            Disconnect
-          </button>
-        ) : (
-          <button
-            onClick={() => void connect()}
-            disabled={transitioning}
-            data-testid="connect-button"
-          >
-            Connect
-          </button>
-        )}
+      <div className="toolbar-group toolbar-source">
+        <SourceButton />
         {state === 'acquiring' ? (
           <button
             className="primary stop"
@@ -85,7 +50,8 @@ export function Toolbar({ onOpenSources, onExport }: Props) {
           <button
             className="primary"
             onClick={() => void run()}
-            disabled={transitioning}
+            disabled={transitioning || !hasSource}
+            title={hasSource ? undefined : 'Choose a source first'}
             data-testid="run-button"
           >
             ▶ Run

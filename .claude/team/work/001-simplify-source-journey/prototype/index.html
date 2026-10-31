@@ -1,0 +1,1833 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prototype 001 - source journey (Spectrum Studio)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      /* ===== Real tokens and base rules copied from src/styles/app.css ===== */
+      :root {
+        --bg: #0b1018;
+        --surface: #121a26;
+        --surface-2: #182233;
+        --surface-3: #1f2b3f;
+        --border: #26344a;
+        --text: #dbe4f0;
+        --text-muted: #8a9ab1;
+        --accent: #3ee0b5;
+        --accent-strong: #2bc79e;
+        --warn: #ffb547;
+        --danger: #ff6b6b;
+        --info: #5aa9ff;
+        --sim: #c39bff;
+        --radius: 6px;
+        --font: 'Inter', 'Cantarell', 'Ubuntu', system-ui, sans-serif;
+        --mono: 'JetBrains Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font: 13px/1.4 var(--font);
+        user-select: none;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 5px 12px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      button:hover:not(:disabled) {
+        border-color: #3a4d6b;
+        background: #25344c;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #062018;
+        font-weight: 600;
+      }
+      button.primary:hover:not(:disabled) {
+        background: var(--accent-strong);
+      }
+      button.primary.stop {
+        background: var(--warn);
+        border-color: var(--warn);
+        color: #2a1a00;
+      }
+      button.small {
+        padding: 2px 8px;
+        font-size: 12px;
+      }
+      button.icon {
+        padding: 0 6px;
+        background: transparent;
+        border-color: transparent;
+        font-size: 15px;
+        line-height: 1.2;
+      }
+      input[type='text'],
+      input[type='number'],
+      select,
+      .freq-input {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 4px 7px;
+        min-width: 0;
+      }
+      input:focus-visible,
+      select:focus-visible,
+      button:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 2px solid var(--info);
+        outline-offset: 1px;
+      }
+      input.invalid {
+        border-color: var(--danger);
+      }
+      input:disabled,
+      select:disabled {
+        opacity: 0.5;
+      }
+      .freq-input {
+        font-family: var(--mono);
+        width: 150px;
+        text-align: right;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 7px 12px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+      .brand-mark {
+        color: var(--accent);
+      }
+      .toolbar-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .toolbar-end {
+        margin-left: auto;
+      }
+      .field {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-muted);
+      }
+      .state-pill {
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .state-pill.state-acquiring {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .state-pill.state-connected {
+        color: var(--info);
+        border-color: var(--info);
+      }
+      .state-pill.state-connecting,
+      .state-pill.state-disconnecting {
+        color: var(--warn);
+        border-color: var(--warn);
+      }
+      .badge {
+        font-size: 11px;
+        padding: 1px 7px;
+        border-radius: 4px;
+        background: var(--surface-3);
+        color: var(--text-muted);
+        letter-spacing: 0.03em;
+      }
+      .badge.simulated {
+        background: rgba(195, 155, 255, 0.15);
+        color: var(--sim);
+        border: 1px solid var(--sim);
+        font-weight: 600;
+      }
+      .notice {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 12px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(255, 107, 107, 0.12);
+      }
+      .notice-message {
+        flex: 1;
+      }
+      .plot-hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 15px;
+        pointer-events: none;
+      }
+      .spinner {
+        display: inline-block;
+      }
+      .spinner::before {
+        content: '⟳';
+        display: inline-block;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spinner::before {
+          content: '…';
+          animation: none;
+        }
+      }
+
+      /* ===== Source button and menu (REWORKED, see design.md section 2) ===== */
+      .source-control {
+        position: relative;
+        min-width: 0;
+      }
+      .source-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-width: 150px;
+        max-width: 280px;
+      }
+      .source-button.attention {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .src-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+      }
+      .src-dot {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 16px;
+        flex: none;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1;
+      }
+      /* Status glyph = one 10px circle: filled green (connected), filled gray (usable, not connected), hollow gray (not detected),
+   pulsing blue (connecting), red cross (failed). The text next to it always says the same thing. */
+      .cdot {
+        display: block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        box-sizing: border-box;
+      }
+      .cdot-ok {
+        background: var(--accent);
+        box-shadow: 0 0 0 2px rgba(62, 224, 181, 0.28);
+      }
+      .cdot-idle {
+        background: var(--text-muted);
+      }
+      .cdot-off {
+        border: 2px solid var(--text-muted);
+        background: transparent;
+      }
+      .cdot-busy {
+        background: var(--info);
+        animation: pulse 1s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.25;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cdot-busy {
+          animation: none;
+          box-shadow: 0 0 0 2px rgba(90, 169, 255, 0.35);
+        }
+      }
+      .src-dot-failed {
+        color: var(--danger);
+        font-weight: 700;
+      }
+
+      .source-popover {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        z-index: 20;
+        width: 360px;
+        min-width: 280px;
+        max-width: calc(100vw - 16px);
+        max-height: 70vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 6px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+      }
+      .source-menu:focus {
+        outline: none;
+      }
+      .source-heading {
+        margin: 8px 6px 2px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+      }
+      .source-heading:first-child {
+        margin-top: 2px;
+      }
+      .source-yours {
+        max-height: calc(6 * 48px);
+        overflow-y: auto;
+      } /* 6 two-line rows, then scrolls */
+      .source-fixed {
+        margin-top: 4px;
+        padding-top: 4px;
+        border-top: 1px solid var(--border);
+      }
+
+      /* A device row: line 1 = dot, name (flexible, ellipsis), badge (fixed). line 2 = status text + detail (ellipsis). */
+      .source-row {
+        position: relative;
+      }
+      .source-item {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr) 64px;
+        column-gap: 8px;
+        align-items: center;
+        width: 100%;
+        min-height: 44px;
+        padding: 5px 8px;
+        background: transparent;
+        border-color: transparent;
+        text-align: left;
+      }
+      .source-item.single {
+        min-height: 30px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+      }
+      .source-item:hover:not([aria-disabled='true']),
+      .source-item:focus-visible,
+      .source-item.kbd {
+        background: var(--surface-3);
+      }
+      .source-item[aria-disabled='true'] {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .source-item[aria-checked='true'] {
+        border-color: var(--border);
+      }
+      .source-item.dimmed .src-name {
+        color: var(--text-muted);
+      }
+      .source-item.fresh {
+        animation: fresh 3s ease-out;
+      }
+      @keyframes fresh {
+        0%,
+        70% {
+          background: rgba(62, 224, 181, 0.16);
+          border-color: var(--accent);
+        }
+        100% {
+          background: transparent;
+        }
+      }
+      .source-item .badge {
+        width: 64px;
+        justify-self: stretch;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: clip;
+      } /* FIXED badge column: name width never depends on the badge */
+      .row-sub {
+        grid-column: 2 / 3;
+        min-height: 17px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .row-sub .st {
+        flex: none;
+        white-space: nowrap;
+      }
+      .row-sub .st.ok {
+        color: var(--accent);
+      }
+      .row-sub .st.bad {
+        color: var(--danger);
+      }
+      .row-sub .st.busy {
+        color: var(--info);
+      }
+      .row-sub .detail {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+      .row-sub .sep {
+        flex: none;
+      }
+      .source-actions {
+        position: absolute;
+        right: 9px;
+        bottom: 5px;
+        width: 54px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 2px;
+        visibility: hidden;
+      } /* sits in the reserved badge column on line 2: never touches the name or line-2 text */
+      .source-row:hover .source-actions,
+      .source-row:focus-within .source-actions,
+      .source-row.kbd .source-actions {
+        visibility: visible;
+      }
+      .source-actions button.icon {
+        min-width: 26px;
+        min-height: 24px;
+        padding: 0 5px;
+        background: var(--surface-3);
+      }
+      .source-actions button.icon:hover {
+        border-color: var(--border);
+      }
+      .source-toast {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 0 8px;
+        color: var(--text-muted);
+      }
+      .source-toast .msg {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .source-toast button {
+        min-height: 26px;
+        color: var(--info);
+      }
+      .source-note {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      /* ===== Add source dialog (NEW) ===== */
+      .backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 40;
+        background: rgba(5, 8, 14, 0.6);
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 90px;
+      }
+      .dialog {
+        width: 440px;
+        max-width: calc(100% - 24px);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+        padding: 16px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .dialog h2 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .form-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .form-row label {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+      .form-row .help {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .form-row .err {
+        font-size: 12px;
+        color: var(--danger);
+      }
+      .form-row input,
+      .form-row select {
+        width: 100%;
+      }
+      .test-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .test-result {
+        flex: 1;
+        min-width: 0;
+        font-size: 12px;
+        padding: 5px 8px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        overflow-wrap: anywhere;
+        user-select: text;
+      }
+      .test-result.ok {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(62, 224, 181, 0.08);
+      }
+      .test-result.fail {
+        border-color: var(--danger);
+        color: var(--danger);
+        background: rgba(255, 107, 107, 0.08);
+      }
+      .test-result.run {
+        border-color: var(--info);
+        color: var(--info);
+      }
+      .test-result.idle {
+        color: var(--text-muted);
+        border-style: dashed;
+      }
+      .test-result .sub {
+        display: block;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+      .button-row {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        align-items: center;
+      }
+      .button-row .spacer {
+        margin-right: auto;
+      }
+      button.forget {
+        color: var(--danger);
+        border-color: rgba(255, 107, 107, 0.45);
+        background: transparent;
+      }
+      .dlg-note {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .dlg-note.warn {
+        color: var(--warn);
+      }
+      .dlg-note.info {
+        color: var(--info);
+      }
+      input[readonly].ro {
+        color: var(--text-muted);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      input:disabled.locked,
+      select:disabled.locked {
+        opacity: 0.75;
+      }
+
+      /* ===== Prototype-only chrome ===== */
+      .stage {
+        display: flex;
+        height: 100vh;
+      }
+      .frame-wrap {
+        flex: 1;
+        min-width: 0;
+        overflow: auto;
+        padding: 10px;
+        background: #05080d;
+      }
+      .frame {
+        position: relative;
+        width: 1180px;
+        height: 640px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        overflow: hidden;
+        margin: 0 auto;
+      }
+      .frame.narrow {
+        width: 1024px;
+      }
+      .frame.tiny {
+        width: 520px;
+      }
+      .frame.tiny .toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .plots {
+        position: relative;
+        min-height: 0;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .panel {
+        width: 290px;
+        flex: none;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+        padding: 10px 12px;
+        overflow: auto;
+        font-size: 12px;
+        user-select: text;
+      }
+      .panel h3 {
+        margin: 12px 0 5px;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .panel h3:first-child {
+        margin-top: 0;
+      }
+      .panel button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        margin-bottom: 4px;
+        padding: 4px 9px;
+      }
+      .panel button.cur {
+        border-color: var(--accent);
+      }
+      .panel .row2 {
+        display: flex;
+        gap: 4px;
+      }
+      .panel .row2 button {
+        text-align: center;
+      }
+      .panel p {
+        color: var(--text-muted);
+        margin: 4px 0;
+      }
+      .panel code {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text);
+      }
+      #log {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-muted);
+        max-height: 150px;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <div class="frame-wrap">
+        <div class="frame" id="frame">
+          <header class="toolbar" role="toolbar" aria-label="Main toolbar">
+            <div class="brand">
+              <span class="brand-mark" aria-hidden="true">▲</span>Spectrum Studio
+            </div>
+            <div class="toolbar-group" id="tbSource">
+              <div class="source-control" id="srcControl">
+                <button
+                  type="button"
+                  class="source-button"
+                  id="srcBtn"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                ></button>
+              </div>
+              <button class="primary" id="runBtn">▶ Run</button>
+              <span class="state-pill state-disconnected" id="pill" role="status"
+                >Disconnected</span
+              >
+              <span class="badge simulated" id="simBadge" hidden>SIMULATED</span>
+            </div>
+            <div class="toolbar-group">
+              <label class="field"
+                ><span>Center</span><input class="freq-input" value="100.000 MHz" readonly
+              /></label>
+              <label class="field"
+                ><span>Span</span><input class="freq-input" value="20.000 MHz" readonly
+              /></label>
+            </div>
+            <div class="toolbar-group toolbar-end"><button disabled>Export CSV</button></div>
+          </header>
+          <div id="noticeSlot"></div>
+          <div class="plots">
+            <canvas id="plot"></canvas>
+            <p class="plot-hint" id="hint">Choose a source to begin. Try Signal simulator.</p>
+          </div>
+          <div id="dialogSlot"></div>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <h3>How to use</h3>
+        <p>
+          Prototype of work 001 (rework). Click <b>Choose a source</b> in the toolbar. Everything is
+          simulated in this page; no backend. Ctrl+K opens the menu. In the menu: arrows, Enter, F2
+          edit, Delete forget, Esc.
+        </p>
+        <h3>Scenario</h3>
+        <button data-sc="first">1. First launch (nothing remembered)</button>
+        <button data-sc="detectedNew">2. SA430 detected, not remembered</button>
+        <button data-sc="remembered">3. SA430 remembered and present</button>
+        <button data-sc="absent">4. SA430 remembered and absent</button>
+        <button data-sc="long">5. Long names (22 and 60 chars)</button>
+        <button data-sc="fail">6. Connection failure (device busy)</button>
+        <button data-sc="editActive">7. Edit while connected (try ✎)</button>
+        <h3>Hardware simulation</h3>
+        <div class="row2">
+          <button id="hwUnplug">Unplug SA430</button><button id="hwReplug">Replug same port</button>
+        </div>
+        <button id="hwReplug2">Replug on /dev/ttyACM1 (other port)</button>
+        <p>SA430 serial: <code>08FF41E50F8B3A34</code></p>
+        <h3>Add source: Test connection</h3>
+        <p>
+          <code>/dev/ttyACM0</code> or <code>/dev/ttyACM1</code> succeeds (when SA430 is plugged on
+          that port). <code>/dev/ttyACM2</code>: a <i>different</i> SA430 (serial
+          <code>B7C100A2E9D41F05</code>) answers: tries the mismatch case when editing.
+          <code>/dev/ttyUSB9</code>: no such file. Anything else: no answer (timeout).
+        </p>
+        <h3>Window width</h3>
+        <div class="row2">
+          <button data-w="">1180</button><button data-w="narrow">1024 (min)</button
+          ><button data-w="tiny">520 (stress)</button>
+        </div>
+        <h3>Event log</h3>
+        <div id="log"></div>
+      </aside>
+    </div>
+
+    <script>
+      'use strict';
+      const SERIAL = '08FF41E50F8B3A34';
+      const $ = (s, r = document) => r.querySelector(s);
+      const esc = (s) =>
+        String(s).replace(
+          /[&<>"]/g,
+          (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
+        );
+      const TRANSPORT = { sim: 'Built-in', file: 'File', usb: 'USB' };
+      const NAME_MAX = 60;
+      let uid = 1,
+        clock = 1000;
+
+      /* ---- model (UI mirror of backend state) ---- */
+      let S;
+      function reset() {
+        S = {
+          sources: [], // remembered: {id,name,kind:'sim'|'file'|'sa430',deviceId,port,path,last}
+          present: null, // currently plugged SA430: {deviceId, port} or null
+          active: null, // id of active remembered entry, or {tmp:...} for unremembered
+          activeTmp: null, // {name,kind,deviceId,port} for a not-yet-remembered active source
+          state: 'disconnected', // backend SessionState
+          failedKey: null,
+          lost: false,
+          notice: null,
+          firstLaunch: true,
+          forced: null, // forced: 'fail' makes the next SA430 connect fail
+          toast: null,
+          fresh: null,
+          menuOpen: false,
+          kbd: 0,
+        };
+      }
+      const keyOf = (e) => (e.deviceId ? 'dev:' + e.deviceId : e.kind === 'sim' ? 'sim' : e.id);
+      function log(m) {
+        const l = $('#log');
+        l.textContent += m + '\n';
+        l.scrollTop = l.scrollHeight;
+      }
+
+      /* ---- scenarios ---- */
+      function scenario(id) {
+        closeMenu(false);
+        closeDialog();
+        reset();
+        S.forced = null;
+        const mk = (o) => ({
+          id: 's' + uid++,
+          last: clock++,
+          deviceId: null,
+          port: null,
+          path: null,
+          ...o,
+        });
+        if (id === 'detectedNew') {
+          S.present = { deviceId: SERIAL, port: '/dev/ttyACM0' };
+        }
+        if (id === 'remembered') {
+          S.present = { deviceId: SERIAL, port: '/dev/ttyACM0' };
+          S.sources.push(
+            mk({ name: 'Bench SA430', kind: 'sa430', deviceId: SERIAL, port: '/dev/ttyACM0' }),
+            mk({ name: 'Signal simulator', kind: 'sim' }),
+          );
+          S.firstLaunch = false;
+        }
+        if (id === 'absent') {
+          S.sources.push(
+            mk({ name: 'Bench SA430', kind: 'sa430', deviceId: SERIAL, port: '/dev/ttyACM0' }),
+            mk({
+              name: 'capture-2026-10-01.sigmf',
+              kind: 'file',
+              path: '/home/kr/captures/capture-2026-10-01.sigmf',
+            }),
+          );
+          S.firstLaunch = false;
+        }
+        if (id === 'long') {
+          S.present = { deviceId: SERIAL, port: '/dev/ttyACM0' };
+          S.sources.push(
+            mk({ name: 'SA430 ' + SERIAL, kind: 'sa430', deviceId: SERIAL, port: '/dev/ttyACM0' }),
+            mk({
+              name: 'Roof antenna north-facing, 2.4 GHz survey, calibration run no. 7',
+              kind: 'file',
+              path: '/home/kr/captures/survey/roof-north-2g4-run7.sigmf-meta',
+            }),
+            mk({ name: 'Signal simulator', kind: 'sim' }),
+            mk({
+              name: 'RTL-SDR Blog V4 0000000000000001 (garage, rear USB hub port 3)',
+              kind: 'sa430',
+              deviceId: 'RTL0001',
+              port: '/dev/ttyUSB0',
+            }),
+          );
+          S.firstLaunch = false;
+        }
+        if (id === 'editActive') {
+          S.present = { deviceId: SERIAL, port: '/dev/ttyACM0' };
+          S.sources.push(
+            mk({ name: 'Bench SA430', kind: 'sa430', deviceId: SERIAL, port: '/dev/ttyACM0' }),
+            mk({ name: 'Signal simulator', kind: 'sim' }),
+            mk({
+              name: 'capture-2026-10-01.sigmf',
+              kind: 'file',
+              path: '/home/kr/captures/capture-2026-10-01.sigmf',
+            }),
+          );
+          S.firstLaunch = false;
+          S.active = S.sources[0].id;
+          S.state = 'connected';
+        }
+        if (id === 'fail') {
+          S.present = { deviceId: SERIAL, port: '/dev/ttyACM0' };
+          S.sources.push(
+            mk({ name: 'Bench SA430', kind: 'sa430', deviceId: SERIAL, port: '/dev/ttyACM0' }),
+          );
+          S.firstLaunch = false;
+          S.forced = 'fail';
+        }
+        document
+          .querySelectorAll('[data-sc]')
+          .forEach((b) => b.classList.toggle('cur', b.dataset.sc === id));
+        log('scenario: ' + id);
+        render();
+      }
+
+      /* ---- derived view model: ONE row per physical device (key = kind+deviceId) ---- */
+      function viewModel() {
+        const yours = [...S.sources]
+          .sort((a, b) => b.last - a.last)
+          .map((e) => {
+            const present =
+              e.kind === 'sa430' ? !!S.present && S.present.deviceId === e.deviceId : null;
+            const port = present ? S.present.port : e.port; // current port wins; name stays
+            return { ...e, present, port };
+          });
+        if (S.toast && !S.sources.includes(S.toast.entry)) {
+          yours.push({ ...S.toast.entry, present: null, ghost: true });
+          yours.sort((a, b) => b.last - a.last);
+        }
+        const rememberedDev = new Set(yours.filter((e) => e.deviceId).map((e) => e.deviceId));
+        const detected = [];
+        if (S.present && !rememberedDev.has(S.present.deviceId))
+          detected.push({
+            tmp: true,
+            name: 'SA430 ' + S.present.deviceId,
+            kind: 'sa430',
+            deviceId: S.present.deviceId,
+            port: S.present.port,
+            present: true,
+          });
+        return { yours, detected };
+      }
+      function isActive(r) {
+        if (S.active) return r.id === S.active;
+        return !!S.activeTmp && r.tmp && r.deviceId === S.activeTmp.deviceId;
+      }
+      function activeEntry() {
+        if (S.active) return S.sources.find((e) => e.id === S.active) || S.activeTmp;
+        return S.activeTmp;
+      }
+
+      /* ---- rendering ---- */
+      const STATE_LABEL = {
+        disconnected: 'Disconnected',
+        connecting: 'Connecting…',
+        connected: 'Connected',
+        acquiring: 'Acquiring',
+        disconnecting: 'Disconnecting…',
+      };
+      function dot(st) {
+        if (st === 'failed')
+          return '<span class="src-dot src-dot-failed" aria-hidden="true">✕</span>';
+        const c = {
+          connected: 'ok',
+          acquiring: 'ok',
+          connecting: 'busy',
+          disconnecting: 'busy',
+          absent: 'off',
+          idle: 'idle',
+        }[st];
+        return `<span class="src-dot" aria-hidden="true"><i class="cdot cdot-${c}"></i></span>`;
+      }
+
+      function rowStatus(r) {
+        const key = r.id || 'tmp:' + r.deviceId;
+        if (isActive(r)) {
+          if (S.failedKey === key) return 'failed';
+          if (S.state === 'connecting' || S.state === 'disconnecting') return S.state;
+          if (S.state === 'connected' || S.state === 'acquiring') return S.state;
+          return S.lost ? 'absent' : 'idle';
+        }
+        if (S.failedKey === key) return 'failed';
+        if (r.present === false) return 'absent';
+        return 'idle';
+      }
+      const STATUS_TEXT = {
+        connected: 'Connected',
+        acquiring: 'Acquiring',
+        connecting: 'Connecting…',
+        disconnecting: 'Disconnecting…',
+        failed: 'Failed',
+        absent: 'Not detected',
+        idle: null,
+      };
+      function detailOf(r) {
+        if (r.kind === 'sa430') return r.port || '';
+        if (r.kind === 'file') return r.path || '';
+        return '';
+      }
+      function badgeOf(r) {
+        return r.kind === 'sa430' ? TRANSPORT.usb : TRANSPORT[r.kind];
+      }
+      function tipOf(r) {
+        const l = [r.name];
+        if (r.kind === 'sa430')
+          l.push(
+            'SA430 spectrum analyzer',
+            'Serial number: ' + (r.deviceId || 'not read yet'),
+            'Port: ' + (r.port || '-'),
+          );
+        if (r.kind === 'file') l.push('Recording', r.path);
+        if (r.kind === 'sim') l.push('Built-in simulator');
+        return l.join('\n');
+      }
+
+      function rowHtml(r, section, idx) {
+        const key = r.id || 'tmp:' + r.deviceId;
+        if (S.toast && S.toast.key === key) {
+          return `<div class="source-row"><div class="source-toast" role="status"><span class="msg" title="${esc(S.toast.entry.name)}">Forgot “${esc(S.toast.entry.name)}”.</span><button data-act="undo" data-testid="source-undo">Undo</button></div></div>`;
+        }
+        const st = rowStatus(r),
+          txt = STATUS_TEXT[st];
+        const act = isActive(r);
+        const cls = ['source-item'];
+        if (st === 'absent') cls.push('dimmed');
+        if (S.fresh === key) cls.push('fresh');
+        const stCls =
+          st === 'connected' || st === 'acquiring'
+            ? 'ok'
+            : st === 'failed'
+              ? 'bad'
+              : st === 'connecting' || st === 'disconnecting'
+                ? 'busy'
+                : '';
+        const detail = detailOf(r);
+        const sub = [
+          txt
+            ? `<span class="st ${stCls}">${esc(txt)}</span>`
+            : r.tmp
+              ? '<span class="st">New</span>'
+              : '',
+          (txt || r.tmp) && detail ? '<span class="sep" aria-hidden="true">·</span>' : '',
+          detail ? `<span class="detail">${esc(detail)}</span>` : '',
+        ].join('');
+        const busy = S.state === 'connecting' || S.state === 'disconnecting';
+        return `<div class="source-row" data-key="${esc(key)}">
+    <button type="button" role="menuitemradio" aria-checked="${act}" ${busy ? 'aria-disabled="true"' : ''} class="${cls.join(' ')}" data-act="pick" data-section="${section}" data-idx="${idx}" title="${esc(tipOf(r))}" data-testid="source-entry">
+      ${dot(st)}<span class="src-name">${esc(r.name)}</span><span class="badge">${badgeOf(r)}</span>
+      <span class="row-sub">${sub || '&nbsp;'}</span>
+    </button>
+    <span class="source-actions"><button class="icon" data-act="edit" aria-label="Edit ${esc(r.name)}" title="Edit (F2)" data-testid="source-edit">✎</button>${r.tmp ? '' : `<button class="icon" data-act="forget" aria-label="Forget ${esc(r.name)}" title="Forget (Delete)">×</button>`}</span>
+  </div>`;
+      }
+
+      function renderButton() {
+        const btn = $('#srcBtn'),
+          a = activeEntry();
+        const st = !a
+          ? 'idle'
+          : S.failedKey && S.failedKey === (a.id || 'tmp:' + a.deviceId)
+            ? 'failed'
+            : S.state === 'connecting' || S.state === 'disconnecting'
+              ? S.state
+              : S.state === 'connected' || S.state === 'acquiring'
+                ? S.state
+                : S.lost
+                  ? 'absent'
+                  : 'idle';
+        const name = a ? a.name : 'Choose a source';
+        btn.className = 'source-button' + (a ? '' : ' attention');
+        btn.setAttribute('aria-expanded', S.menuOpen);
+        btn.setAttribute(
+          'aria-label',
+          a ? `Source: ${name}, ${STATE_LABEL[S.state]}` : 'Source: Choose a source',
+        );
+        btn.title = a ? `${name}\nChoose source (Ctrl+K)` : 'Choose source (Ctrl+K)';
+        btn.innerHTML = `${a ? dot(st) : ''}<span class="src-name">${esc(name)}</span><span aria-hidden="true">▾</span>`;
+        const pill = $('#pill');
+        pill.className = 'state-pill state-' + S.state;
+        pill.textContent = STATE_LABEL[S.state];
+        const run = $('#runBtn');
+        const busy = S.state === 'connecting' || S.state === 'disconnecting';
+        if (S.state === 'acquiring') {
+          run.className = 'primary stop';
+          run.textContent = '■ Stop';
+          run.disabled = busy;
+          run.title = '';
+        } else {
+          run.className = 'primary';
+          run.textContent = '▶ Run';
+          run.disabled = busy || !a;
+          run.title = a ? '' : 'Choose a source first';
+        }
+        $('#simBadge').hidden = !(
+          a &&
+          a.kind === 'sim' &&
+          (S.state === 'connected' || S.state === 'acquiring')
+        );
+        $('#hint').hidden = !!a;
+        $('#noticeSlot').innerHTML = S.notice
+          ? `<div class="notice" role="alert"><span class="notice-message">${esc(S.notice.text)}</span>${S.notice.reconnect ? '<button class="small" data-act="reconnect">Reconnect</button>' : ''}<button class="icon" data-act="dismiss" aria-label="Dismiss">×</button></div>`
+          : '';
+      }
+
+      function menuHtml() {
+        const { yours, detected } = viewModel();
+        const busy = S.state === 'connecting' || S.state === 'disconnecting';
+        let h =
+          '<div class="source-menu" role="menu" id="menu" tabindex="-1" aria-label="Choose source">';
+        if (yours.length) {
+          h +=
+            '<div class="source-heading" role="presentation">Your sources</div><div class="source-yours" role="group" aria-label="Your sources">';
+          h += yours.map((r, i) => rowHtml(r, 'yours', i)).join('') + '</div>';
+        }
+        h +=
+          '<div class="source-heading" role="presentation">Detected devices</div><div role="group" aria-label="Detected devices">';
+        if (detected.length) h += detected.map((r, i) => rowHtml(r, 'detected', i)).join('');
+        else
+          h +=
+            '<div class="source-note">No new devices found. Plug one in; this list updates automatically.</div>';
+        h += '</div>';
+        const simRemembered = S.sources.some((e) => e.kind === 'sim');
+        h += '<div class="source-fixed" role="group" aria-label="Other">';
+        if (!simRemembered)
+          h += `<button type="button" role="menuitem" class="source-item single" ${busy ? 'aria-disabled="true"' : ''} data-act="sim">${dot('idle')}<span class="src-name">Signal simulator</span><span class="badge">Built-in</span></button>`;
+        h += `<button type="button" role="menuitem" class="source-item single" ${busy ? 'aria-disabled="true"' : ''} data-act="file"><span class="src-dot" aria-hidden="true"></span><span class="src-name">Open file…</span></button>`;
+        h += `<button type="button" role="menuitem" class="source-item single" ${busy ? 'aria-disabled="true"' : ''} data-act="add"><span class="src-dot" aria-hidden="true"></span><span class="src-name">Add source…</span></button>`;
+        h += '</div>';
+        if (S.state === 'connected' || S.state === 'acquiring' || busy)
+          h += `<div class="source-fixed" role="group" aria-label="Session"><button type="button" role="menuitem" class="source-item single" ${busy ? 'aria-disabled="true"' : ''} data-act="disconnect"><span class="src-dot" aria-hidden="true"></span><span class="src-name">Disconnect</span></button></div>`;
+        return h + '</div>';
+      }
+
+      function render() {
+        renderButton();
+        const ctl = $('#srcControl');
+        let pop = $('.source-popover', ctl);
+        if (!S.menuOpen) {
+          if (pop) pop.remove();
+          return;
+        }
+        const hadFocus = pop && pop.contains(document.activeElement);
+        const kbdKey = document.activeElement?.closest?.('[data-key]')?.dataset.key;
+        const scrollTop = pop ? pop.scrollTop : 0;
+        if (!pop) {
+          pop = document.createElement('div');
+          pop.className = 'source-popover';
+          ctl.appendChild(pop);
+        }
+        pop.innerHTML = menuHtml();
+        pop.scrollTop = scrollTop;
+        positionPopover(pop);
+        if (hadFocus || !pop._focused) {
+          pop._focused = true;
+          let t = kbdKey
+            ? pop.querySelector(`[data-key="${CSS.escape(kbdKey)}"] [data-act="pick"]`)
+            : null;
+          t =
+            t ||
+            pop.querySelector('[aria-checked="true"]') ||
+            pop.querySelector('[data-testid="source-undo"]') ||
+            items()[0];
+          (t || $('#menu', pop)).focus();
+        }
+      }
+      function positionPopover(pop) {
+        // clamp inside the window frame: shift left when it would overflow the right edge
+        const frame = $('#frame').getBoundingClientRect();
+        const ctl = $('#srcControl').getBoundingClientRect();
+        const w = Math.min(360, frame.width - 16);
+        pop.style.width = w + 'px';
+        const overflow = ctl.left + w - (frame.right - 8);
+        pop.style.left =
+          overflow > 0 ? -Math.min(overflow, ctl.left - frame.left - 8) + 'px' : '0px';
+      }
+      const items = () =>
+        [
+          ...document.querySelectorAll(
+            '.source-popover [role^="menuitem"], .source-popover [data-act="undo"]',
+          ),
+        ].filter((e) => e.getAttribute('aria-disabled') !== 'true');
+
+      /* ---- menu open/close ---- */
+      function openMenu() {
+        if (S.menuOpen) return;
+        S.menuOpen = true;
+        S.firstLaunch = false;
+        render();
+      }
+      function closeMenu(refocus = true) {
+        if (!S.menuOpen) return;
+        S.menuOpen = false;
+        if (S.toast) {
+          clearTimeout(S.toast.t);
+          S.toast = null;
+        }
+        render();
+        if (refocus) $('#srcBtn').focus();
+      }
+      $('#srcBtn').addEventListener('click', () => (S.menuOpen ? closeMenu() : openMenu()));
+      $('#srcBtn').addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' && !S.menuOpen) {
+          e.preventDefault();
+          openMenu();
+        }
+      });
+      document.addEventListener('mousedown', (e) => {
+        if (S.menuOpen && !e.target.closest('.source-popover') && !e.target.closest('#srcBtn'))
+          closeMenu(false);
+      });
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          $('#dialogSlot').firstChild ? 0 : S.menuOpen ? closeMenu() : openMenu();
+          return;
+        }
+        if (!S.menuOpen || $('#dialogSlot').firstChild) return;
+        const pop = $('.source-popover');
+        if (!pop) return;
+        const list = items();
+        const i = list.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          list[(i + 1) % list.length]?.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          list[(i - 1 + list.length) % list.length]?.focus();
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          list[0]?.focus();
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          list[list.length - 1]?.focus();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          closeMenu();
+        } else if (e.key === 'Tab') {
+          closeMenu();
+        } else if (e.key === 'F2') {
+          const k = document.activeElement.closest('[data-key]')?.dataset.key;
+          if (k) {
+            e.preventDefault();
+            openDialog(k);
+          }
+        } else if (e.key === 'Delete') {
+          const k = document.activeElement.closest('[data-key]')?.dataset.key;
+          if (k && !k.startsWith('tmp:')) {
+            e.preventDefault();
+            forget(k);
+          }
+        } else if (e.key === 'ArrowRight' && document.activeElement.dataset.act === 'pick') {
+          const a = document.activeElement
+            .closest('.source-row')
+            ?.querySelector('.source-actions button');
+          if (a) {
+            e.preventDefault();
+            a.closest('.source-row').classList.add('kbd');
+            a.focus();
+          }
+        } else if (e.key === 'ArrowLeft' && document.activeElement.closest('.source-actions')) {
+          e.preventDefault();
+          const row = document.activeElement.closest('.source-row');
+          row.classList.remove('kbd');
+          row.querySelector('[data-act="pick"]').focus();
+        }
+      });
+      $('#srcControl').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-act]');
+        if (!b) return;
+        const act = b.dataset.act,
+          rowEl = b.closest('[data-key]'),
+          key = rowEl?.dataset.key;
+        if (b.getAttribute('aria-disabled') === 'true') return;
+        if (act === 'pick') {
+          const { yours, detected } = viewModel();
+          pickRow((b.dataset.section === 'yours' ? yours : detected)[+b.dataset.idx]);
+        } else if (act === 'edit') openDialog(key);
+        else if (act === 'forget') forget(key);
+        else if (act === 'undo') undo();
+        else if (act === 'sim') connect({ kind: 'sim', name: 'Signal simulator' });
+        else if (act === 'file') openFile();
+        else if (act === 'add') openDialog();
+        else if (act === 'disconnect') disconnect();
+      });
+
+      /* ---- forget / undo ---- */
+      function lookup(key) {
+        if (key.startsWith('tmp:'))
+          return viewModel().detected.find((r) => 'tmp:' + r.deviceId === key);
+        return S.sources.find((e) => e.id === key);
+      }
+      function forget(key) {
+        const e = S.sources.find((x) => x.id === key);
+        if (!e) return;
+        S.sources = S.sources.filter((x) => x !== e);
+        if (S.toast) clearTimeout(S.toast.t);
+        S.toast = {
+          key,
+          entry: e,
+          t: setTimeout(() => {
+            S.toast = null;
+            render();
+          }, 5000),
+        };
+        if (S.active === key) {
+          S.activeTmp = { ...e, id: undefined, tmp: true };
+          S.active = null;
+        } // connection stays until another pick
+        log(`forgot "${e.name}"`);
+        render();
+      }
+      function undo() {
+        if (!S.toast) return;
+        clearTimeout(S.toast.t);
+        const e = S.toast.entry;
+        S.toast = null;
+        if (!S.sources.find((x) => x.id === e.id)) S.sources.push(e);
+        if (
+          (S.activeTmp && S.activeTmp.deviceId && S.activeTmp.deviceId === e.deviceId) ||
+          (S.activeTmp && S.activeTmp.name === e.name)
+        ) {
+          S.active = e.id;
+          S.activeTmp = null;
+        }
+        log(`undo forget "${e.name}"`);
+        S.fresh = e.id;
+        setTimeout(() => {
+          S.fresh = null;
+        }, 1500);
+        render();
+      }
+
+      /* ---- connect flow (simulated backend) ---- */
+      let connTimer;
+      function pickRow(r) {
+        if (!r) return;
+        connect(
+          r.tmp
+            ? { kind: 'sa430', name: r.name, deviceId: r.deviceId, port: r.port, tmp: true }
+            : r,
+        );
+      }
+      function connect(t) {
+        if (S.state === 'connecting' || S.state === 'disconnecting') return;
+        closeMenu(true);
+        stopPlot();
+        S.notice = null;
+        S.lost = false;
+        S.failedKey = null;
+        let entry = t.id
+          ? S.sources.find((e) => e.id === t.id)
+          : t.kind === 'sim'
+            ? S.sources.find((e) => e.kind === 'sim')
+            : null;
+        if (entry) {
+          S.active = entry.id;
+          S.activeTmp = null;
+        } else {
+          S.active = null;
+          S.activeTmp = {
+            name: t.name,
+            kind: t.kind,
+            deviceId: t.deviceId || null,
+            port: t.port || null,
+            path: t.path || null,
+            tmp: true,
+          };
+        }
+        const key = entry ? entry.id : t.kind === 'sa430' ? 'tmp:' + t.deviceId : 'tmp:' + t.kind;
+        S.state = 'connecting';
+        render();
+        log('connecting: ' + (entry || t).name);
+        clearTimeout(connTimer);
+        connTimer = setTimeout(() => {
+          const e = entry || S.activeTmp;
+          let err = null;
+          if (e.kind === 'sa430') {
+            if (!S.present || S.present.deviceId !== e.deviceId)
+              err = `Could not open ${e.port}: No such file or directory (os error 2)`;
+            else if (S.forced === 'fail')
+              err = `SA430 on ${S.present.port} did not answer: device busy (is another program using it?)`;
+          } else if (e.kind === 'file' && e.path.includes('missing')) err = 'No such file';
+          if (err) {
+            S.state = 'disconnected';
+            S.failedKey = key;
+            S.notice = { text: 'Connection failed: ' + err };
+            log('FAILED: ' + err);
+            render();
+            return;
+          }
+          S.state = 'connected';
+          if (!entry) {
+            // remember on first successful connect
+            entry = {
+              id: 's' + uid++,
+              name: e.name,
+              kind: e.kind,
+              deviceId: e.deviceId,
+              port: e.port,
+              path: e.path,
+              last: 0,
+            };
+            S.sources.push(entry);
+            S.active = entry.id;
+            S.activeTmp = null;
+            log('remembered: ' + entry.name);
+          }
+          entry.last = clock++;
+          if (e.kind === 'sa430' && S.present) entry.port = S.present.port;
+          log('connected: ' + entry.name);
+          render();
+        }, 900);
+      }
+      function disconnect() {
+        if (S.menuOpen) closeMenu(true);
+        stopPlot();
+        S.state = 'disconnecting';
+        render();
+        setTimeout(() => {
+          S.state = 'disconnected';
+          log('disconnected');
+          render();
+        }, 500);
+      }
+      $('#runBtn').addEventListener('click', () => {
+        if (S.state === 'acquiring') {
+          stopPlot();
+          S.state = 'connected';
+          render();
+          return;
+        }
+        if (S.state === 'connected') {
+          S.state = 'acquiring';
+          render();
+          startPlot();
+          return;
+        }
+        if (S.state === 'disconnected' && activeEntry()) {
+          const a = activeEntry();
+          connect(a.id ? a : { ...a, tmp: true });
+        }
+      });
+      function openFile() {
+        const path = '/home/kr/captures/capture-2026-10-01.sigmf';
+        log('native file dialog -> ' + path);
+        connect({ kind: 'file', name: path.split('/').pop(), path });
+      }
+      document.addEventListener('click', (e) => {
+        const b = e.target.closest('#noticeSlot [data-act]');
+        if (!b) return;
+        if (b.dataset.act === 'dismiss') {
+          S.notice = null;
+          render();
+        }
+        if (b.dataset.act === 'reconnect') {
+          const a = activeEntry();
+          S.notice = null;
+          connect(a.id ? a : { ...a, tmp: true });
+        }
+      });
+
+      /* ---- hardware simulation ---- */
+      function hwChange(fn, msg) {
+        fn();
+        log(msg);
+        const a = activeEntry();
+        if (
+          !S.present &&
+          a &&
+          a.kind === 'sa430' &&
+          (S.state === 'connected' || S.state === 'acquiring')
+        ) {
+          stopPlot();
+          S.state = 'disconnected';
+          S.lost = true;
+          S.notice = {
+            text: `Device lost: ${a.port} disappeared while connected (read error: No such device).`,
+            reconnect: true,
+          };
+          log('device lost during session');
+        }
+        if (S.present && S.lost && a && a.deviceId === S.present.deviceId) S.lost = false;
+        render();
+      }
+      $('#hwUnplug').onclick = () =>
+        hwChange(() => {
+          S.present = null;
+        }, 'unplugged SA430');
+      $('#hwReplug').onclick = () =>
+        hwChange(() => {
+          S.present = { deviceId: SERIAL, port: S.present?.port || '/dev/ttyACM0' };
+        }, 'replugged SA430 on same port');
+      $('#hwReplug2').onclick = () =>
+        hwChange(() => {
+          S.present = { deviceId: SERIAL, port: '/dev/ttyACM1' };
+        }, 'replugged SA430 on /dev/ttyACM1');
+
+      /* ---- Add / Edit source dialog (ONE dialog; mode 'add' or 'edit') ---- */
+      let D;
+      const OTHER_SERIAL = 'B7C100A2E9D41F05';
+      const DRIVER_LABEL = {
+        sa430: 'SA430 spectrum analyzer',
+        sim: 'Signal simulator (built-in)',
+        file: 'Recording file',
+      };
+      function openDialog(key) {
+        closeMenu(false);
+        if (!key)
+          D = {
+            mode: 'add',
+            kind: 'sa430',
+            name: '',
+            nameTouched: false,
+            port: '',
+            test: { st: 'idle' },
+            ownId: null,
+          };
+        else {
+          const r = lookup(key);
+          const live =
+            !r.tmp &&
+            S.active === r.id &&
+            ['connecting', 'connected', 'acquiring', 'disconnecting'].includes(S.state);
+          D = {
+            mode: 'edit',
+            key,
+            tmp: !!r.tmp,
+            ownId: r.tmp ? null : r.id,
+            kind: r.kind,
+            name: r.name,
+            nameTouched: false,
+            port: r.port || '',
+            path: r.path || '',
+            origSerial: r.deviceId || null,
+            locked: live,
+            test: { st: 'idle' },
+          };
+        }
+        $('#dialogSlot').innerHTML =
+          `<div class="backdrop"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgT" id="dlg"></div></div>`;
+        paintDialog();
+        $('#dName').focus();
+        $('#dName').select();
+      }
+      function closeDialog() {
+        $('#dialogSlot').innerHTML = '';
+        D = null;
+      }
+      function dlgErrors() {
+        const e = {};
+        const n = D.name.trim();
+        if (!n) e.name = 'Enter a name.';
+        else if (n.length > NAME_MAX) e.name = `At most ${NAME_MAX} characters.`;
+        else if (
+          S.sources.some((s) => s.id !== D.ownId && s.name.toLowerCase() === n.toLowerCase())
+        )
+          e.name = 'A source with this name already exists.';
+        if (D.kind === 'sa430' && !D.locked) {
+          if (!D.port.trim()) e.port = 'Enter the serial port.';
+          else if (!/^\/dev\/[\w./-]+$/.test(D.port.trim()))
+            e.port = 'Use a device path such as /dev/ttyACM0.';
+        }
+        if (D.test.st === 'ok') {
+          const ex = S.sources.find((s) => s.id !== D.ownId && s.deviceId === D.test.serial);
+          if (ex) e.dup = `This device is already in Your sources as “${ex.name}”.`;
+          else if (D.origSerial && D.test.serial !== D.origSerial)
+            e.mismatch = `Different device: serial ${D.test.serial}, this source is ${D.origSerial}. Saving binds this source to serial ${D.test.serial}; its name and settings are kept.`;
+        }
+        return e;
+      }
+      function paintDialog() {
+        const dlg = $('#dlg');
+        const e = dlgErrors();
+        const t = D.test;
+        const edit = D.mode === 'edit';
+        const showName = D.nameTouched,
+          showPort = D.portTouched;
+        const res =
+          t.st === 'idle'
+            ? '<div class="test-result idle" id="tres" role="status">Not tested. Test connection opens the port briefly and asks the device for its identity; your current source is not affected.</div>'
+            : t.st === 'run'
+              ? '<div class="test-result run" id="tres" role="status"><span class="spinner" aria-hidden="true"></span> Testing connection…</div>'
+              : t.st === 'ok'
+                ? `<div class="test-result ok" id="tres" role="status">✓ Connection OK. SA430 spectrum analyzer found.<span class="sub">Serial number ${esc(t.serial)}${edit && D.origSerial && t.serial === D.origSerial ? ' (matches this source)' : ''}</span></div>`
+                : `<div class="test-result fail" id="tres" role="alert">✕ Test failed: ${esc(t.msg)}</div>`;
+        const title = edit ? 'Edit source' : 'Add source';
+        const nameRow = `<div class="form-row"><label for="dName">Name</label><input type="text" id="dName" maxlength="${NAME_MAX}" value="${esc(D.name)}" class="${showName && e.name ? 'invalid' : ''}" aria-invalid="${!!(showName && e.name)}" placeholder="e.g. Bench SA430" data-testid="add-source-name">${showName && e.name ? `<span class="err">${e.name}</span>` : ''}</div>`;
+        const driverRow = edit
+          ? `<div class="form-row"><label for="dDriver">Driver</label><select id="dDriver" class="locked" disabled data-testid="add-source-driver"><option>${DRIVER_LABEL[D.kind]}</option></select><span class="help">The driver cannot be changed. To use another, forget this source and add a new one.</span></div>`
+          : `<div class="form-row"><label for="dDriver">Driver</label><select id="dDriver" data-testid="add-source-driver"><option>SA430 spectrum analyzer</option></select><span class="help">Only sources that need manual setup are listed. USB devices that are detected automatically do not need this.</span></div>`;
+        let params = '',
+          testRow = '',
+          notes = '';
+        if (D.kind === 'sa430') {
+          const lock = D.locked;
+          params = `<div class="form-row"><label for="dPort">Serial port</label><input type="text" id="dPort" value="${esc(D.port)}" placeholder="/dev/ttyACM0" ${lock ? 'disabled class="locked"' : `class="${showPort && e.port ? 'invalid' : ''}"`} aria-invalid="${!!(showPort && e.port)}" spellcheck="false">${showPort && e.port ? `<span class="err">${e.port}</span>` : `<span class="help">${lock ? 'In use by the active connection. Disconnect to change the port.' : 'Path of the device’s serial port.'}</span>`}</div>`;
+          testRow = lock
+            ? ''
+            : `<div class="test-row"><button id="dTest" ${t.st === 'run' || !D.port.trim() || e.port ? 'disabled' : ''} data-testid="add-source-test">Test connection</button>${res}</div>`;
+        } else if (D.kind === 'file') {
+          params = `<div class="form-row"><label for="dPath">File</label><input type="text" id="dPath" class="ro" readonly value="${esc(D.path)}" title="${esc(D.path)}"><span class="help">The file cannot be changed. To use another file, choose Open file….</span></div>`;
+        } else {
+          params = `<div class="form-row"><span class="help">The simulator has no settings; only its name can be changed.</span></div>`;
+        }
+        if (edit && D.tmp)
+          notes +=
+            '<div class="dlg-note info">New device, not remembered yet. Save remembers it; it does not connect.</div>';
+        if (edit && D.locked)
+          notes +=
+            '<div class="dlg-note info">This source is connected. The name changes now; connection settings are locked until you disconnect.</div>';
+        if (e.dup) notes += `<div class="dlg-note warn" role="alert">⚠ ${e.dup}</div>`;
+        if (e.mismatch)
+          notes += `<div class="dlg-note warn" role="alert">⚠ ${esc(e.mismatch)}</div>`;
+        if (t.st === 'fail')
+          notes += '<div class="dlg-note">You can still save an untested source.</div>';
+        const keep = document.activeElement?.id;
+        dlg.innerHTML = `<h2 id="dlgT">${title}</h2>${nameRow}${driverRow}${params}${testRow}${notes}
+    <div class="button-row">${edit && !D.tmp ? '<button class="forget" id="dForget" data-testid="edit-source-forget">Forget</button>' : ''}<span class="spacer"></span><button id="dCancel" data-testid="add-source-cancel">Cancel</button><button class="primary" id="dSave" ${e.name || e.port || e.dup ? 'disabled' : ''} data-testid="add-source-save">Save</button></div>`;
+        if (keep) {
+          const el = document.getElementById(keep);
+          if (el && !el.disabled) {
+            el.focus();
+            if (el.setSelectionRange && el.type === 'text' && !el.readOnly)
+              el.setSelectionRange(el.value.length, el.value.length);
+          }
+        }
+      }
+      document.addEventListener('input', (ev) => {
+        if (!D) return;
+        if (ev.target.id === 'dName') {
+          D.name = ev.target.value;
+          D.nameTouched = true;
+          paintDialog();
+        }
+        if (ev.target.id === 'dPort') {
+          D.port = ev.target.value;
+          D.portTouched = true;
+          if (D.test.st !== 'run') D.test = { st: 'idle' };
+          paintDialog();
+        }
+      });
+      document.addEventListener('click', (ev) => {
+        if (!D) return;
+        if (ev.target.id === 'dCancel') {
+          closeDialog();
+          $('#srcBtn').focus();
+        }
+        if (ev.target.id === 'dTest') testConnection();
+        if (ev.target.id === 'dSave') save();
+        if (ev.target.id === 'dForget') {
+          const k = D.key;
+          closeDialog();
+          forget(k);
+          S.menuOpen = true;
+          render();
+        }
+      });
+      document.addEventListener(
+        'keydown',
+        (ev) => {
+          if (!D) return;
+          if (ev.key === 'Escape') {
+            ev.preventDefault();
+            closeDialog();
+            $('#srcBtn').focus();
+          }
+          if (
+            ev.key === 'Enter' &&
+            ev.target.tagName === 'INPUT' &&
+            !ev.target.readOnly &&
+            !$('#dSave').disabled
+          ) {
+            ev.preventDefault();
+            save();
+          }
+          if (ev.key === 'Tab') {
+            // focus trap
+            const f = [
+              ...$('#dlg').querySelectorAll(
+                'input:not([readonly]),select:not(:disabled),button:not(:disabled)',
+              ),
+            ].filter((x) => !x.disabled);
+            if (!f.length) return;
+            const i = f.indexOf(document.activeElement);
+            if (ev.shiftKey && i <= 0) {
+              ev.preventDefault();
+              f[f.length - 1].focus();
+            } else if (!ev.shiftKey && i === f.length - 1) {
+              ev.preventDefault();
+              f[0].focus();
+            }
+          }
+        },
+        true,
+      );
+      function testConnection() {
+        const port = D.port.trim();
+        D.test = { st: 'run' };
+        paintDialog();
+        log('test connection ' + port + ' (active session untouched)');
+        setTimeout(() => {
+          if (!D) return;
+          if (port === '/dev/ttyACM2') D.test = { st: 'ok', serial: OTHER_SERIAL, port };
+          else if (S.present && S.present.port === port) {
+            if (
+              (S.state === 'acquiring' || S.state === 'connected') &&
+              activeEntry()?.port === port
+            )
+              D.test = {
+                st: 'fail',
+                msg: `${port} is in use by the active source. Stop and disconnect it first.`,
+              };
+            else D.test = { st: 'ok', serial: S.present.deviceId, port };
+          } else if (port === '/dev/ttyUSB9')
+            D.test = {
+              st: 'fail',
+              msg: `Could not open ${port}: No such file or directory (os error 2)`,
+            };
+          else D.test = { st: 'fail', msg: `No SA430 answered on ${port} (timeout after 2 s).` };
+          if (D.mode === 'add' && D.test.st === 'ok' && !D.name.trim())
+            D.name = 'SA430 ' + D.test.serial; // suggestion only when Name is blank
+          paintDialog();
+        }, 1100);
+      }
+      function save() {
+        const e = dlgErrors();
+        D.nameTouched = D.portTouched = true;
+        if (e.name || e.port || e.dup) return paintDialog();
+        const name = D.name.trim();
+        let entry;
+        if (D.mode === 'add' || D.tmp) {
+          entry = {
+            id: 's' + uid++,
+            name,
+            kind: 'sa430',
+            deviceId: D.test.st === 'ok' ? D.test.serial : D.origSerial || null,
+            port: D.port.trim(),
+            path: null,
+            last: clock++,
+          };
+          S.sources.push(entry);
+          if (D.tmp && S.activeTmp && S.activeTmp.deviceId === entry.deviceId) {
+            S.active = entry.id;
+            S.activeTmp = null;
+          }
+        } else {
+          entry = S.sources.find((s) => s.id === D.ownId);
+          entry.name = name;
+          if (D.kind === 'sa430' && !D.locked) {
+            entry.port = D.port.trim();
+            if (D.test.st === 'ok') entry.deviceId = D.test.serial;
+          } // identity re-resolves from a successful test
+        }
+        S.fresh = entry.id;
+        setTimeout(() => {
+          S.fresh = null;
+          render();
+        }, 3000);
+        log(
+          `${D.mode === 'add' ? 'saved' : 'edited'} "${entry.name}" (${S.active === entry.id ? 'active session untouched' : 'not connected'})`,
+        );
+        closeDialog();
+        S.menuOpen = true;
+        render(); // menu re-opens with the row focused, nothing connected
+        $(`[data-key="${CSS.escape(entry.id)}"] [data-act="pick"]`)?.focus();
+      }
+
+      /* ---- plot ---- */
+      let raf = null,
+        tt = 0;
+      function startPlot() {
+        const c = $('#plot');
+        const x = c.getContext('2d');
+        function f() {
+          c.width = c.clientWidth;
+          c.height = c.clientHeight;
+          x.fillStyle = '#0d1522';
+          x.fillRect(0, 0, c.width, c.height);
+          x.strokeStyle = '#26344a';
+          for (let i = 1; i < 10; i++) {
+            x.beginPath();
+            x.moveTo((i * c.width) / 10, 0);
+            x.lineTo((i * c.width) / 10, c.height);
+            x.stroke();
+          }
+          x.strokeStyle = '#3ee0b5';
+          x.beginPath();
+          tt += 0.05;
+          for (let i = 0; i < c.width; i += 3) {
+            const y =
+              c.height * 0.7 -
+              Math.max(0, 80 - Math.abs(i - c.width * 0.4) * 0.6) -
+              Math.random() * 12 -
+              Math.sin(i / 40 + tt) * 4;
+            i ? x.lineTo(i, y) : x.moveTo(i, y);
+          }
+          x.stroke();
+          raf = requestAnimationFrame(f);
+        }
+        cancelAnimationFrame(raf);
+        f();
+      }
+      function stopPlot() {
+        cancelAnimationFrame(raf);
+        const c = $('#plot');
+        c.getContext('2d').clearRect(0, 0, c.width, c.height);
+      }
+
+      /* ---- scenario / window controls ---- */
+      document
+        .querySelectorAll('[data-sc]')
+        .forEach((b) => b.addEventListener('click', () => scenario(b.dataset.sc)));
+      document.querySelectorAll('[data-w]').forEach((b) =>
+        b.addEventListener('click', () => {
+          $('#frame').className = 'frame ' + b.dataset.w;
+          render();
+        }),
+      );
+      const params = new URLSearchParams(location.search);
+      reset();
+      scenario(params.get('scenario') || 'first');
+      if (params.get('w')) $('#frame').className = 'frame ' + params.get('w');
+      if (params.get('open')) setTimeout(openMenu, 50);
+      /* screenshot helper: ?js=<code> runs after load (used only for taking review screenshots) */
+      if (params.get('js'))
+        setTimeout(() => {
+          try {
+            (0, eval)(params.get('js'));
+          } catch (e) {
+            console.error(e);
+          }
+        }, 100);
+    </script>
+  </body>
+</html>

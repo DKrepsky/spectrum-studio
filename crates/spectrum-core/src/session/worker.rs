@@ -73,8 +73,11 @@ fn open(
             validate_patch(source.capabilities(), source.settings(), &config.settings)?;
             source.apply(&config.settings)?;
         }
+        let mut resolved = config.clone();
+        resolved.device_id = opened.device_id.or(resolved.device_id);
+        resolved.connection.extend(opened.connection);
         let active = ActiveSource {
-            config: config.clone(),
+            config: resolved,
             driver_name: info.name.clone(),
             device_label: opened.label,
             kind: info.kind,

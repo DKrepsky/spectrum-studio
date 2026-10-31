@@ -169,6 +169,8 @@ impl SourceDriver for IqFileDriver {
             label: file_label(&path),
             source: Box::new(IqFileSource::new(RecordingReader::open(info)?, self.paced)),
             simulated: false,
+            device_id: None,
+            connection: ParamMap::new(),
         })
     }
 }
@@ -385,6 +387,8 @@ impl SourceDriver for TraceFileDriver {
                 delivered: false,
             }),
             simulated: false,
+            device_id: None,
+            connection: ParamMap::new(),
         })
     }
 }

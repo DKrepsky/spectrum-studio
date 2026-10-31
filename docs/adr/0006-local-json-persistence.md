@@ -1,6 +1,7 @@
 # ADR 0006 — Local JSON files for preferences and saved sources
 
-Status: accepted (2026-10-25)
+Status: accepted (2026-10-25); the saved-source model is amended by [ADR 0009](0009-automatic-source-memory.md) and
+[ADR 0010](0010-stable-device-identity.md)
 
 ## Context
 
@@ -29,3 +30,11 @@ never connected automatically (hardware should not start transmitting/streaming 
 
 - No extra dependency; corruption never prevents start-up.
 - Schema changes need a version bump and a migration in `store.rs` if fields change meaning.
+
+## Amendment (2026-10-31): migrations that rewrite
+Schema changes that merge or re-key entries (`sources.json` v3, [ADR 0010](0010-stable-device-identity.md))
+run when the file is loaded. Before the first rewrite the previous file is copied to
+`sources.pre-v<version>-<timestamp>.json` and the new one is written atomically; a failed backup or
+write is logged and reported as a warning, the in-memory result is used, and the rewrite is retried
+on the next write. Files with a *newer* version than the app knows are neither migrated nor rewritten
+on load.

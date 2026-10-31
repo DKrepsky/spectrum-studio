@@ -3,9 +3,18 @@
  * tauri-driver. See docs/testing.md for prerequisites.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { browser } from '@wdio/globals';
 
@@ -19,6 +28,25 @@ let tauriDriver: ChildProcess | undefined;
 // Isolated configuration directory per spec file (worker), so tests never touch the user's
 // preferences; it survives `browser.reloadSession()` to test persistence across restarts.
 let configHome: string | undefined;
+
+/**
+ * Copies `e2e/fixtures/seed/<spec basename>/*` into the app's config directory (only when the
+ * directory is first created, so restarts within a spec keep what the app wrote). `{{REPO}}` in a
+ * seed file is replaced with the repository root, so seeds can point at real fixtures.
+ */
+function seedConfig(configHome: string, spec: string | undefined) {
+  if (!spec) return;
+  const path = spec.startsWith('file:') ? fileURLToPath(spec) : spec;
+  const name = basename(path).replace(/(\.e2e)?\.ts$/, '');
+  const seed = join(root, 'e2e', 'fixtures', 'seed', name);
+  if (!existsSync(seed)) return;
+  const target = join(configHome, 'io.github.spectrumstudio');
+  mkdirSync(target, { recursive: true });
+  for (const file of readdirSync(seed)) {
+    const text = readFileSync(join(seed, file), 'utf8').replaceAll('{{REPO}}', root);
+    writeFileSync(join(target, file), text);
+  }
+}
 
 export const config: WebdriverIO.Config = {
   runner: 'local',
@@ -43,11 +71,14 @@ export const config: WebdriverIO.Config = {
     await waitForAppReady();
   },
 
-  beforeSession: () => {
+  beforeSession: (_config, _capabilities, specs) => {
     if (!configHome) {
       const dir = mkdtempSync(join(tmpdir(), 'spectrum-studio-e2e-'));
       configHome = dir;
+      // Lets specs inspect the files the app writes (see migration.e2e.ts).
+      process.env.SPECTRUM_E2E_APP_CONFIG = join(dir, 'io.github.spectrumstudio');
       process.on('exit', () => rmSync(dir, { recursive: true, force: true }));
+      seedConfig(dir, specs[0]);
     }
     tauriDriver = spawn(tauriDriverPath, [], {
       stdio: [null, process.stdout, process.stderr],

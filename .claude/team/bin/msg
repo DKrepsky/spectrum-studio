@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Team message pool. One markdown file per message in .claude/team/messages/.
+#
+#   msg post --from A --to B --subject S [--type T] [--work W] [--reply-to ID] [--body-file F | -]
+#   msg inbox AGENT        list open messages addressed to AGENT (or "all")
+#   msg read ID            print a message (also searches the archive)
+#   msg done ID            archive a handled message
+#   msg list               list every open message
+#   msg thread WORK        list open + archived messages for a work item
+#
+# Agents: product-manager designer staff-engineer developer qa user
+# Types:  request | handoff | question | answer | report | bug | decision | status
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+POOL="$ROOT/messages"
+ARCHIVE="$POOL/archive"
+AGENTS="product-manager designer staff-engineer developer qa user all"
+TYPES="request handoff question answer report bug decision status"
+
+die() { echo "msg: $*" >&2; exit 1; }
+valid() { [[ " $1 " == *" $2 "* ]]; }
+field() { sed -n "s/^$2: *//p" "$1" | head -1 || true; }
+find_msg() { ls "$POOL"/"$1"-*.md "$ARCHIVE"/"$1"-*.md 2>/dev/null | head -1 || true; }
+
+summary() {
+  local f="$1"
+  printf '%s | %s -> %s | %s | %s | work=%s\n' "$(field "$f" id)" "$(field "$f" from)" \
+    "$(field "$f" to)" "$(field "$f" type)" "$(field "$f" subject)" "$(field "$f" work)"
+}
+
+cmd_post() {
+  local from="" to="" subject="" type="request" work="" reply="" body=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --from) from="$2"; shift 2 ;;
+      --to) to="$2"; shift 2 ;;
+      --subject) subject="$2"; shift 2 ;;
+      --type) type="$2"; shift 2 ;;
+      --work) work="$2"; shift 2 ;;
+      --reply-to) reply="$2"; shift 2 ;;
+      --body-file) body="$(cat "$2")"; shift 2 ;;
+      -) body="$(cat)"; shift ;;
+      *) die "unknown argument: $1" ;;
+    esac
+  done
+  [[ -n "$from" && -n "$to" && -n "$subject" ]] || die "--from, --to and --subject are required"
+  valid "$AGENTS" "$from" || die "unknown sender: $from"
+  valid "$AGENTS" "$to" || die "unknown recipient: $to"
+  valid "$TYPES" "$type" || die "unknown type: $type ($TYPES)"
+  [[ -n "$body" ]] || die "empty body (use --body-file F or pipe with -)"
+
+  mkdir -p "$POOL" "$ARCHIVE"
+  local n id file slug
+  slug="$(printf '%s' "$subject" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '-' | sed 's/--*/-/g;s/^-//;s/-$//' | cut -c1-40)"
+  set -o noclobber
+  while :; do
+    n="$(ls "$POOL" "$ARCHIVE" 2>/dev/null | sed -n 's/^\([0-9]\{4\}\)-.*\.md$/\1/p' | sort -n | tail -1)"
+    id="$(printf '%04d' $((10#${n:-0} + 1)))"
+    file="$POOL/$id-$from-to-$to-$slug.md"
+    if { printf -- '---\nid: %s\nfrom: %s\nto: %s\ntype: %s\nsubject: %s\nwork: %s\nreply-to: %s\ndate: %s\n---\n\n%s\n' \
+      "$id" "$from" "$to" "$type" "$subject" "$work" "$reply" "$(date -Iseconds)" "$body" > "$file"; } 2>/dev/null; then
+      break
+    fi
+  done
+  echo "posted $id: $from -> $to ($type) $subject"
+}
+
+cmd_inbox() {
+  local who="${1:-}"; [[ -n "$who" ]] || die "usage: msg inbox AGENT"
+  local f found=0
+  for f in "$POOL"/*.md; do
+    [[ -e "$f" ]] || continue
+    local to; to="$(field "$f" to)"
+    if [[ "$to" == "$who" || "$to" == "all" ]]; then summary "$f"; found=1; fi
+  done
+  [[ $found -eq 1 ]] || echo "(inbox empty)"
+}
+
+cmd_read() {
+  local f; f="$(find_msg "${1:-}")"; [[ -n "$f" ]] || die "no such message: ${1:-}"
+  cat "$f"
+}
+
+cmd_done() {
+  local f; f="$(find_msg "${1:-}")"; [[ -n "$f" ]] || die "no such message: ${1:-}"
+  [[ "$(dirname "$f")" == "$POOL" ]] || die "already archived"
+  mv "$f" "$ARCHIVE/"; echo "archived $1"
+}
+
+cmd_list() {
+  local f found=0
+  for f in "$POOL"/*.md; do [[ -e "$f" ]] && { summary "$f"; found=1; }; done
+  [[ $found -eq 1 ]] || echo "(no open messages)"
+}
+
+cmd_thread() {
+  local w="${1:-}" f found=0; [[ -n "$w" ]] || die "usage: msg thread WORK"
+  for f in "$ARCHIVE"/*.md "$POOL"/*.md; do
+    [[ -e "$f" && "$(field "$f" work)" == "$w" ]] || continue
+    [[ "$(dirname "$f")" == "$ARCHIVE" ]] && printf '[done] ' || printf '[open] '
+    summary "$f"; found=1
+  done | sort -k2
+  return 0
+}
+
+case "${1:-}" in
+  post) shift; cmd_post "$@" ;;
+  inbox) shift; cmd_inbox "$@" ;;
+  read) shift; cmd_read "$@" ;;
+  done) shift; cmd_done "$@" ;;
+  list) cmd_list ;;
+  thread) shift; cmd_thread "$@" ;;
+  *) sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

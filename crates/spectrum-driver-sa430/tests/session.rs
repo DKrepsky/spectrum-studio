@@ -151,7 +151,8 @@ fn discovery_lists_devices_with_their_details() {
     let (m, _) = manager(one_port(), 0, &[]);
     let found = m.discover(DRIVER_ID).unwrap();
     assert_eq!(found.len(), 1);
-    assert_eq!(found[0].device_id, "/dev/ttyACM0");
+    assert_eq!(found[0].device_id, "08FF41E50F8B3A34");
+    assert_eq!(found[0].location.as_deref(), Some("/dev/ttyACM0"));
     assert!(found[0].label.contains("08FF41E50F8B3A34"));
     assert!(
         found[0]
@@ -252,6 +253,35 @@ fn connecting_without_a_device_explains_what_to_do() {
 }
 
 #[test]
+fn connecting_without_an_id_records_the_device_identity() {
+    let (m, _) = manager(one_port(), 0, &[]);
+    let status = m.connect(config()).unwrap();
+    let cfg = status.source.unwrap().config;
+    assert_eq!(cfg.device_id.as_deref(), Some("08FF41E50F8B3A34"));
+    assert_eq!(
+        cfg.connection.get("port"),
+        Some(&ParamValue::Text("/dev/ttyACM0".into()))
+    );
+}
+
+#[test]
+fn connecting_to_a_different_analyzer_names_both() {
+    // The scripted device answers with serial 08FF41E50F8B3A34.
+    let (m, _) = manager(vec![], 0, &[]);
+    let mut c = config();
+    c.device_id = Some("0000000000000001".into());
+    c.connection
+        .insert("port".into(), ParamValue::Text("/dev/ttyACM0".into()));
+    let err = m.connect(c).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("Expected SA430 0000000000000001 but /dev/ttyACM0 is SA430 08FF41E50F8B3A34"),
+        "{err}"
+    );
+    assert_eq!(m.status().state, SessionState::Disconnected);
+}
+
+#[test]
 fn a_silent_device_stops_acquisition_but_stays_connected() {
     // One sweep is queued; the second one times out.
     let (m, _) = manager(one_port(), 1, &SAMPLES);
@@ -290,6 +320,10 @@ fn real_hardware_sweeps() {
     assert!(!found.is_empty(), "no SA430 detected");
     let mut c = SourceConfig::new(DRIVER_ID);
     c.device_id = Some(found[0].device_id.clone());
+    assert_eq!(
+        c.device_id.as_deref(),
+        Some(found[0].label.trim_start_matches("SA430 "))
+    );
     let status = m.connect(c).unwrap();
     println!(
         "connected: {:?}",

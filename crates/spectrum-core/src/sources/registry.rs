@@ -57,6 +57,18 @@ impl DriverRegistry {
         }
         driver.discover()
     }
+
+    /// Asks a driver for the stable id of a stored entry; `None` for unknown drivers.
+    pub fn normalize_device_id(
+        &self,
+        driver_id: &str,
+        device_id: Option<&str>,
+        label: &str,
+    ) -> Option<String> {
+        self.get(driver_id)
+            .ok()?
+            .normalize_device_id(device_id, label)
+    }
 }
 
 #[cfg(test)]
@@ -80,5 +92,35 @@ mod tests {
         assert!(registry.discover("soapysdr").is_err());
         assert!(registry.get("nope").is_err());
         assert_eq!(registry.discover("simulator").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn normalize_device_id_asks_the_driver_and_ignores_unknown_ids() {
+        struct Normalizing;
+        impl SourceDriver for Normalizing {
+            fn info(&self) -> DriverInfo {
+                DriverInfo {
+                    id: "norm".into(),
+                    ..crate::sources::simulator::SimulatorDriver::unpaced().info()
+                }
+            }
+            fn open(
+                &self,
+                _config: &crate::model::SourceConfig,
+            ) -> Result<crate::sources::OpenedSource, SourceError> {
+                Err(SourceError::unavailable("no"))
+            }
+            fn normalize_device_id(&self, id: Option<&str>, label: &str) -> Option<String> {
+                Some(format!("{}:{label}", id.unwrap_or("-")))
+            }
+        }
+        let mut registry = DriverRegistry::with_core_drivers();
+        registry.register(Normalizing);
+        assert_eq!(
+            registry.normalize_device_id("norm", Some("a"), "L"),
+            Some("a:L".into())
+        );
+        assert_eq!(registry.normalize_device_id("simulator", None, "L"), None);
+        assert_eq!(registry.normalize_device_id("nope", None, "L"), None);
     }
 }

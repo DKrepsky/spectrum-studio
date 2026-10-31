@@ -92,6 +92,7 @@ impl SessionStatus {
 pub fn now_ms() -> f64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs_f64() * 1000.0)
+        // Whole milliseconds: a fractional f64 does not survive a JSON round trip exactly.
+        .map(|d| d.as_millis() as f64)
         .unwrap_or(0.0)
 }

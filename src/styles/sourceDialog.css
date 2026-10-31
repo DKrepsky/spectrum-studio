@@ -1,0 +1,162 @@
+/* Add / Edit source dialog (design 4). Uses existing tokens only. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(5, 8, 14, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 90px 12px 12px;
+  overflow: auto;
+}
+.source-dialog {
+  width: 440px;
+  max-width: calc(100% - 24px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto;
+}
+.source-dialog h2 {
+  margin: 0;
+  font-size: 15px;
+}
+.source-dialog .form-row,
+.source-dialog .dialog-params {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.source-dialog .form-row label {
+  align-self: flex-start;
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.source-dialog .help {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.source-dialog .err {
+  font-size: 12px;
+  color: var(--danger);
+}
+.source-dialog input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.source-dialog .form-row input,
+.source-dialog .form-row select,
+.source-dialog .param-field input[type='text'],
+.source-dialog .param-field select {
+  width: 100%;
+}
+/* ParamForm lays fields out in a row for the side panel; the dialog stacks label over field. */
+.source-dialog .param-field {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 4px;
+}
+.source-dialog .param-field label {
+  font-size: 12px;
+}
+.source-dialog .param-group {
+  border: 0;
+  padding: 0;
+}
+.source-dialog .path-field {
+  justify-content: stretch;
+}
+.source-dialog input[readonly].ro {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.source-dialog input.locked,
+.source-dialog select.locked,
+.source-dialog .dialog-params.locked input,
+.source-dialog .dialog-params.locked select {
+  opacity: 0.75;
+}
+.source-dialog .test-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.source-dialog .test-row > button {
+  flex: none;
+}
+.source-dialog .test-result {
+  flex: 1;
+  min-width: 0;
+  /* Reserved: idle (3 lines) and ok (2 lines + wrap) must not make the dialog jump. */
+  min-height: 62px;
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.source-dialog .test-result.ok {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(62, 224, 181, 0.08);
+}
+.source-dialog .test-result.fail {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(255, 107, 107, 0.08);
+}
+.source-dialog .test-result.run {
+  border-color: var(--info);
+  color: var(--info);
+}
+.source-dialog .test-result.idle {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+.source-dialog .test-result .sub {
+  display: block;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.source-dialog .button-row {
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.source-dialog .button-row .spacer {
+  margin-right: auto;
+}
+.source-dialog button.forget {
+  color: var(--danger);
+  border-color: rgba(255, 107, 107, 0.45);
+  background: transparent;
+}
+.source-dialog .dlg-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.source-dialog .dlg-note.warn {
+  color: var(--warn);
+}
+.source-dialog .dlg-note.info {
+  color: var(--info);
+}
+.source-dialog .dlg-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+  user-select: text;
+}

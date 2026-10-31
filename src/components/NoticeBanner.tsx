@@ -1,14 +1,21 @@
 import { useSession } from '../state/session';
+import { isRemembered } from '../state/sourceEntries';
+import { useSources } from '../state/sources';
 
-/** Shows session notices (connection lost, end of file...) and failed commands, with recovery actions. */
-export function NoticeBanner({ onOpenSources }: { onOpenSources: () => void }) {
+/**
+ * Shows session notices (connection lost, end of file...) and failed commands, with recovery actions.
+ * A failed connect is reported twice by the backend (the command error and the session notice, which
+ * carries the same cause and the Reconnect action); only the notice is shown.
+ */
+export function NoticeBanner() {
   const notice = useSession((s) => s.status?.lastNotice);
   const lastConfig = useSession((s) => s.status?.lastConfig);
   const state = useSession((s) => s.status?.state);
   const commandError = useSession((s) => s.commandError);
+  const commandErrorFrom = useSession((s) => s.commandErrorFrom);
   const info = useSession((s) => s.info);
   const busy = useSession((s) => s.busy);
-  const { connect, start, dismissNotice, clearCommandError, showInfo } = useSession.getState();
+  const { connectTo, start, dismissNotice, clearCommandError, showInfo } = useSession.getState();
 
   return (
     <>
@@ -22,7 +29,14 @@ export function NoticeBanner({ onOpenSources }: { onOpenSources: () => void }) {
             state === 'disconnected' && (
               <button
                 disabled={busy !== null}
-                onClick={() => void connect(lastConfig)}
+                onClick={() => {
+                  const { active, list } = useSources.getState();
+                  void connectTo(
+                    active && isRemembered(list, active.id)
+                      ? { type: 'remembered', id: active.id }
+                      : { type: 'config', config: lastConfig },
+                  );
+                }}
                 data-testid="reconnect-button"
               >
                 Reconnect
@@ -34,7 +48,6 @@ export function NoticeBanner({ onOpenSources }: { onOpenSources: () => void }) {
                 Restart
               </button>
             )}
-          <button onClick={onOpenSources}>Sources…</button>
           <button className="icon" aria-label="Dismiss" onClick={() => void dismissNotice()}>
             ×
           </button>
@@ -48,7 +61,7 @@ export function NoticeBanner({ onOpenSources }: { onOpenSources: () => void }) {
           </button>
         </div>
       )}
-      {commandError && (
+      {commandError && !(commandErrorFrom === 'connecting' && notice?.kind === 'connectFailed') && (
         <div className="notice notice-command" role="alert" data-testid="command-error">
           <span className="notice-message">{commandError}</span>
           <button className="icon" aria-label="Dismiss" onClick={clearCommandError}>

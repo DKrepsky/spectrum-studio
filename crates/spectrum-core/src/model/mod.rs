@@ -12,7 +12,8 @@ pub use params::{ParamKind, ParamMap, ParamMapExt, ParamSpec, ParamValue};
 pub use processing::{PeakSettings, ProcessingSettings, WindowKind};
 pub use session::{ActiveSource, NoticeKind, SessionNotice, SessionState, SessionStatus};
 pub use source::{
-    Capabilities, DataKind, DeviceDescriptor, DriverInfo, DriverStatus, FrequencyRange,
-    SettingsPatch, SourceConfig, SourceKind, SourceSettings, Transport,
+    Capabilities, DataKind, DeviceDescriptor, DiscoveryResult, DriverInfo, DriverStatus,
+    FrequencyRange, SettingsPatch, SourceConfig, SourceKind, SourceSettings, SourceTestResult,
+    SourceUpdate, Transport,
 };
 pub use units::AmplitudeUnit;
