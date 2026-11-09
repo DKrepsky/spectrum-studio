@@ -1,6 +1,7 @@
 import { $, $$, browser, expect } from '@wdio/globals';
 
 import {
+  sessionState,
   byTestId,
   closeSourceMenu,
   entryByName,
@@ -26,7 +27,7 @@ const describeHardware = process.env.SPECTRUM_E2E_SA430 === '1' ? describe : des
 
 describe('Add source', () => {
   it('first launch: the menu offers the simulator and Add source, no scan button', async () => {
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
+    expect(await sessionState()).toBe('Disconnected');
     await openSourceMenu();
     await expect(await byTestId('source-simulator')).toBeDisplayed();
     await expect(await byTestId('source-add')).toBeDisplayed();
@@ -73,7 +74,7 @@ describe('Add source', () => {
     await byTestId('add-source-dialog').waitForExist({ reverse: true });
 
     // Saving remembers, it never connects.
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
+    expect(await sessionState()).toBe('Disconnected');
     expect(await textOf(await entryByName('Bench rig'))).toContain('Bench rig');
     await expect(await byTestId('source-simulator')).toBeDisplayed();
     await closeSourceMenu();
@@ -85,7 +86,7 @@ describe('Add source', () => {
     const notice = await failureBanner();
     await notice.waitForDisplayed();
     expect((await notice.getText()).length).toBeGreaterThan(10);
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
+    expect(await sessionState()).toBe('Disconnected');
 
     await openSourceMenu();
     const row = await entryByName('Bench rig');
@@ -118,8 +119,8 @@ describe('Add source', () => {
     await closeSourceMenu();
     expect(await sourceButtonText()).toBe('Source: Choose a source');
     expect(await sourceButtonText()).not.toContain('Bench rig');
-    await expect(await byTestId('run-button')).toBeDisabled();
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
+    await expect(await byTestId('acquire-button')).toBeDisabled();
+    expect(await sessionState()).toBe('Disconnected');
     await shot('forget-selected-{w}-cleared');
   });
 });

@@ -32,7 +32,7 @@ describe('Upgrading a version 1 sources file', () => {
   it('connects a migrated entry with its saved settings', async () => {
     await selectSource('source-entry-old-sim');
     await waitForState('Connected');
-    await (await byTestId('run-button')).click();
+    await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring');
     await browser.waitUntil(async () => (await statusBarText()).includes('Center 88.0'), {
       timeoutMsg: 'the migrated centre frequency was not applied',

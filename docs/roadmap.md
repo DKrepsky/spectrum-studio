@@ -13,7 +13,7 @@ running application.
 | 4 | Change frequency and processing settings | Done | E2E (centre, FFT, window), session tests |
 | 5 | Peaks and basic analysis tools (markers, peak table, holds, averaging) | Done | E2E, DSP tests |
 | 6 | Waterfall of changing signals | Done | Manual/screenshot, time-scale unit test |
-| 7 | Start, stop, disconnect | Done | E2E, session tests |
+| 7 | Start, stop (Play/Pause toggle, trace frozen on pause), disconnect | Done | E2E `acquisition` (incl. keyboard focus), session tests |
 | 8 | Manage and save source configurations | Done (reworked: automatic memory, see below) | E2E `persistence`, store tests |
 | 9 | Export spectrum data to CSV | Removed (ADR 0011) | — |
 | 10 | Preferences retained after restart | Done | E2E `persistence`, store tests |
@@ -32,6 +32,7 @@ running application.
 - Source journey, not verified by hand: unplugging a real SA430 during a run (the simulator device-loss path is covered by E2E), replugging it into another port and the *different device on the stored port* warning of the Edit dialog (needs two analyzers; E2E marks it skipped), and a `sources.json` with an unknown future version.
 - Open (BUG-2): unknown JSON fields in `sources.json` are not preserved when the file is rewritten, and names over 80 characters from a v1 file are truncated. The v3 upgrade keeps a backup of the old file (`sources.pre-v3-*.json`), so nothing is lost for good.
 - Open: a `sources.json` with a *newer* `version` than this build is accepted without a warning and overwritten as version 3 on the next change (fields this build does not know are dropped). Follow-up: refuse to overwrite, or back up, files from a newer schema.
+- Open (known defect): the source-menu hover actions sit below the badge pill instead of covering it (`visual.e2e.ts` marks it as a known failing check).
 - The E2E layout guard cannot shrink the window below the 1024 px minimum, so the popover's `max-width: calc(100vw - 16px)` rule is covered only by the CSS contract test, not in real pixels.
 - SA430: no RBW readout, sweeps limited to 800 points and not interruptible (see `sources.md`).
 - No amplitude calibration: IQ spectra are dBFS only.

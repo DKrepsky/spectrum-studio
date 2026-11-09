@@ -1,6 +1,7 @@
 import { $, browser, expect } from '@wdio/globals';
 
 import {
+  sessionState,
   byTestId,
   closeSourceMenu,
   ensureDisconnected,
@@ -78,7 +79,7 @@ describe('Remembered sources and preferences', () => {
   it('restores preferences, the last source and its settings after a restart', async () => {
     await browser.reloadSession();
     await waitForAppReady();
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
+    expect(await sessionState()).toBe('Disconnected');
     await expect($('#range')).toHaveValue('90');
     await expect($('select[aria-label="Waterfall palette"]')).toHaveValue('viridis');
 
@@ -86,9 +87,13 @@ describe('Remembered sources and preferences', () => {
     await browser.waitUntil(async () => (await sourceButtonText()).includes('E2E FM setup'), {
       timeoutMsg: 'the last source was not restored as the selection',
     });
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
+    expect(await sessionState()).toBe('Disconnected');
+    // Play is disabled until a device is connected: connect the selected source first.
+    await openSourceMenu();
+    await selectSource(await simulatorEntryId());
+    await waitForState('Connected');
 
-    await (await byTestId('run-button')).click();
+    await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring');
     await browser.waitUntil(async () => (await statusBarText()).includes('Center 99.5'), {
       timeoutMsg: 'the remembered centre frequency was not restored',

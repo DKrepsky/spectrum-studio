@@ -1,0 +1,19 @@
+{
+  "state": "Connected",
+  "frames": [
+    "15",
+    "15",
+    "15",
+    "15",
+    "15",
+    "15"
+  ],
+  "samples": [
+    "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.0 dBm/binUnit dBmRate 9.0 fpsFrame #15 · 00:25:05",
+    "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.0 dBm/binUnit dBmRate 9.0 fpsFrame #15 · 00:25:05",
+    "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.0 dBm/binUnit dBmRate 9.0 fpsFrame #15 · 00:25:05",
+    "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.0 dBm/binUnit dBmRate 9.0 fpsFrame #15 · 00:25:05",
+    "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.0 dBm/binUnit dBmRate 9.0 fpsFrame #15 · 00:25:05",
+    "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.0 dBm/binUnit dBmRate 9.0 fpsFrame #15 · 00:25:05"
+  ]
+}

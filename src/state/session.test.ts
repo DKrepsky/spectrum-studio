@@ -75,46 +75,6 @@ describe('session store', () => {
     expect(apiMock.connectRemembered).not.toHaveBeenCalled();
   });
 
-  it('run connects the active source, then starts acquisition', async () => {
-    apiMock.connectRemembered.mockResolvedValue(status({ state: 'connected' }));
-    useSession.getState().receiveStatus(status({ revision: 1 }));
-    await useSession.getState().run();
-    expect(apiMock.connectRemembered).toHaveBeenCalledWith('e1');
-    expect(apiMock.startAcquisition).toHaveBeenCalled();
-  });
-
-  it('run reconnects a forgotten active source via its config', async () => {
-    useSources.setState({ list: [] });
-    apiMock.connectSource.mockResolvedValue(status({ state: 'connected' }));
-    await useSession.getState().run();
-    expect(apiMock.connectSource).toHaveBeenCalledWith(entry.config);
-    expect(apiMock.startAcquisition).toHaveBeenCalled();
-  });
-
-  it('run only starts when already connected', async () => {
-    useSession.getState().receiveStatus(status({ revision: 1, state: 'connected' }));
-    await useSession.getState().run();
-    expect(apiMock.connectRemembered).not.toHaveBeenCalled();
-    expect(apiMock.startAcquisition).toHaveBeenCalled();
-  });
-
-  it('run is a no-op without an active source', async () => {
-    useSources.setState({ active: null });
-    await useSession.getState().run();
-    expect(apiMock.connectRemembered).not.toHaveBeenCalled();
-    expect(apiMock.connectSource).not.toHaveBeenCalled();
-    expect(apiMock.startAcquisition).not.toHaveBeenCalled();
-  });
-
-  it('does not start when connecting fails and surfaces the error', async () => {
-    apiMock.connectRemembered.mockRejectedValue({ message: 'Device busy.' });
-    useSession.getState().receiveStatus(status({ revision: 1 }));
-    await useSession.getState().run();
-    expect(apiMock.startAcquisition).not.toHaveBeenCalled();
-    expect(useSession.getState().commandError).toBe('Device busy.');
-    expect(useSession.getState().busy).toBeNull();
-  });
-
   it('switching while acquiring connects the new target and makes it active', async () => {
     const other = savedSource({ id: 'e2', name: 'Other' });
     useSources.setState({ list: [entry, other] });

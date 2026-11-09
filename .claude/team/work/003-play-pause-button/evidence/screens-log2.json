@@ -1,0 +1,12 @@
+{
+  "acquiringNoHoverBg": "rgb(255, 181, 71)",
+  "focusPause": {
+    "fv": true,
+    "tid": "acquire-button"
+  },
+  "afterSpacePause": {
+    "fv": false,
+    "tid": "BODY:undefined"
+  },
+  "acquireAfter": "idle"
+}

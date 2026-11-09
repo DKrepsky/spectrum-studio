@@ -1,6 +1,8 @@
 import { $, $$, browser, expect } from '@wdio/globals';
 
 import {
+  sessionState,
+  acquireState,
   byTestId,
   ensureDisconnected,
   livenessKind,
@@ -13,11 +15,11 @@ import {
 
 describe('Simulator acquisition workflow', () => {
   it('starts disconnected with no data shown as live', async () => {
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
+    expect(await sessionState()).toBe('Disconnected');
     expect(await livenessKind()).toBe('noSource');
     // First run: nothing remembered, so the button invites a choice and Run has nothing to run.
     expect(await sourceButtonText()).toContain('Choose a source');
-    await expect(await byTestId('run-button')).toBeDisabled();
+    await expect(await byTestId('acquire-button')).toBeDisabled();
     await expect(await byTestId('connect-button')).not.toBeExisting();
     await expect(await byTestId('simulated-badge')).not.toBeExisting();
   });
@@ -72,18 +74,51 @@ describe('Simulator acquisition workflow', () => {
     await expect(row).toHaveText(expect.stringContaining('100.25'));
   });
 
-  it('stops and marks the retained trace as not live', async () => {
-    await (await byTestId('stop-button')).click();
+  it('pauses: the last trace stays on screen, frozen and marked as held', async () => {
+    await (await byTestId('acquire-button')).click();
     await waitForState('Connected');
+    expect(await acquireState()).toBe('idle');
+    expect(await byTestId('acquire-button').getAttribute('aria-label')).toBe('Start acquisition');
     await browser.waitUntil(async () => (await livenessKind()) === 'stopped');
     await expect(await byTestId('plot-liveness')).toHaveText(expect.stringContaining('HOLD'));
+  });
+
+  it('plays again with the same settings', async () => {
+    await (await byTestId('acquire-button')).click();
+    await waitForState('Acquiring');
+    await browser.waitUntil(async () => (await livenessKind()) === 'live');
+    expect(await acquireState()).toBe('acquiring');
+    expect(await byTestId('acquire-button').getAttribute('aria-label')).toBe('Pause acquisition');
+    expect(await statusBarText()).toContain('Center 100.0000');
+    await (await byTestId('acquire-button')).click();
+    await waitForState('Connected');
+  });
+
+  it('keeps keyboard focus on Play/Pause across Space and Enter presses', async () => {
+    const focusedTestId = () =>
+      browser.execute(() => document.activeElement?.getAttribute('data-testid') ?? null);
+    await browser.execute(() =>
+      (document.querySelector('[data-testid="acquire-button"]') as HTMLElement).focus(),
+    );
+    await browser.keys([' ']);
+    await waitForState('Acquiring');
+    expect(await focusedTestId()).toBe('acquire-button');
+    await browser.keys(['Enter']);
+    await waitForState('Connected');
+    expect(await focusedTestId()).toBe('acquire-button');
+    await browser.keys([' ']);
+    await waitForState('Acquiring');
+    expect(await focusedTestId()).toBe('acquire-button');
+    await browser.keys(['Enter']);
+    await waitForState('Connected');
+    expect(await focusedTestId()).toBe('acquire-button');
   });
 
   it('disconnects and releases the source', async () => {
     await ensureDisconnected();
     await expect(await byTestId('simulated-badge')).not.toBeExisting();
-    // The source stays selected, so Run is available again without choosing anything.
+    // The source stays selected, but Play needs a connected device, so it is disabled.
     expect(await sourceButtonText()).toContain('Signal simulator');
-    await expect(await byTestId('run-button')).toBeEnabled();
+    await expect(await byTestId('acquire-button')).toBeDisabled();
   });
 });

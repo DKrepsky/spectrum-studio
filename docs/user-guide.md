@@ -3,19 +3,19 @@
 ## First run
 
 1. Start Spectrum Studio. The source button at the left of the toolbar reads **Choose a source**
-   and **▶ Run** is disabled until you pick one.
+   and the Play button is disabled until you pick one.
 2. Click the source button (or press **Ctrl+K**) and choose **Signal simulator**. Picking a source
-   connects to it; the state pill shows **Connected**.
-3. Press **▶ Run**. The pill shows **Acquiring**, the plot shows **LIVE**, and a purple
-   **SIMULATED** badge reminds you the data is generated.
+   connects to it; the source button then reads **… Connected** (its status circle shows the state).
+3. Press the Play button (▶). The button turns into Pause (❚❚), the source button reads
+   **… Acquiring**, the plot shows **LIVE**, and a purple **SIMULATED** badge reminds you the data
+   is generated.
 
 ## Toolbar
 
 | Control | Purpose |
 | --- | --- |
 | Source button | Shows the status circle and name of the current source; opens the source menu (see *Choosing a source*). |
-| ▶ Run / ■ Stop | Starts or stops acquisition. Run connects first if the selected source is not connected. |
-| State pill | Authoritative backend state: Disconnected, Connecting…, Connected, Acquiring, Disconnecting…. |
+| ▶ / ❚❚ (Play / Pause) | Starts or pauses acquisition. Play is enabled only when a source is connected. Pause freezes the last trace on screen; Play resumes with the same settings. |
 | Center / Span | Tuning and span, enabled only when the source supports them. Center accepts `100.2M`, `433.92 MHz`, `2.4G`, `12k`; ↑/↓ step by a tenth of the span. Invalid input stays highlighted until corrected or Escape. |
 
 ## Choosing a source
@@ -46,7 +46,8 @@ ellipsis; hover the row for the full name and its details.
   under *Your sources*.
 - **Add source…:** adds a source you set up by hand, for example an SA430 on a serial port you
   name (see *Add and edit a source*). Nothing is connected until you pick the new row.
-- **Disconnect:** releases the current source but keeps it selected, so **Run** connects it again.
+- **Disconnect:** releases the current source but keeps it selected. Connect it again by picking it
+  in the menu; Play does not connect by itself.
 
 ### Status circles
 

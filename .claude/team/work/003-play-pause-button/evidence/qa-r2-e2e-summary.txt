@@ -1,0 +1,24 @@
+[0-0] PASSED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/acquisition.e2e.ts
+[0-1] PASSED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/add-source.e2e.ts
+[0-2] PASSED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/edit-source.e2e.ts
+[0-3] PASSED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/failures.e2e.ts
+[0-4] PASSED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/migration-dup.e2e.ts
+[0-5] PASSED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/migration.e2e.ts
+[0-6] PASSED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/persistence.e2e.ts
+[0-7] PASSED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/sa430.e2e.ts
+[0-8] PASSED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/source-row.e2e.ts
+Error: actions top 176.5 vs badge bottom 195: expect(received).toBeGreaterThanOrEqual(expected)
+[0-9] FAILED in undefined - file:///home/kr/workspace/spectrum-kit/e2e/specs/visual.e2e.ts
+[wry 0.57.1 linux #0-0] 10 passing (3.6s)
+[wry 0.57.1 linux #0-1] 6 passing (3.4s)
+[wry 0.57.1 linux #0-2] 4 passing (3.5s)
+[wry 0.57.1 linux #0-3] 3 passing (2.1s)
+[wry 0.57.1 linux #0-4] 3 passing (1.8s)
+[wry 0.57.1 linux #0-5] 3 passing (807ms)
+[wry 0.57.1 linux #0-6] 5 passing (6.2s)
+[wry 0.57.1 linux #0-8] 10 passing (7.9s)
+[wry 0.57.1 linux #0-9]    ✖ hover actions sit below the badge pill instead of covering it
+[wry 0.57.1 linux #0-9] 21 passing (33.6s)
+[wry 0.57.1 linux #0-9] 1 failing
+[wry 0.57.1 linux #0-9] Error: actions top 176.5 vs badge bottom 195: expect(received).toBeGreaterThanOrEqual(expected)
+Spec Files:	 9 passed, 1 failed, 10 total (100% completed) in 00:01:22  

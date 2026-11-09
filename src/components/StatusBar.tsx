@@ -50,7 +50,7 @@ export function StatusBar() {
         ))
       ) : (
         <span className="status-item">
-          {source ? 'No data yet — press Run to start acquisition.' : 'No source connected.'}
+          {source ? 'No data yet — press Play to start acquisition.' : 'No source connected.'}
         </span>
       )}
       {h && h.unit !== 'dbm' && (

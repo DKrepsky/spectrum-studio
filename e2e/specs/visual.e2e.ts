@@ -88,6 +88,25 @@ async function resize(width: number): Promise<number> {
   return browser.execute(() => window.innerWidth);
 }
 
+/**
+ * Waits until the row's hover actions have finished their 150 ms slide (transform back to `none`,
+ * no running animation). Measuring during the slide would compare a moving box with the badge.
+ */
+async function waitForActionsSettled(testId: string) {
+  await browser.waitUntil(
+    async () =>
+      browser.execute((t) => {
+        const row = document.querySelector(`[data-testid="${t}"]`)?.closest('.source-row');
+        const actions = row?.querySelector<HTMLElement>('.source-actions');
+        if (!actions) return false;
+        return (
+          getComputedStyle(actions).transform === 'none' && actions.getAnimations().length === 0
+        );
+      }, testId),
+    { timeoutMsg: `the hover actions of ${testId} did not settle` },
+  );
+}
+
 /** Layout of every item in the open menu, in real pixels. */
 async function measureRows(): Promise<Row[]> {
   return browser.execute(() => {
@@ -264,6 +283,7 @@ describe('Visual guard: source button, menu and dialog', () => {
           (t) => (document.querySelector(`[data-testid="${t}"]`) as HTMLElement).focus(),
           id,
         );
+        await waitForActionsSettled(id);
         const after = (await measureRows()).find((r) => r.testId === id)!;
         for (const part of ['item', 'name', 'badge', 'sub'] as const) {
           for (const side of ['left', 'right', 'top', 'bottom'] as const) {
@@ -611,7 +631,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
         await assertNameVisible(`connected at ${real}`, name, 18);
         await shot(`toolbar-connected-${name.length}-${real}-seeded`);
       }
-      await (await byTestId('run-button')).click();
+      await (await byTestId('acquire-button')).click();
       await waitForState('Acquiring');
       await browser.waitUntil(async () => (await livenessKind()) === 'live', {
         timeoutMsg: 'plot did not become live',
@@ -623,7 +643,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
         await assertNameVisible(`acquiring at ${real}`, name, 18);
         await shot(`toolbar-acquiring-${name.length}-${real}-seeded`);
       }
-      await (await byTestId('stop-button')).click();
+      await (await byTestId('acquire-button')).click();
       await waitForState('Connected');
     });
   }
@@ -643,7 +663,7 @@ describeHardware('Visual guard with the real SA430', () => {
       await assertNameVisible(`real connected at ${real}`, REAL, REAL.length);
       await shot(`toolbar-connected-real-${real}-sa430`);
     }
-    await (await byTestId('run-button')).click();
+    await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring');
     await browser.waitUntil(async () => (await livenessKind()) === 'live', {
       timeoutMsg: 'plot did not become live',
@@ -655,7 +675,7 @@ describeHardware('Visual guard with the real SA430', () => {
       await assertNameVisible(`real acquiring at ${real}`, REAL, REAL.length);
       await shot(`toolbar-acquiring-real-${real}-sa430`);
     }
-    await (await byTestId('stop-button')).click();
+    await (await byTestId('acquire-button')).click();
     await waitForState('Connected');
     await ensureDisconnected();
   });

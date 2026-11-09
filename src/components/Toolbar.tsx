@@ -1,28 +1,42 @@
-import type { SessionState } from '../bindings/SessionState';
 import { formatFrequencyShort } from '../format/frequency';
 import { useSession } from '../state/session';
-import { useSources } from '../state/sources';
 import { FrequencyInput } from './FrequencyInput';
 import { SourceButton } from './source/SourceButton';
 
-const STATE_LABEL: Record<SessionState, string> = {
-  disconnected: 'Disconnected',
-  connecting: 'Connecting…',
-  connected: 'Connected',
-  acquiring: 'Acquiring',
-  disconnecting: 'Disconnecting…',
-};
+const PLAY_ICON = (
+  <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden focusable="false">
+    <path d="M3 1.5v9l7.5-4.5z" fill="currentColor" />
+  </svg>
+);
+
+const PAUSE_ICON = (
+  <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden focusable="false">
+    <rect x="2.5" y="1.5" width="2.5" height="9" fill="currentColor" />
+    <rect x="7" y="1.5" width="2.5" height="9" fill="currentColor" />
+  </svg>
+);
 
 export function Toolbar() {
   const status = useSession((s) => s.status);
-  const hasSource = useSources((s) => s.active !== null);
   const busy = useSession((s) => s.busy);
-  const { run, stop, applySettings } = useSession.getState();
+  const { start, stop, applySettings } = useSession.getState();
 
   const state = status?.state ?? 'disconnected';
   const source = status?.source ?? null;
-  const transitioning = state === 'connecting' || state === 'disconnecting' || busy !== null;
+  const acquiring = state === 'acquiring';
+  // Play needs a connected device; Pause is only offered while the backend acquires.
+  const canAcquire = state === 'connected' || acquiring;
+  // While a command is in flight the button is aria-disabled, not disabled: a natively disabled
+  // button loses keyboard focus, so Space/Enter could not be used again without a Tab back.
+  const busyNow = busy !== null;
+  const acquireLabel = acquiring ? 'Pause acquisition' : 'Start acquisition';
   const caps = source?.capabilities;
+
+  const toggleAcquisition = () => {
+    if (busyNow) return;
+    if (acquiring) void stop();
+    else if (state === 'connected') void start();
+  };
 
   return (
     <header className="toolbar" role="toolbar" aria-label="Main toolbar">
@@ -35,29 +49,18 @@ export function Toolbar() {
 
       <div className="toolbar-group toolbar-source">
         <SourceButton />
-        {state === 'acquiring' ? (
-          <button
-            className="primary stop"
-            onClick={() => void stop()}
-            disabled={transitioning}
-            data-testid="stop-button"
-          >
-            ■ Stop
-          </button>
-        ) : (
-          <button
-            className="primary"
-            onClick={() => void run()}
-            disabled={transitioning || !hasSource}
-            title={hasSource ? undefined : 'Choose a source first'}
-            data-testid="run-button"
-          >
-            ▶ Run
-          </button>
-        )}
-        <span className={`state-pill state-${state}`} data-testid="session-state" role="status">
-          {STATE_LABEL[state]}
-        </span>
+        <button
+          className={`primary acquire-button${acquiring ? ' stop' : ''}`}
+          onClick={toggleAcquisition}
+          disabled={!canAcquire}
+          aria-disabled={busyNow || undefined}
+          aria-label={acquireLabel}
+          title={!canAcquire && state === 'disconnected' ? 'Connect a source first' : acquireLabel}
+          data-state={acquiring ? 'acquiring' : 'idle'}
+          data-testid="acquire-button"
+        >
+          {acquiring ? PAUSE_ICON : PLAY_ICON}
+        </button>
         {source?.simulated && (
           <span
             className="badge simulated"

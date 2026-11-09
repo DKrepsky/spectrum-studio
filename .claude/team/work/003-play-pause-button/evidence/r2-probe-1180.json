@@ -1,0 +1,232 @@
+{
+  "innerWidth1180": 1180,
+  "disconnectedIdle": {
+    "ariaDisabled": null,
+    "rect": {
+      "x": 294.875,
+      "width": 30,
+      "left": 294.875,
+      "right": 324.875,
+      "top": 9,
+      "height": 30,
+      "y": 9,
+      "bottom": 39
+    },
+    "bg": "rgb(62, 224, 181)",
+    "focused": null,
+    "border": "rgb(62, 224, 181)",
+    "disabled": true,
+    "outline": "3px none rgb(6, 32, 24)"
+  },
+  "disconnectedHover": {
+    "ariaDisabled": null,
+    "rect": {
+      "x": 294.875,
+      "width": 30,
+      "left": 294.875,
+      "right": 324.875,
+      "top": 9,
+      "height": 30,
+      "y": 9,
+      "bottom": 39
+    },
+    "bg": "rgb(62, 224, 181)",
+    "focused": null,
+    "border": "rgb(62, 224, 181)",
+    "disabled": true,
+    "outline": "3px none rgb(6, 32, 24)"
+  },
+  "connectedNoData": {
+    "statusBar": "No data yet — press Play to start acquisition.",
+    "state": "Connected",
+    "acquire": {
+      "ariaDisabled": null,
+      "rect": {
+        "x": 304.515625,
+        "width": 30,
+        "left": 304.515625,
+        "right": 334.515625,
+        "top": 9,
+        "height": 30,
+        "y": 9,
+        "bottom": 39
+      },
+      "bg": "rgb(62, 224, 181)",
+      "focused": "source-button",
+      "border": "rgb(62, 224, 181)",
+      "disabled": false,
+      "outline": "3px none rgb(6, 32, 24)"
+    }
+  },
+  "playHoverConnected": {
+    "ariaDisabled": null,
+    "rect": {
+      "x": 304.515625,
+      "width": 30,
+      "left": 304.515625,
+      "right": 334.515625,
+      "top": 9,
+      "height": 30,
+      "y": 9,
+      "bottom": 39
+    },
+    "bg": "rgb(43, 199, 158)",
+    "focused": "source-button",
+    "border": "rgb(58, 77, 107)",
+    "disabled": false,
+    "outline": "3px none rgb(6, 32, 24)"
+  },
+  "tabTarget": "acquire-button",
+  "afterSpaceStart": {
+    "focused": "acquire-button",
+    "state": "acquiring",
+    "calls": []
+  },
+  "pauseHoverAcquiring": {
+    "ariaDisabled": null,
+    "rect": {
+      "x": 304.515625,
+      "width": 30,
+      "left": 304.515625,
+      "right": 334.515625,
+      "top": 9,
+      "height": 30,
+      "y": 9,
+      "bottom": 39
+    },
+    "bg": "rgb(240, 162, 46)",
+    "focused": "acquire-button",
+    "border": "rgb(240, 162, 46)",
+    "disabled": false,
+    "outline": "2px solid rgb(90, 169, 255)"
+  },
+  "pauseNoHoverAcquiring": {
+    "ariaDisabled": null,
+    "rect": {
+      "x": 304.515625,
+      "width": 30,
+      "left": 304.515625,
+      "right": 334.515625,
+      "top": 9,
+      "height": 30,
+      "y": 9,
+      "bottom": 39
+    },
+    "bg": "rgb(255, 181, 71)",
+    "focused": "acquire-button",
+    "border": "rgb(255, 181, 71)",
+    "disabled": false,
+    "outline": "2px solid rgb(90, 169, 255)"
+  },
+  "afterEnterPause": {
+    "focused": "acquire-button",
+    "state": "idle",
+    "calls": []
+  },
+  "repeatedKeys": [
+    {
+      "key": " ",
+      "state": "Acquiring",
+      "focused": "acquire-button",
+      "calls": 0
+    },
+    {
+      "key": "Enter",
+      "state": "Connected",
+      "focused": "acquire-button",
+      "calls": 0
+    },
+    {
+      "key": " ",
+      "state": "Acquiring",
+      "focused": "acquire-button",
+      "calls": 0
+    },
+    {
+      "key": "Enter",
+      "state": "Connected",
+      "focused": "acquire-button",
+      "calls": 0
+    }
+  ],
+  "doublePressFromConnected": {
+    "state": "Acquiring",
+    "acquire": "acquiring",
+    "calls": []
+  },
+  "afterSecondSpaceStop": {
+    "state": "Connected",
+    "calls": []
+  },
+  "menu1180-source-entry-vis-60": {
+    "actionsTransform": "none",
+    "badge": {
+      "t": 225,
+      "b": 242,
+      "l": 419.875,
+      "r": 483.875
+    },
+    "actions": {
+      "t": 223.5,
+      "b": 243.5,
+      "l": 419.875,
+      "r": 483.875
+    },
+    "item": {
+      "t": 210,
+      "b": 257,
+      "l": 146.875,
+      "r": 492.875
+    }
+  },
+  "menu1180-source-entry-vis-22": {
+    "actionsTransform": "none",
+    "badge": {
+      "t": 272,
+      "b": 289,
+      "l": 419.875,
+      "r": 483.875
+    },
+    "actions": {
+      "t": 270.5,
+      "b": 290.5,
+      "l": 419.875,
+      "r": 483.875
+    },
+    "item": {
+      "t": 257,
+      "b": 304,
+      "l": 146.875,
+      "r": 492.875
+    }
+  },
+  "menu1180-source-entry-vis-real": {
+    "actionsTransform": "none",
+    "badge": {
+      "t": 131,
+      "b": 148,
+      "l": 419.875,
+      "r": 483.875
+    },
+    "actions": {
+      "t": 129.5,
+      "b": 149.5,
+      "l": 419.875,
+      "r": 483.875
+    },
+    "item": {
+      "t": 116,
+      "b": 163,
+      "l": 146.875,
+      "r": 492.875
+    }
+  },
+  "menu1180-entries": [
+    "source-entry-vis-sim",
+    "source-entry-vis-real",
+    "source-entry-vis-fail",
+    "source-entry-vis-60",
+    "source-entry-vis-22",
+    "source-entry-vis-port"
+  ]
+}

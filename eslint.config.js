@@ -4,7 +4,18 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'target', 'src-tauri', 'crates', 'src/bindings', 'e2e', 'node_modules'] },
+  {
+    ignores: [
+      'dist',
+      'target',
+      'src-tauri',
+      'crates',
+      'src/bindings',
+      'e2e',
+      'node_modules',
+      '.claude/team/work/**/evidence/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {

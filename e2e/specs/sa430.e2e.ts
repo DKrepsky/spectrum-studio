@@ -76,7 +76,7 @@ describeHardware('TI SA430 (real hardware)', () => {
     await waitForState('Connected');
     await expect(await byTestId('simulated-badge')).not.toBeExisting();
 
-    await (await byTestId('run-button')).click();
+    await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring');
     await browser.waitUntil(async () => (await livenessKind()) === 'live', { timeout: 20_000 });
     await browser.waitUntil(async () => (await statusBarText()).includes('Center 433.9'));
@@ -93,7 +93,7 @@ describeHardware('TI SA430 (real hardware)', () => {
   it('restores the retuned centre frequency after a restart', async () => {
     await browser.reloadSession();
     await waitForAppReady();
-    await (await byTestId('run-button')).click();
+    await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring', 20_000);
     await browser.waitUntil(async () => /Center 434\.[45]/.test(await statusBarText()), {
       timeoutMsg: 'the remembered centre frequency was not restored',

@@ -22,8 +22,14 @@ export async function failureBanner() {
   return banners[0];
 }
 
+const STATE_SUFFIX = /, (Disconnected|Connecting…|Connected|Acquiring|Disconnecting…)$/;
+
+/**
+ * The backend state as the UI shows it: the suffix of the source button's accessible name
+ * ("Source: <name>, <state>"). Without a chosen source there is no state to show: Disconnected.
+ */
 export async function sessionState(): Promise<string> {
-  return (await byTestId('session-state')).getText();
+  return (await sourceButtonText()).match(STATE_SUFFIX)?.[1] ?? 'Disconnected';
 }
 
 export async function waitForState(text: string, timeout = 15_000) {
@@ -92,8 +98,13 @@ export async function sourceButtonText(): Promise<string> {
   return (await byTestId('source-button')).getAttribute('aria-label').then((v) => v ?? '');
 }
 
+/** The Play/Pause toggle: `idle` (Play, "Start acquisition") or `acquiring` (Pause). */
+export async function acquireState(): Promise<string | null> {
+  return (await byTestId('acquire-button')).getAttribute('data-state');
+}
+
 /**
- * Picks the Signal simulator (when not connected yet) and presses Run: the new first-run journey.
+ * Picks the Signal simulator (when not connected yet) and presses Play: the new first-run journey.
  * Once the simulator has been remembered it is listed under Your sources instead of the fixed
  * "Signal simulator" row, so either is accepted.
  */
@@ -109,7 +120,7 @@ export async function runSimulator() {
     }
     await waitForState('Connected');
   }
-  await (await byTestId('run-button')).click();
+  await (await byTestId('acquire-button')).click();
   await waitForState('Acquiring');
   await browser.waitUntil(async () => (await livenessKind()) === 'live', {
     timeoutMsg: 'plot did not become live',
@@ -124,7 +135,7 @@ export async function ensureDisconnected() {
     await waitForState('Disconnected');
   }
   await closeSourceMenu();
-  await expect(await byTestId('session-state')).toHaveText('Disconnected');
+  await waitForState('Disconnected');
 }
 
 export async function setInput(selector: string, value: string) {

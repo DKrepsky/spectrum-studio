@@ -7,3 +7,4 @@ crates
 package-lock.json
 *.md
 .claude/team/work/**/prototype/
+.claude/team/work/**/evidence/

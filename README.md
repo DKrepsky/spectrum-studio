@@ -44,7 +44,7 @@ npm install
 npm run tauri dev
 ```
 
-Then press **▶ Run**: the simulator is selected by default.
+Then pick **Signal simulator** from the source menu and press Play (▶).
 
 Build installable packages (`.deb` and AppImage) into `target/release/bundle/`:
 

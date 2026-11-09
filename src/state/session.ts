@@ -9,7 +9,7 @@ import type { SourceConfig } from '../bindings/SourceConfig';
 import { api, errorMessage } from '../ipc/commands';
 import { frameStore } from './frames';
 import { sameIdentity } from './sourceConfig';
-import { configKey, fallbackTitle, isRemembered, rowKey, rowTitle } from './sourceEntries';
+import { configKey, fallbackTitle, rowKey, rowTitle } from './sourceEntries';
 import { useSources } from './sources';
 import { persistDisplayPreferences, useView } from './view';
 
@@ -43,8 +43,6 @@ export interface SessionStore {
   disconnect: () => Promise<void>;
   start: () => Promise<void>;
   stop: () => Promise<void>;
-  /** Connects the active source if needed, then starts acquisition; no-op without one. */
-  run: () => Promise<void>;
   applySettings: (patch: SettingsPatch) => Promise<boolean>;
   setProcessing: (change: Partial<ProcessingSettings>) => Promise<void>;
   resetHolds: () => Promise<void>;
@@ -54,15 +52,6 @@ export interface SessionStore {
 
 function titleOf(entry: SavedSource): string {
   return rowTitle(entry, useSources.getState().drivers);
-}
-
-/** Target for the active entry: its remembered record if it still exists, else its config. */
-function targetForActive(): ConnectTarget | null {
-  const { active, list } = useSources.getState();
-  if (!active) return null;
-  return isRemembered(list, active.id)
-    ? { type: 'remembered', id: active.id }
-    : { type: 'config', config: active.config, title: active.title };
 }
 
 export const useSession = create<SessionStore>()((set, get) => {
@@ -200,16 +189,6 @@ export const useSession = create<SessionStore>()((set, get) => {
 
     stop: async () => {
       await command('stopping', () => api.stopAcquisition());
-    },
-
-    run: async () => {
-      if (!useSources.getState().active) return;
-      const state = get().status?.state;
-      if (state !== 'connected' && state !== 'acquiring') {
-        const target = targetForActive();
-        if (!target || !(await get().connectTo(target))) return;
-      }
-      await get().start();
     },
 
     applySettings: (patch) => command('applying', () => api.applySourceSettings(patch)),

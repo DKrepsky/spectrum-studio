@@ -1,6 +1,7 @@
 import { $, browser, expect } from '@wdio/globals';
 
 import {
+  sessionState,
   byTestId,
   closeSourceMenu,
   ensureDisconnected,
@@ -71,7 +72,7 @@ describe('Edit source', () => {
   it('while connected: connection settings are locked, the name applies at once and the session keeps running', async () => {
     await selectSource(SIM);
     await waitForState('Connected');
-    await (await byTestId('run-button')).click();
+    await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring');
     await browser.waitUntil(async () => (await livenessKind()) === 'live');
 
@@ -88,7 +89,7 @@ describe('Edit source', () => {
     await browser.waitUntil(async () => (await sourceButtonText()).includes('Live renamed'), {
       timeoutMsg: 'the toolbar button did not take the new name',
     });
-    await expect(await byTestId('session-state')).toHaveText('Acquiring');
+    expect(await sessionState()).toBe('Acquiring');
     expect(await livenessKind()).toBe('live');
     await closeSourceMenu();
     await ensureDisconnected();

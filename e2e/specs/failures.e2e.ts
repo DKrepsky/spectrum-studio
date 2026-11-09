@@ -1,6 +1,7 @@
 import { $, $$, browser, expect } from '@wdio/globals';
 
 import {
+  sessionState,
   byTestId,
   closeSourceMenu,
   ensureDisconnected,
@@ -22,7 +23,7 @@ describe('Failure handling', () => {
     const notice = await failureBanner();
     await notice.waitForDisplayed();
     await expect(notice).toHaveText(expect.stringContaining('refused the connection'));
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
+    expect(await sessionState()).toBe('Disconnected');
 
     await openSourceMenu();
     expect(await textOf(await sourceRow('seed-fail'))).toContain('Failed');
@@ -32,7 +33,7 @@ describe('Failure handling', () => {
   it('detects device loss during acquisition and recovers with Reconnect', async () => {
     await selectSource('source-entry-seed-sim');
     await waitForState('Connected');
-    await (await byTestId('run-button')).click();
+    await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring');
     await setSourceSettingsOpen(true);
     await setInput('#source-faultAfterS', '1');
@@ -43,7 +44,7 @@ describe('Failure handling', () => {
 
     await (await byTestId('reconnect-button')).click();
     await waitForState('Connected');
-    await (await byTestId('run-button')).click();
+    await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring');
     await browser.waitUntil(async () => (await livenessKind()) === 'live');
     await setSourceSettingsOpen(false);

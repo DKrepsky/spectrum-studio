@@ -1,0 +1,127 @@
+{
+  "a_disconnected1024": {
+    "title": "Connect a source first",
+    "ariaDisabled": null,
+    "bg": "rgb(62, 224, 181)",
+    "focused": null,
+    "disabled": true,
+    "outline": "3px none rgb(6, 32, 24)",
+    "opacity": "0.45",
+    "ariaLabel": "Start acquisition"
+  },
+  "b_connected1024": {
+    "statusBar": "No data yet — press Play to start acquisition.",
+    "acq": {
+      "title": "Start acquisition",
+      "ariaDisabled": null,
+      "bg": "rgb(62, 224, 181)",
+      "focused": "source-button",
+      "disabled": false,
+      "outline": "3px none rgb(6, 32, 24)",
+      "opacity": "1",
+      "ariaLabel": "Start acquisition"
+    }
+  },
+  "c_tabFocus1024": {
+    "title": "Start acquisition",
+    "ariaDisabled": null,
+    "bg": "rgb(62, 224, 181)",
+    "focused": "acquire-button",
+    "disabled": false,
+    "outline": "2px solid rgb(90, 169, 255)",
+    "opacity": "1",
+    "ariaLabel": "Start acquisition"
+  },
+  "d_kbdAcquiring1024": {
+    "acq": {
+      "title": "Pause acquisition",
+      "ariaDisabled": null,
+      "bg": "rgb(255, 181, 71)",
+      "focused": "acquire-button",
+      "disabled": false,
+      "outline": "2px solid rgb(90, 169, 255)",
+      "opacity": "1",
+      "ariaLabel": "Pause acquisition"
+    },
+    "state": "Acquiring"
+  },
+  "e_pausedHold1024": {
+    "state": "Connected",
+    "acq": {
+      "title": "Start acquisition",
+      "ariaDisabled": null,
+      "bg": "rgb(62, 224, 181)",
+      "focused": "acquire-button",
+      "disabled": false,
+      "outline": "2px solid rgb(90, 169, 255)",
+      "opacity": "1",
+      "ariaLabel": "Start acquisition"
+    },
+    "statusBar": "Center 100.00000 MHzSpan 2.048 MHzRBW 750 HzFFT 4096 · HannAvg 1/1Noise floor -85.9 dBFS/binUnit dBFSRate 28.6 fpsFrame #16 · 00:24:43Uncalibrated"
+  },
+  "f_afterDisconnect1024": {
+    "title": "Connect a source first",
+    "ariaDisabled": null,
+    "bg": "rgb(62, 224, 181)",
+    "focused": "source-button",
+    "disabled": true,
+    "outline": "3px none rgb(6, 32, 24)",
+    "opacity": "0.45",
+    "ariaLabel": "Start acquisition"
+  },
+  "f_afterDisconnectHover1024": {
+    "title": "Connect a source first",
+    "ariaDisabled": null,
+    "bg": "rgb(62, 224, 181)",
+    "focused": "source-button",
+    "disabled": true,
+    "outline": "3px none rgb(6, 32, 24)",
+    "opacity": "0.45",
+    "ariaLabel": "Start acquisition"
+  },
+  "g_realState": {
+    "state": "Connected",
+    "sourceAria": "Source: SA430 08FF41E50F8B3A34, Connected"
+  },
+  "h_realConnected": {
+    "statusBar": "No data yet — press Play to start acquisition.",
+    "acq": {
+      "title": "Start acquisition",
+      "ariaDisabled": null,
+      "bg": "rgb(62, 224, 181)",
+      "focused": "source-button",
+      "disabled": false,
+      "outline": "3px none rgb(6, 32, 24)",
+      "opacity": "1",
+      "ariaLabel": "Start acquisition"
+    }
+  },
+  "i_realAcquiring": {
+    "state": "Acquiring",
+    "acq": {
+      "title": "Pause acquisition",
+      "ariaDisabled": null,
+      "bg": "rgb(255, 181, 71)",
+      "focused": "acquire-button",
+      "disabled": false,
+      "outline": "3px none rgb(42, 26, 0)",
+      "opacity": "1",
+      "ariaLabel": "Pause acquisition"
+    },
+    "statusBar": "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.0 dBm/binUnit dBmRate 9.0 fpsFrame #24 · 00:24:49"
+  },
+  "j_realPaused": {
+    "state": "Connected",
+    "statusBar": "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.0 dBm/binUnit dBmRate 9.0 fpsFrame #31 · 00:24:50"
+  },
+  "k_realDisconnected": {
+    "title": "Connect a source first",
+    "ariaDisabled": null,
+    "bg": "rgb(62, 224, 181)",
+    "focused": "source-button",
+    "disabled": true,
+    "outline": "3px none rgb(6, 32, 24)",
+    "opacity": "0.45",
+    "ariaLabel": "Start acquisition"
+  }
+}

@@ -9,6 +9,7 @@
   --accent: #3ee0b5;
   --accent-strong: #2bc79e;
   --warn: #ffb547;
+  --warn-strong: #f0a22e;
   --danger: #ff6b6b;
   --info: #5aa9ff;
   --sim: #c39bff;
@@ -63,13 +64,17 @@ button.primary {
   color: #062018;
   font-weight: 600;
 }
-button.primary:hover:not(:disabled) {
+button.primary:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--accent-strong);
 }
 button.primary.stop {
   background: var(--warn);
   border-color: var(--warn);
   color: #2a1a00;
+}
+button.primary.stop:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--warn-strong);
+  border-color: var(--warn-strong);
 }
 button.small {
   padding: 2px 8px;
@@ -125,6 +130,7 @@ select:disabled {
 
 /* Toolbar */
 .toolbar {
+  --control-height: 30px;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -167,25 +173,15 @@ select:disabled {
   gap: 6px;
   color: var(--text-muted);
 }
-.state-pill {
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-}
-.state-pill.state-acquiring {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.state-pill.state-connected {
-  color: var(--info);
-  border-color: var(--info);
-}
-.state-pill.state-connecting,
-.state-pill.state-disconnecting {
-  color: var(--warn);
-  border-color: var(--warn);
+/* Play/Pause: square and as tall as the source button, so Play and Pause never shift the layout. */
+.acquire-button {
+  flex: none;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .badge {
   font-size: 11px;
@@ -216,9 +212,6 @@ select:disabled {
   }
   .toolbar .freq-input {
     width: 128px;
-  }
-  .toolbar .state-pill {
-    padding: 2px 8px;
   }
   .toolbar .badge {
     padding: 1px 5px;

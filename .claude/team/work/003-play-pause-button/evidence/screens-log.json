@@ -1,0 +1,530 @@
+{
+  "disconnected-1180-sim": {
+    "state": "Disconnected",
+    "acquireAria": "Start acquisition",
+    "acquireTitle": "Connect a source first",
+    "acquireDataState": "idle",
+    "acquireDisabled": "true",
+    "liveness": "noSource",
+    "status": "No source connected.",
+    "geom": {
+      "docScrollW": 1180,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1180,
+        "t": 0,
+        "w": 1180,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 389.27,
+        "r": 517.27,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1180,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 299.52,
+        "t": 9,
+        "w": 159.64,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 304.52,
+        "r": 334.52,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: Signal simulator, Disconnected",
+    "stateLabelPresent": 0
+  },
+  "connected-1180-sim": {
+    "state": "Connected",
+    "acquireAria": "Start acquisition",
+    "acquireTitle": "Start acquisition",
+    "acquireDataState": "idle",
+    "acquireDisabled": null,
+    "liveness": "stopped",
+    "status": "No data yet — press Run to start acquisition.",
+    "geom": {
+      "docScrollW": 1180,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1180,
+        "t": 0,
+        "w": 1180,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 470.75,
+        "r": 598.75,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1180,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 299.52,
+        "t": 9,
+        "w": 159.64,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 304.52,
+        "r": 334.52,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: Signal simulator, Connected",
+    "stateLabelPresent": 0
+  },
+  "acquiring-1180-sim": {
+    "state": "Acquiring",
+    "acquireAria": "Pause acquisition",
+    "acquireTitle": "Pause acquisition",
+    "acquireDataState": "acquiring",
+    "acquireDisabled": null,
+    "liveness": "live",
+    "status": "Center 100.00000 MHzSpan 2.048 MHzRBW 750 HzFFT 4096 · HannAvg 1/1Noise floor -85.9 dBFS/binUnit dBFSRate 31.1 fpsFrame #8 · 00:01:30Uncalibrated",
+    "geom": {
+      "docScrollW": 1180,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1180,
+        "t": 0,
+        "w": 1180,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 470.75,
+        "r": 598.75,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1180,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 299.52,
+        "t": 9,
+        "w": 159.64,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 304.52,
+        "r": 334.52,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: Signal simulator, Acquiring",
+    "stateLabelPresent": 0
+  },
+  "paused-1180-sim": {
+    "state": "Connected",
+    "acquireAria": "Start acquisition",
+    "acquireTitle": "Start acquisition",
+    "acquireDataState": "idle",
+    "acquireDisabled": null,
+    "liveness": "stopped",
+    "status": "Center 100.00000 MHzSpan 2.048 MHzRBW 750 HzFFT 4096 · HannAvg 1/1Noise floor -85.8 dBFS/binUnit dBFSRate 29.3 fpsFrame #23 · 00:01:30Uncalibrated",
+    "geom": {
+      "docScrollW": 1180,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1180,
+        "t": 0,
+        "w": 1180,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 470.75,
+        "r": 598.75,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1180,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 299.52,
+        "t": 9,
+        "w": 159.64,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 304.52,
+        "r": 334.52,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: Signal simulator, Connected",
+    "stateLabelPresent": 0
+  },
+  "focus-1180": {
+    "testid": "acquire-button",
+    "focusVisible": true,
+    "outline": "solid 2px rgb(90, 169, 255)"
+  },
+  "disconnected-1024-sim": {
+    "state": "Disconnected",
+    "acquireAria": "Start acquisition",
+    "acquireTitle": "Connect a source first",
+    "acquireDataState": "idle",
+    "acquireDisabled": "true",
+    "liveness": "noSource",
+    "status": "No source connected.",
+    "geom": {
+      "docScrollW": 1024,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1024,
+        "t": 0,
+        "w": 1024,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 389.27,
+        "r": 517.27,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1024,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 299.52,
+        "t": 9,
+        "w": 159.64,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 304.52,
+        "r": 334.52,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: Signal simulator, Disconnected",
+    "stateLabelPresent": 0
+  },
+  "connected-1024-sim": {
+    "state": "Connected",
+    "acquireAria": "Start acquisition",
+    "acquireTitle": "Start acquisition",
+    "acquireDataState": "idle",
+    "acquireDisabled": null,
+    "liveness": "stopped",
+    "status": "No data yet — press Run to start acquisition.",
+    "geom": {
+      "docScrollW": 1024,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1024,
+        "t": 0,
+        "w": 1024,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 470.75,
+        "r": 598.75,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1024,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 299.52,
+        "t": 9,
+        "w": 159.64,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 304.52,
+        "r": 334.52,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: Signal simulator, Connected",
+    "stateLabelPresent": 0
+  },
+  "acquiring-1024-sim": {
+    "state": "Acquiring",
+    "acquireAria": "Pause acquisition",
+    "acquireTitle": "Pause acquisition",
+    "acquireDataState": "acquiring",
+    "acquireDisabled": null,
+    "liveness": "live",
+    "status": "Center 100.00000 MHzSpan 2.048 MHzRBW 750 HzFFT 4096 · HannAvg 1/1Noise floor -86.1 dBFS/binUnit dBFSRate 30.7 fpsFrame #40 · 00:01:34Uncalibrated",
+    "geom": {
+      "docScrollW": 1024,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1024,
+        "t": 0,
+        "w": 1024,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 470.75,
+        "r": 598.75,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1024,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 299.52,
+        "t": 9,
+        "w": 159.64,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 304.52,
+        "r": 334.52,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: Signal simulator, Acquiring",
+    "stateLabelPresent": 0
+  },
+  "paused-1024-sim": {
+    "state": "Connected",
+    "acquireAria": "Start acquisition",
+    "acquireTitle": "Start acquisition",
+    "acquireDataState": "idle",
+    "acquireDisabled": null,
+    "liveness": "stopped",
+    "status": "Center 100.00000 MHzSpan 2.048 MHzRBW 750 HzFFT 4096 · HannAvg 1/1Noise floor -85.8 dBFS/binUnit dBFSRate 29.9 fpsFrame #46 · 00:01:35Uncalibrated",
+    "geom": {
+      "docScrollW": 1024,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1024,
+        "t": 0,
+        "w": 1024,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 470.75,
+        "r": 598.75,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1024,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 299.52,
+        "t": 9,
+        "w": 159.64,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 304.52,
+        "r": 334.52,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: Signal simulator, Connected",
+    "stateLabelPresent": 0
+  },
+  "focus-1024": {
+    "testid": "acquire-button",
+    "focusVisible": true,
+    "outline": "solid 2px rgb(90, 169, 255)"
+  },
+  "connected-1180-real": {
+    "state": "Connected",
+    "acquireAria": "Start acquisition",
+    "acquireTitle": "Start acquisition",
+    "acquireDataState": "idle",
+    "acquireDisabled": null,
+    "liveness": "stopped",
+    "status": "No data yet — press Run to start acquisition.",
+    "geom": {
+      "docScrollW": 1180,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1180,
+        "t": 0,
+        "w": 1180,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 454.23,
+        "r": 582.23,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1180,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 364.48,
+        "t": 9,
+        "w": 224.61,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 369.48,
+        "r": 399.48,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: SA430 08FF41E50F8B3A34, Connected",
+    "stateLabelPresent": 0
+  },
+  "acquiring-1180-real": {
+    "state": "Acquiring",
+    "acquireAria": "Pause acquisition",
+    "acquireTitle": "Pause acquisition",
+    "acquireDataState": "acquiring",
+    "acquireDisabled": null,
+    "liveness": "live",
+    "status": "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.0 dBm/binUnit dBmRate 8.9 fpsFrame #49 · 00:01:37",
+    "geom": {
+      "docScrollW": 1180,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1180,
+        "t": 0,
+        "w": 1180,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 454.23,
+        "r": 582.23,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1180,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 364.48,
+        "t": 9,
+        "w": 224.61,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 369.48,
+        "r": 399.48,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: SA430 08FF41E50F8B3A34, Acquiring",
+    "stateLabelPresent": 0
+  },
+  "paused-1180-real": {
+    "state": "Connected",
+    "acquireAria": "Start acquisition",
+    "acquireTitle": "Start acquisition",
+    "acquireDataState": "idle",
+    "acquireDisabled": null,
+    "liveness": "stopped",
+    "status": "Center 433.919 MHzSpan 9.997 MHzPoints 101Avg 1/1Noise floor -72.5 dBm/binUnit dBmRate 8.9 fpsFrame #53 · 00:01:38",
+    "geom": {
+      "docScrollW": 1180,
+      "toolbar": {
+        "b": 49,
+        "l": 0,
+        "r": 1180,
+        "t": 0,
+        "w": 1180,
+        "h": 49
+      },
+      "freq": {
+        "b": 38.09,
+        "l": 454.23,
+        "r": 582.23,
+        "t": 9.91,
+        "w": 128,
+        "h": 28.19
+      },
+      "iw": 1180,
+      "source": {
+        "b": 39,
+        "l": 139.88,
+        "r": 364.48,
+        "t": 9,
+        "w": 224.61,
+        "h": 30
+      },
+      "acquire": {
+        "b": 39,
+        "l": 369.48,
+        "r": 399.48,
+        "t": 9,
+        "w": 30,
+        "h": 30
+      }
+    },
+    "sourceAria": "Source: SA430 08FF41E50F8B3A34, Connected",
+    "stateLabelPresent": 0
+  },
+  "end": true
+}
