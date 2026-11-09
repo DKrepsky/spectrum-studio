@@ -154,12 +154,23 @@ author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmw
 - **Sweep time** is ≈1.3 ms per point and a sweep cannot be interrupted, so requests above 800
   points (~1 s) are rejected with a hint to raise the step. Stop/Disconnect therefore take effect
   after the current sweep, which can exceed the usual 250 ms `read` budget for large sweeps.
+- **Connect ([ADR 0012](adr/0012-sa430-connect-handshake.md)):** right after plug-in the analyzer
+  corrupts the first frame sent within ~20 ms of the port opening. The driver therefore opens the
+  port itself, waits 200 ms, clears the input and then reads the calibration as the handshake.
+  The handshake uses a 600 ms read timeout (never past the connect deadline) and is retried up
+  to 4 times on a fresh port (pauses 150/300/600 ms, 6 s overall). Retried: timeouts, device
+  error or no-frame-start replies, and a busy or vanished port at open. A serial mismatch or
+  invalid settings are not retried. The sweep timeout (5 s) applies once the handshake succeeded.
+  "Connected" is reported only after the calibration was read; a dead port fails in at most 6 s
+  with the "did not answer like an SA430" message.
 - **Errors:** open failures explain `dialout`/unplugged causes; a read timeout is recoverable
   (*Restart*); a broken pipe or serial error disconnects the session.
 - **Tests:** `crates/spectrum-driver-sa430/tests/session.rs` runs the session against the library's mock channel (including
-  silent device and unplugging). `cargo test -p spectrum-driver-sa430 -- --ignored --nocapture`
-  runs a sweep session on a real device; `tests/hardware.rs` (`SPECTRUM_E2E_SA430=1 cargo test -p
-  spectrum-driver-sa430 --test hardware -- --ignored`) checks the USB serial equals the calibration serial.
+  a glitched first connect, a device that never answers, silent device and unplugging). The unit
+  tests in `src/lib.rs` script the connect attempts. `tests/hardware.rs` needs a real analyzer:
+  `SPECTRUM_E2E_SA430=1 cargo test -p spectrum-driver-sa430 --test hardware -- --ignored
+  --test-threads=1 --nocapture` runs 10 connect cycles, reboot-then-connect (with and without
+  settle), the USB serial check and sweeps after connect. Stop the app first: the port is exclusive.
 
 ### Simulator
 

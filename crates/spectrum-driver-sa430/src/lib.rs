@@ -4,12 +4,16 @@
 //! factory-calibrated power in dBm, so this driver produces [`SourceData::Trace`]. Centre and
 //! span map onto a sweep window that must lie inside one band; see `docs/sources.md`.
 
-use std::io;
+use std::io::{self, Read, Write};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use sa430::port::Port;
 use sa430::spectrum::{FREQUENCY_RANGES_MHZ, REF_LEVELS_DBM};
 use sa430::{Sa430, SweepRequest};
+use serialport::{ClearBuffer, DataBits, FlowControl, Parity, SerialPort, StopBits};
 
 use spectrum_core::model::params::resolve_params;
 use spectrum_core::model::{
@@ -31,28 +35,199 @@ const DEFAULT_SPAN_HZ: f64 = 10e6;
 const MAX_SWEEP_POINTS: f64 = 800.0;
 const SPAN_OPTIONS_HZ: [f64; 8] = [1e6, 2e6, 5e6, 10e6, 20e6, 40e6, 75e6, 149e6];
 
+/// Serial settings of the SA430 (the same as the `sa430` crate's own channel).
+const BAUD_RATE: u32 = 926_100;
+/// Read timeout once the handshake succeeded: the library default, which a long sweep needs.
+const SWEEP_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// What the driver needs from the outside world: finding and opening devices. Tests substitute
 /// a scripted implementation.
 pub trait Sa430Backend: Send + Sync {
     fn scan(&self) -> Result<Vec<Port>, sa430::Error>;
-    fn open(&self, port_name: &str) -> Result<Sa430, sa430::Error>;
+    /// Opens `port_name` and returns the device, not yet identified. `sweeping` is set by the
+    /// driver once the handshake succeeded; `deadline` bounds the handshake reads.
+    fn open(
+        &self,
+        port_name: &str,
+        policy: &ConnectPolicy,
+        deadline: Instant,
+        sweeping: Arc<AtomicBool>,
+    ) -> Result<Sa430, sa430::Error>;
 }
 
-/// Real serial hardware.
-struct SerialBackend;
+/// How hard `Sa430Driver::open` tries to identify the analyzer after its port appears.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConnectPolicy {
+    /// Handshakes to try, each on a freshly opened port.
+    pub attempts: u32,
+    /// Time the port is given to settle after opening, before the first frame is sent.
+    pub settle: Duration,
+    /// Pauses before the second, third, ... attempt; the last value repeats.
+    pub backoff: Vec<Duration>,
+    /// Read timeout during the handshake.
+    pub handshake_timeout: Duration,
+    /// Wall-clock budget for the whole connect, counted from the first open.
+    pub deadline: Duration,
+}
+
+impl Default for ConnectPolicy {
+    fn default() -> Self {
+        Self {
+            attempts: 4,
+            settle: Duration::from_millis(200),
+            backoff: [150, 300, 600].map(Duration::from_millis).to_vec(),
+            handshake_timeout: Duration::from_millis(600),
+            deadline: Duration::from_secs(6),
+        }
+    }
+}
+
+impl ConnectPolicy {
+    /// The pause before the 1-based `attempt` (for attempts from 2 on).
+    fn backoff_before(&self, attempt: u32) -> Duration {
+        let index = (attempt as usize).saturating_sub(2);
+        self.backoff
+            .get(index)
+            .or(self.backoff.last())
+            .copied()
+            .unwrap_or_default()
+    }
+}
+
+/// Real serial hardware. Opens the port itself, so the port can settle before the first frame
+/// and use a short handshake timeout (see ADR 0012).
+pub struct SerialBackend;
 
 impl Sa430Backend for SerialBackend {
     fn scan(&self) -> Result<Vec<Port>, sa430::Error> {
         sa430::create_scanner().scan()
     }
 
-    fn open(&self, port_name: &str) -> Result<Sa430, sa430::Error> {
-        Sa430::open(port_name)
+    fn open(
+        &self,
+        port_name: &str,
+        policy: &ConnectPolicy,
+        deadline: Instant,
+        sweeping: Arc<AtomicBool>,
+    ) -> Result<Sa430, sa430::Error> {
+        let port = serialport::new(port_name, BAUD_RATE)
+            .stop_bits(StopBits::One)
+            .data_bits(DataBits::Eight)
+            .parity(Parity::None)
+            .flow_control(FlowControl::None)
+            .timeout(policy.handshake_timeout)
+            .open()?;
+        // The device corrupts a frame that arrives within ~20 ms of the port opening.
+        thread::sleep(policy.settle);
+        port.clear(ClearBuffer::Input)?;
+        let link = SerialLink {
+            port,
+            deadline,
+            handshake_timeout: policy.handshake_timeout,
+            sweeping,
+        };
+        Ok(Sa430::new(Box::new(link)))
+    }
+}
+
+/// Read timeout for the next read: the handshake timeout capped by the time left before the
+/// connect deadline, or the sweep timeout once sweeping. `None` when the deadline has passed.
+fn read_timeout(
+    sweeping: bool,
+    handshake_timeout: Duration,
+    remaining: Duration,
+) -> Option<Duration> {
+    if sweeping {
+        Some(SWEEP_TIMEOUT)
+    } else if remaining.is_zero() {
+        None
+    } else {
+        Some(handshake_timeout.min(remaining))
+    }
+}
+
+/// The serial link of a device. Reads during the handshake never wait past the connect deadline.
+struct SerialLink {
+    port: Box<dyn SerialPort>,
+    deadline: Instant,
+    handshake_timeout: Duration,
+    sweeping: Arc<AtomicBool>,
+}
+
+impl Read for SerialLink {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let remaining = self.deadline.saturating_duration_since(Instant::now());
+        let timeout = read_timeout(
+            self.sweeping.load(Ordering::SeqCst),
+            self.handshake_timeout,
+            remaining,
+        )
+        .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "connect deadline reached"))?;
+        self.port.set_timeout(timeout).map_err(io::Error::other)?;
+        self.port.read(buf)
+    }
+}
+
+impl Write for SerialLink {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.port.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.port.flush()
     }
 }
 
 pub struct Sa430Driver {
     backend: Arc<dyn Sa430Backend>,
+    policy: ConnectPolicy,
+}
+
+/// A device that answered the calibration read, with the serial number it reported.
+struct Identified {
+    device: Sa430,
+    serial: String,
+}
+
+/// Why one connect attempt failed.
+enum Failure {
+    /// The port could not be opened.
+    Open(sa430::Error),
+    /// The port opened but the device did not answer the calibration read.
+    Handshake(sa430::Error),
+}
+
+impl Failure {
+    fn into_error(self, port: &str) -> SourceError {
+        match self {
+            Failure::Open(e) => open_error(port, e),
+            Failure::Handshake(e) => handshake_error(port, e),
+        }
+    }
+
+    /// Whether another attempt on a fresh port may succeed.
+    fn is_retryable(&self) -> bool {
+        match self {
+            Failure::Open(sa430::Error::Serial(e)) => matches!(
+                e.kind(),
+                sa430::SerialErrorKind::PermissionDenied | sa430::SerialErrorKind::NoDevice
+            ),
+            Failure::Open(_) => false,
+            Failure::Handshake(e) => match e {
+                sa430::Error::Io(e) => matches!(
+                    e.kind(),
+                    io::ErrorKind::TimedOut
+                        | io::ErrorKind::WouldBlock
+                        | io::ErrorKind::Interrupted
+                ),
+                sa430::Error::Device { .. }
+                | sa430::Error::UnexpectedResponse { .. }
+                | sa430::Error::InvalidData(_)
+                | sa430::Error::Frame(_) => true,
+                _ => false,
+            },
+        }
+    }
 }
 
 /// Message for an expected-vs-found serial mismatch; `serial` is empty when the device reports none.
@@ -74,8 +249,53 @@ impl Sa430Driver {
     }
 
     pub fn with_backend(backend: Arc<dyn Sa430Backend>) -> Self {
-        Self { backend }
+        Self::with_backend_and_policy(backend, ConnectPolicy::default())
     }
+
+    pub fn with_backend_and_policy(backend: Arc<dyn Sa430Backend>, policy: ConnectPolicy) -> Self {
+        Self { backend, policy }
+    }
+
+    /// Opens `port` and reads its calibration, which proves that an SA430 answers. A failed
+    /// attempt drops its device (releasing the port), waits and tries again on a fresh port, as
+    /// long as attempts and the deadline allow. Nothing is retried once the device has answered.
+    fn identify(&self, port: &str) -> Result<Identified, SourceError> {
+        let policy = &self.policy;
+        let deadline = Instant::now() + policy.deadline;
+        let mut attempt = 1;
+        loop {
+            let sweeping = Arc::new(AtomicBool::new(false));
+            let failure = match self.backend.open(port, policy, deadline, sweeping.clone()) {
+                Ok(mut device) => match device.calibration().map(serial_of) {
+                    Ok(serial) => {
+                        sweeping.store(true, Ordering::SeqCst);
+                        return Ok(Identified { device, serial });
+                    }
+                    // The device is dropped at the end of this arm.
+                    Err(e) => Failure::Handshake(e),
+                },
+                Err(e) => Failure::Open(e),
+            };
+            let out_of_attempts = attempt >= policy.attempts.max(1);
+            let backoff = policy.backoff_before(attempt + 1);
+            if !failure.is_retryable()
+                || out_of_attempts
+                || Instant::now() + backoff + policy.settle >= deadline
+            {
+                return Err(failure.into_error(port));
+            }
+            thread::sleep(backoff);
+            attempt += 1;
+        }
+    }
+}
+
+/// The serial number the calibration data carries (empty when the device reports none).
+fn serial_of(calibration: &sa430::device::Calibration) -> String {
+    String::from_utf8_lossy(&calibration.serial_number)
+        .trim_matches('\0')
+        .trim()
+        .to_string()
 }
 
 impl Default for Sa430Driver {
@@ -171,26 +391,8 @@ impl SourceDriver for Sa430Driver {
         let typed = connection.text("port").unwrap_or_default().trim();
         let (port, expected) = self.resolve_port(config.device_id.as_deref(), typed)?;
 
-        let mut device = self
-            .backend
-            .open(&port)
-            .map_err(|e| open_error(&port, &e))?;
         // Reading the calibration proves the device answers and is needed for every sweep.
-        let serial = device
-            .calibration()
-            .map(|c| {
-                String::from_utf8_lossy(&c.serial_number)
-                    .trim_matches('\0')
-                    .trim()
-                    .to_string()
-            })
-            .map_err(|e| {
-                SourceError::unavailable(format!(
-                    "{port} did not answer like an SA430 ({e}). Unplug and reconnect the \
-                     analyzer, then try again."
-                ))
-                .with_cause(e)
-            })?;
+        let Identified { device, serial } = self.identify(&port)?;
         if let Some(expected) = expected
             && expected != serial
         {
@@ -339,8 +541,8 @@ fn looks_like_port_path(id: &str) -> bool {
             .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
 }
 
-fn open_error(port: &str, error: &sa430::Error) -> SourceError {
-    let hint = match error {
+fn open_error(port: &str, error: sa430::Error) -> SourceError {
+    let hint = match &error {
         sa430::Error::Serial(e) => match e.kind() {
             sa430::SerialErrorKind::NoDevice => {
                 " Check that the analyzer is connected and the port name is right.".to_string()
@@ -352,7 +554,16 @@ fn open_error(port: &str, error: &sa430::Error) -> SourceError {
         },
         _ => String::new(),
     };
-    SourceError::unavailable(format!("Could not open {port}: {error}.{hint}"))
+    let message = format!("Could not open {port}: {error}.{hint}");
+    SourceError::unavailable(message).with_cause(error)
+}
+
+fn handshake_error(port: &str, error: sa430::Error) -> SourceError {
+    SourceError::unavailable(format!(
+        "{port} did not answer like an SA430 ({error}). Unplug and reconnect the analyzer, then \
+         try again."
+    ))
+    .with_cause(error)
 }
 
 /// Maps a library error that happened while talking to an open device.
@@ -523,7 +734,7 @@ mod tests {
 
     // ---- device identity ----
 
-    use sa430::test_utils::{MockChannel, add_calibration_responses};
+    use sa430::test_utils::{MockChannel, add_calibration_responses, an_error_response};
     use std::sync::Mutex;
 
     /// Scans a fixed port list; every opened port answers like the device with serial
@@ -557,7 +768,13 @@ mod tests {
             Ok(self.ports.clone())
         }
 
-        fn open(&self, port_name: &str) -> Result<Sa430, sa430::Error> {
+        fn open(
+            &self,
+            port_name: &str,
+            _policy: &ConnectPolicy,
+            _deadline: Instant,
+            _sweeping: Arc<AtomicBool>,
+        ) -> Result<Sa430, sa430::Error> {
             self.opened.lock().unwrap().push(port_name.to_string());
             let mut channel = MockChannel::new();
             add_calibration_responses(&mut channel);
@@ -740,5 +957,284 @@ mod tests {
             d.normalize_device_id(Some("/dev/ttyACM0"), "x").as_deref(),
             Some("port:/dev/ttyACM0")
         );
+    }
+
+    // ---- connect attempts ----
+
+    use std::collections::VecDeque;
+    use std::sync::atomic::AtomicUsize;
+
+    /// Wraps a channel and counts drops, to see that every failed attempt releases its port.
+    struct Counted {
+        inner: MockChannel,
+        drops: Arc<AtomicUsize>,
+    }
+
+    impl io::Read for Counted {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            self.inner.read(buf)
+        }
+    }
+
+    impl io::Write for Counted {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.inner.write(buf)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            self.inner.flush()
+        }
+    }
+
+    impl Drop for Counted {
+        fn drop(&mut self) {
+            self.drops.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    fn device(inner: MockChannel, drops: &Arc<AtomicUsize>) -> Result<Sa430, sa430::Error> {
+        Ok(Sa430::new(Box::new(Counted {
+            inner,
+            drops: drops.clone(),
+        })))
+    }
+
+    /// Answers like a calibrated SA430 with serial `SN`.
+    fn answering() -> MockChannel {
+        let mut channel = MockChannel::new();
+        add_calibration_responses(&mut channel);
+        channel
+    }
+
+    /// The reply the analyzer gives to a frame that arrives right after plug-in.
+    fn glitch() -> MockChannel {
+        let mut channel = MockChannel::new();
+        channel.add_response(&an_error_response(0x032D));
+        channel
+    }
+
+    /// Never answers: reads time out.
+    fn silent() -> MockChannel {
+        MockChannel::new()
+    }
+
+    /// Hands out one scripted open result per attempt and counts the opens.
+    struct Queued {
+        devices: Mutex<VecDeque<Result<Sa430, sa430::Error>>>,
+        opens: AtomicUsize,
+    }
+
+    impl Queued {
+        fn driver(
+            policy: ConnectPolicy,
+            devices: Vec<Result<Sa430, sa430::Error>>,
+        ) -> (Sa430Driver, Arc<Queued>) {
+            let backend = Arc::new(Queued {
+                devices: Mutex::new(devices.into()),
+                opens: AtomicUsize::new(0),
+            });
+            (
+                Sa430Driver::with_backend_and_policy(backend.clone(), policy),
+                backend,
+            )
+        }
+
+        fn opens(&self) -> usize {
+            self.opens.load(Ordering::SeqCst)
+        }
+    }
+
+    impl Sa430Backend for Queued {
+        fn scan(&self) -> Result<Vec<Port>, sa430::Error> {
+            Ok(Vec::new())
+        }
+
+        fn open(
+            &self,
+            _port_name: &str,
+            _policy: &ConnectPolicy,
+            _deadline: Instant,
+            _sweeping: Arc<AtomicBool>,
+        ) -> Result<Sa430, sa430::Error> {
+            self.opens.fetch_add(1, Ordering::SeqCst);
+            self.devices.lock().unwrap().pop_front().unwrap_or_else(|| {
+                Err(sa430::Error::Io(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "no more scripted devices",
+                )))
+            })
+        }
+    }
+
+    /// The default attempts and backoff without any waiting.
+    fn instant(attempts: u32) -> ConnectPolicy {
+        ConnectPolicy {
+            attempts,
+            settle: Duration::ZERO,
+            backoff: vec![Duration::ZERO],
+            handshake_timeout: Duration::from_millis(600),
+            deadline: Duration::from_secs(60),
+        }
+    }
+
+    fn denied() -> sa430::Error {
+        sa430::Error::from(serialport::Error::new(
+            serialport::ErrorKind::Io(io::ErrorKind::PermissionDenied),
+            "denied",
+        ))
+    }
+
+    fn open_on_port(d: &Sa430Driver) -> Result<OpenedSource, SourceError> {
+        open(d, &config(None, "/dev/ttyACM0"))
+    }
+
+    #[test]
+    fn a_glitched_first_handshake_is_retried_on_a_fresh_port() {
+        let drops = Arc::new(AtomicUsize::new(0));
+        let (d, q) = Queued::driver(
+            instant(4),
+            vec![device(glitch(), &drops), device(answering(), &drops)],
+        );
+        let o = open_on_port(&d).unwrap();
+        assert_eq!(q.opens(), 2);
+        assert_eq!(o.device_id.as_deref(), Some(SN));
+        assert_eq!(o.label, format!("SA430 {SN}"));
+        // The glitched device was dropped (port released) before the second open.
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn a_silent_first_handshake_is_retried() {
+        let drops = Arc::new(AtomicUsize::new(0));
+        let (d, q) = Queued::driver(
+            instant(4),
+            vec![device(silent(), &drops), device(answering(), &drops)],
+        );
+        assert!(open_on_port(&d).is_ok());
+        assert_eq!(q.opens(), 2);
+    }
+
+    #[test]
+    fn a_glitch_then_a_silent_device_then_success_takes_three_attempts() {
+        let drops = Arc::new(AtomicUsize::new(0));
+        let (d, q) = Queued::driver(
+            instant(4),
+            vec![
+                device(glitch(), &drops),
+                device(silent(), &drops),
+                device(answering(), &drops),
+            ],
+        );
+        let o = open_on_port(&d).unwrap();
+        assert_eq!(q.opens(), 3);
+        assert_eq!(o.device_id.as_deref(), Some(SN));
+        assert_eq!(drops.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn a_device_that_never_answers_gives_up_after_all_attempts_with_the_clear_message() {
+        let drops = Arc::new(AtomicUsize::new(0));
+        let (d, q) = Queued::driver(
+            instant(4),
+            (0..4).map(|_| device(glitch(), &drops)).collect(),
+        );
+        let e = open_on_port(&d).err().unwrap();
+        assert_eq!(e.kind(), SourceErrorKind::Unavailable);
+        assert_eq!(q.opens(), 4);
+        // Every attempt released its port.
+        assert_eq!(drops.load(Ordering::SeqCst), 4);
+        let message = e.to_string();
+        assert!(
+            message.starts_with("/dev/ttyACM0 did not answer like an SA430 (device error"),
+            "{message}"
+        );
+        assert!(
+            message.ends_with("Unplug and reconnect the analyzer, then try again."),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn a_serial_mismatch_is_never_retried() {
+        let drops = Arc::new(AtomicUsize::new(0));
+        let (d, q) = Queued::driver(
+            instant(4),
+            vec![device(answering(), &drops), device(answering(), &drops)],
+        );
+        let e = open(&d, &config(Some("0000000000000001"), "/dev/ttyACM0"))
+            .err()
+            .unwrap();
+        assert!(e.to_string().starts_with("Expected SA430 0000000000000001"));
+        assert_eq!(q.opens(), 1);
+    }
+
+    #[test]
+    fn a_busy_port_is_retried_and_the_final_failure_keeps_the_dialout_hint() {
+        let drops = Arc::new(AtomicUsize::new(0));
+        let (d, q) = Queued::driver(instant(4), vec![Err(denied()), device(answering(), &drops)]);
+        assert!(open_on_port(&d).is_ok());
+        assert_eq!(q.opens(), 2);
+
+        let (d, q) = Queued::driver(instant(4), (0..4).map(|_| Err(denied())).collect());
+        let e = open_on_port(&d).err().unwrap();
+        assert_eq!(q.opens(), 4);
+        assert!(e.to_string().contains("dialout"), "{e}");
+    }
+
+    #[test]
+    fn an_unrecoverable_open_error_is_not_retried() {
+        // An empty queue fails the open with a plain I/O error.
+        let (d, q) = Queued::driver(instant(4), vec![]);
+        let e = open_on_port(&d).err().unwrap();
+        assert_eq!(e.kind(), SourceErrorKind::Unavailable);
+        assert_eq!(q.opens(), 1);
+    }
+
+    #[test]
+    fn a_zero_deadline_makes_exactly_one_attempt() {
+        let drops = Arc::new(AtomicUsize::new(0));
+        let policy = ConnectPolicy {
+            deadline: Duration::ZERO,
+            ..instant(4)
+        };
+        let (d, q) = Queued::driver(policy, (0..4).map(|_| device(glitch(), &drops)).collect());
+        assert!(open_on_port(&d).is_err());
+        assert_eq!(q.opens(), 1);
+    }
+
+    #[test]
+    fn the_default_policy_fits_its_connect_budget() {
+        let p = ConnectPolicy::default();
+        assert_eq!(p.deadline, Duration::from_secs(6));
+        assert_eq!(p.attempts, 4);
+        // Pauses before attempts 2 to 4, plus the settle delay of every attempt, leave time for
+        // the handshake reads within the 6 s deadline.
+        let pauses: Duration = (2..=p.attempts).map(|a| p.backoff_before(a)).sum();
+        let settles = p.settle * p.attempts;
+        assert_eq!(pauses, Duration::from_millis(1050));
+        assert!(pauses + settles < p.deadline);
+        assert_eq!(p.handshake_timeout, Duration::from_millis(600));
+    }
+
+    #[test]
+    fn backoff_follows_the_ladder_and_repeats_its_last_step() {
+        let p = ConnectPolicy::default();
+        let ms = |a| p.backoff_before(a).as_millis();
+        assert_eq!([ms(2), ms(3), ms(4), ms(5)], [150, 300, 600, 600]);
+    }
+
+    #[test]
+    fn reads_wait_the_handshake_timeout_then_the_sweep_timeout() {
+        let hs = Duration::from_millis(600);
+        assert_eq!(read_timeout(false, hs, Duration::from_secs(10)), Some(hs));
+        // The connect deadline caps the handshake reads.
+        assert_eq!(
+            read_timeout(false, hs, Duration::from_millis(100)),
+            Some(Duration::from_millis(100))
+        );
+        assert_eq!(read_timeout(false, hs, Duration::ZERO), None);
+        // Once sweeping, the deadline no longer applies and sweeps keep the library's timeout.
+        assert_eq!(read_timeout(true, hs, Duration::ZERO), Some(SWEEP_TIMEOUT));
+        assert_eq!(SWEEP_TIMEOUT, Duration::from_secs(5));
     }
 }

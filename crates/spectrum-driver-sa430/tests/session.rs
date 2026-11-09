@@ -2,10 +2,11 @@
 //! `#[ignore]`d test against real hardware (`cargo test -p spectrum-driver-sa430 -- --ignored -- --ignored`).
 #![allow(clippy::unwrap_used)] // test helpers outside #[test] functions
 
+use std::collections::VecDeque;
 use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use sa430::Sa430;
 use sa430::frame::Command;
@@ -18,7 +19,7 @@ use spectrum_core::model::{
     SessionStatus, SettingsPatch, SourceConfig,
 };
 use spectrum_core::{DriverRegistry, SessionError, SessionManager, SessionSink};
-use spectrum_driver_sa430::{DRIVER_ID, Sa430Backend, Sa430Driver};
+use spectrum_driver_sa430::{ConnectPolicy, DRIVER_ID, Sa430Backend, Sa430Driver};
 
 const WAIT: Duration = Duration::from_secs(5);
 
@@ -72,9 +73,10 @@ impl io::Write for PullableChannel {
     }
 }
 
+/// Hands out one queued channel per open, so a test can script each connect attempt.
 struct ScriptedBackend {
     ports: Vec<Port>,
-    channel: Mutex<Option<MockChannel>>,
+    channels: Mutex<VecDeque<MockChannel>>,
     unplugged: Arc<AtomicBool>,
 }
 
@@ -83,8 +85,14 @@ impl Sa430Backend for ScriptedBackend {
         Ok(self.ports.clone())
     }
 
-    fn open(&self, _port: &str) -> Result<Sa430, sa430::Error> {
-        let inner = self.channel.lock().unwrap().take().ok_or_else(|| {
+    fn open(
+        &self,
+        _port: &str,
+        _policy: &ConnectPolicy,
+        _deadline: Instant,
+        _sweeping: Arc<AtomicBool>,
+    ) -> Result<Sa430, sa430::Error> {
+        let inner = self.channels.lock().unwrap().pop_front().ok_or_else(|| {
             sa430::Error::Io(io::Error::new(io::ErrorKind::NotFound, "no such port"))
         })?;
         Ok(Sa430::new(Box::new(PullableChannel {
@@ -94,16 +102,36 @@ impl Sa430Backend for ScriptedBackend {
     }
 }
 
-fn manager(ports: Vec<Port>, sweeps: usize, samples: &[i8]) -> (SessionManager, Arc<AtomicBool>) {
+/// A link that answers the calibration and then `sweeps` complete sweeps.
+fn calibrated(sweeps: usize, samples: &[i8]) -> MockChannel {
     let mut channel = MockChannel::new();
     add_calibration_responses(&mut channel);
     for _ in 0..sweeps {
         add_sweep(&mut channel, samples);
     }
+    channel
+}
+
+/// A link whose first reply is the "No frame start" error seen right after plug-in.
+fn glitchy() -> MockChannel {
+    let mut channel = MockChannel::new();
+    channel.add_response(&an_error_response(0x032D));
+    channel
+}
+
+fn manager(ports: Vec<Port>, sweeps: usize, samples: &[i8]) -> (SessionManager, Arc<AtomicBool>) {
+    manager_with_links(ports, vec![calibrated(sweeps, samples)])
+}
+
+/// A manager whose connect attempts open the given links in order.
+fn manager_with_links(
+    ports: Vec<Port>,
+    links: Vec<MockChannel>,
+) -> (SessionManager, Arc<AtomicBool>) {
     let unplugged = Arc::new(AtomicBool::new(false));
     let backend = ScriptedBackend {
         ports,
-        channel: Mutex::new(Some(channel)),
+        channels: Mutex::new(links.into()),
         unplugged: unplugged.clone(),
     };
     let mut registry = DriverRegistry::new();
@@ -307,6 +335,45 @@ fn unplugging_the_analyzer_disconnects_the_session() {
             .message
             .contains("Reconnect the analyzer")
     );
+}
+
+#[test]
+fn a_glitched_first_connect_is_retried_and_acquires_frames() {
+    let (m, _) = manager_with_links(one_port(), vec![glitchy(), calibrated(3, &SAMPLES)]);
+    let status = m.connect(config()).unwrap();
+    assert_eq!(status.state, SessionState::Connected);
+    assert!(
+        status
+            .source
+            .unwrap()
+            .device_label
+            .contains("08FF41E50F8B3A34")
+    );
+
+    m.start().unwrap();
+    assert!(m.wait_frame(0, WAIT).is_some());
+    m.stop().unwrap();
+    m.disconnect();
+}
+
+#[test]
+fn a_device_that_never_answers_is_reported_and_never_connected() {
+    let links = (0..4).map(|_| glitchy()).collect();
+    let (m, _) = manager_with_links(one_port(), links);
+    let err = m.connect(config()).unwrap_err();
+    assert!(matches!(err, SessionError::Source(_)));
+    let message = err.to_string();
+    assert!(
+        message.contains("did not answer like an SA430"),
+        "{message}"
+    );
+    assert!(
+        message.contains("Unplug and reconnect the analyzer"),
+        "{message}"
+    );
+    let status = m.status();
+    assert_eq!(status.state, SessionState::Disconnected);
+    assert!(status.source.is_none());
 }
 
 /// Needs an SA430 on USB: `cargo test -p spectrum-driver-sa430 -- --ignored -- --ignored --nocapture`.

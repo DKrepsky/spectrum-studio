@@ -3061,6 +3061,7 @@ name = "spectrum-driver-sa430"
 version = "0.1.0"
 dependencies = [
  "sa430",
+ "serialport",
  "spectrum-core",
 ]
 
