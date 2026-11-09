@@ -8,7 +8,7 @@
  *
  * Seeded (e2e/fixtures/seed/visual): the real device name "SA430 08FF41E50F8B3A34" (22 chars), a
  * 22-char and a 60-char SA430 name (fake serials, so they are Not detected), a failing simulator,
- * an IQ recording with a long path and the simulator.
+ * an SA430 with a long serial-port path and the simulator.
  */
 import { browser, expect as wdioExpect } from '@wdio/globals';
 
@@ -36,7 +36,7 @@ import {
 const REAL = 'SA430 08FF41E50F8B3A34';
 const N22 = 'Bench SA430 analyzer 2';
 const N60 = 'Very long source name used to check that truncation is clean';
-const FILE = 'Seeded IQ tone';
+const LONG_PORT = 'Seeded long port';
 const WIDTHS = [1180, 1024, 520];
 const HEIGHT = 820;
 const TOL = 0.6;
@@ -137,10 +137,11 @@ function assertRowLayout(rows: Row[], where: string) {
   const two = rows.filter((r) => r.twoLine);
   expect(two.length, `${where}: expected the 6 seeded rows`).toBeGreaterThanOrEqual(6);
   const badged = rows.filter((r) => r.badge !== null);
+  // Two kinds are seeded (USB and Built-in); the file kind was removed with the recordings.
   expect(
     new Set(badged.map((r) => r.badgeText)).size,
     `${where}: badges vary`,
-  ).toBeGreaterThanOrEqual(3);
+  ).toBeGreaterThanOrEqual(2);
   for (const r of badged) {
     expect(
       close(r.badge!.width, 64),
@@ -254,7 +255,7 @@ describe('Visual guard: source button, menu and dialog', () => {
       const real = await resize(w);
       await closeSourceMenu();
       await openSourceMenu();
-      for (const label of [N60, FILE, REAL]) {
+      for (const label of [N60, LONG_PORT, REAL]) {
         const id = (await (await entryByName(label)).getAttribute('data-testid'))!;
         const before = (await measureRows()).find((r) => r.testId === id)!;
         // Focus is what WebKit honours everywhere; the hover is tried as well.
@@ -487,14 +488,13 @@ describe('Visual guard: source button, menu and dialog', () => {
 /**
  * The whole chrome must fit the window. `scrollWidth` alone is not enough: an overrun of the
  * toolbar and the side panel is clipped by the window, not scrolled, so it passes that check
- * (R2-2). Every toolbar child, the toolbar itself, the side panel and "Export CSV" must end
+ * (R2-2). Every toolbar child, the toolbar itself, and the side panel must end
  * inside `innerWidth`.
  */
 async function assertChromeFits(where: string) {
   const m = await browser.execute(() => {
     const right = (el: Element | null) => (el ? el.getBoundingClientRect().right : null);
     const toolbar = document.querySelector('.toolbar')!;
-    const exp = document.querySelector('[data-testid="export-button"]');
     return {
       iw: window.innerWidth,
       pageSw: document.documentElement.scrollWidth,
@@ -507,8 +507,6 @@ async function assertChromeFits(where: string) {
         ),
       })),
       panel: right(document.querySelector('.side-panel')),
-      exportLeft: exp?.getBoundingClientRect().left ?? null,
-      exportRight: right(exp),
     };
   });
   const limit = m.iw + 0.5;
@@ -525,11 +523,6 @@ async function assertChromeFits(where: string) {
   expect(m.panel!, `${where}: side panel right edge ${m.panel} > ${m.iw}`).toBeLessThanOrEqual(
     limit,
   );
-  expect(m.exportLeft!, `${where}: Export CSV starts left of the window`).toBeGreaterThanOrEqual(0);
-  expect(
-    m.exportRight!,
-    `${where}: Export CSV cut at ${m.exportRight} > ${m.iw}; toolbar ${m.children.map((c) => `${c.name}[${c.parts.join(' ')}]@${Math.round(c.right)}`).join(' | ')}`,
-  ).toBeLessThanOrEqual(limit);
 }
 
 /**

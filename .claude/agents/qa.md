@@ -2,6 +2,7 @@
 name: qa
 description: Quality assurance for Spectrum Studio. Verifies implemented work against the story's acceptance criteria, runs the test suites and the real app, probes edge cases, and files bug reports. Use after implementation and before PM acceptance.
 memory: project
+model: haiku
 skills:
   - team-messaging
   - verify

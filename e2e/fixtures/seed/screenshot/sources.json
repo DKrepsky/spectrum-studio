@@ -22,30 +22,6 @@
       "createdMs": 3000,
       "updatedMs": 3000,
       "lastUsedMs": 3000
-    },
-    {
-      "id": "doc-iq",
-      "name": "FM broadcast recording",
-      "label": "",
-      "config": {
-        "driverId": "iq-file",
-        "connection": { "path": "/home/user/captures/fm-broadcast.sigmf-meta" }
-      },
-      "createdMs": 2000,
-      "updatedMs": 2000,
-      "lastUsedMs": 2000
-    },
-    {
-      "id": "doc-csv",
-      "name": "Bench trace (CSV)",
-      "label": "",
-      "config": {
-        "driverId": "trace-csv",
-        "connection": { "path": "/home/user/captures/bench-trace.csv" }
-      },
-      "createdMs": 1000,
-      "updatedMs": 1000,
-      "lastUsedMs": 1000
     }
   ]
 }

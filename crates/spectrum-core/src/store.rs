@@ -801,7 +801,6 @@ impl ConfigStore {
             return Err("That source type is not available.".into());
         }
         match driver.kind {
-            SourceKind::File => return Err("Use Open file\u{2026} to open a file.".into()),
             SourceKind::Simulator => {
                 return Err("The built-in simulator is always available.".into());
             }
@@ -868,13 +867,10 @@ impl ConfigStore {
         let connection_changed = update.connection != current.config.connection;
         let identity_changed = device_id != current.config.device_id;
         match driver.kind {
-            SourceKind::File if connection_changed || identity_changed => {
-                return Err("The file cannot be changed.".into());
-            }
             SourceKind::Simulator if connection_changed || identity_changed => {
                 return Err("The simulator has no settings.".into());
             }
-            SourceKind::File | SourceKind::Simulator => {}
+            SourceKind::Simulator => {}
             SourceKind::Sdr | SourceKind::SpectrumAnalyzer => {
                 let resolved = resolve_params(&driver.connection_params, &update.connection)?;
                 require_handle(driver, &device_id, &resolved)?;
@@ -1171,7 +1167,6 @@ mod tests {
                 tuning: None,
                 span_options_hz: vec![],
                 amplitude_unit: AmplitudeUnit::Dbfs,
-                finite: false,
                 params: vec![],
             },
             settings: SourceSettings {
@@ -2092,14 +2087,6 @@ mod tests {
         assert_eq!(
             add(
                 "x",
-                cfg("f", None, &[]),
-                &kind_driver("f", SourceKind::File)
-            ),
-            "Use Open file\u{2026} to open a file."
-        );
-        assert_eq!(
-            add(
-                "x",
                 cfg("s", None, &[]),
                 &kind_driver("s", SourceKind::Simulator)
             ),
@@ -2383,21 +2370,15 @@ mod tests {
     }
 
     #[test]
-    fn update_source_simulator_and_file_are_rename_only() {
+    fn update_source_simulator_is_rename_only() {
         let (_dir, store) = new_store();
         let sim = kind_driver("sim", SourceKind::Simulator);
-        let file = kind_driver("file", SourceKind::File);
         let s = store
             .remember_connected(
                 None,
                 &active("sim", None, "Built-in simulator", 1e6),
                 all_available,
             )
-            .unwrap();
-        let mut file_active = active("file", None, "rec.sigmf", 1e6);
-        file_active.config.connection = cfg("file", None, &[("path", "/tmp/a")]).connection;
-        let f = store
-            .remember_connected(None, &file_active, all_available)
             .unwrap();
         assert_eq!(
             store
@@ -2417,25 +2398,6 @@ mod tests {
                 .update_source(&s.id, &update("Sim", Some("x"), &[]), &sim, false)
                 .unwrap_err(),
             "The simulator has no settings."
-        );
-        let same = update("Recording", None, &[("path", "/tmp/a")]);
-        assert_eq!(
-            store
-                .update_source(&f.id, &same, &file, false)
-                .unwrap()
-                .name,
-            "Recording"
-        );
-        assert_eq!(
-            store
-                .update_source(
-                    &f.id,
-                    &update("Recording", None, &[("path", "/tmp/b")]),
-                    &file,
-                    false
-                )
-                .unwrap_err(),
-            "The file cannot be changed."
         );
     }
 

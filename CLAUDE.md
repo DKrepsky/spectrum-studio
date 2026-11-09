@@ -7,7 +7,7 @@ non-trivial changes; `docs/architecture.md` explains module boundaries.
 ## Repository map
 
 - `crates/spectrum-core/` — pure Rust domain library: units, DSP, source abstraction, simulator,
-  file formats, CSV export, acquisition session. No Tauri dependency; most logic and tests live here.
+  acquisition session. No Tauri dependency; most logic and tests live here.
 - `crates/spectrum-driver-*/` — one crate per hardware driver (e.g. `spectrum-driver-sa430`); depend on
   `spectrum-core`, registered by `src-tauri`.
 - `src-tauri/` — thin Tauri shell: IPC commands, event/channel bridge, persistence paths, packaging.

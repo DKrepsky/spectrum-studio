@@ -52,7 +52,7 @@ export function App() {
 
   return (
     <div className="app">
-      <Toolbar onExport={() => void useSession.getState().exportCsv()} />
+      <Toolbar />
       <div className="notices">
         <NoticeBanner />
       </div>

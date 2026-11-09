@@ -19,10 +19,6 @@ export type Capabilities = {
   spanOptionsHz: Array<number>;
   amplitudeUnit: AmplitudeUnit;
   /**
-   * The source ends by itself (e.g. a file without looping).
-   */
-  finite: boolean;
-  /**
    * Device-specific runtime settings.
    */
   params: Array<ParamSpec>;

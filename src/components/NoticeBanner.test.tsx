@@ -13,7 +13,7 @@ import { NoticeBanner } from './NoticeBanner';
 describe('NoticeBanner', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useSession.setState({ status: null, busy: null, commandError: null, info: null });
+    useSession.setState({ status: null, busy: null, commandError: null });
     useSources.setState({ list: [], active: null });
   });
 
@@ -54,14 +54,14 @@ describe('NoticeBanner', () => {
     expect(apiMock.connectSource).not.toHaveBeenCalled();
   });
 
-  it('offers Restart at the end of a recording and shows command errors', () => {
+  it('offers Restart after an acquisition failure and shows command errors', () => {
     useSession.getState().receiveStatus(
       status({
         revision: 1,
         state: 'connected',
         lastNotice: {
-          kind: 'endOfStream',
-          message: 'Reached the end of the recording.',
+          kind: 'acquisitionFailed',
+          message: 'Timeout reading trace.',
           timestampMs: 0,
         },
       }),

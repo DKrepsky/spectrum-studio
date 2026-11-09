@@ -14,8 +14,8 @@ import {
   failureBanner,
 } from './helpers';
 
-// Seeded sources (e2e/fixtures/seed/failures/sources.json): a plain simulator, a simulator whose
-// connection always fails, a CSV file with uneven spacing and an IQ recording that does not exist.
+// Seeded sources (e2e/fixtures/seed/failures/sources.json): a plain simulator and a simulator whose
+// connection always fails.
 describe('Failure handling', () => {
   it('reports a failed pick, marks the entry Failed and stays disconnected', async () => {
     await selectSource('source-entry-seed-fail');
@@ -27,21 +27,6 @@ describe('Failure handling', () => {
     await openSourceMenu();
     expect(await textOf(await sourceRow('seed-fail'))).toContain('Failed');
     await closeSourceMenu();
-  });
-
-  it('explains why an invalid file cannot be opened', async () => {
-    await selectSource('source-entry-seed-uneven');
-    await expect(await failureBanner()).toHaveText(expect.stringContaining('evenly spaced'));
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
-  });
-
-  it('explains a recording that is missing', async () => {
-    await selectSource('source-entry-seed-missing');
-    await browser.waitUntil(
-      async () => /missing\.sigmf-meta|No such file|not found/i.test(await commandError()),
-      { timeoutMsg: 'no useful message for a missing file' },
-    );
-    await expect(await byTestId('session-state')).toHaveText('Disconnected');
   });
 
   it('detects device loss during acquisition and recovers with Reconnect', async () => {
@@ -75,11 +60,6 @@ describe('Failure handling', () => {
     await expect(await $('[data-testid^="driver-"]')).not.toBeExisting();
   });
 });
-
-async function commandError(): Promise<string> {
-  const els = await $$('[data-testid="session-notice"], [data-testid="command-error"]');
-  return els.length ? els[0].getText() : '';
-}
 
 /** Opens or closes the collapsible Source settings; clicking blindly toggles it twice if a re-render raced. */
 async function setSourceSettingsOpen(open: boolean) {

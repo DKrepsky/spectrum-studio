@@ -5,11 +5,4 @@ export type ParamKind =
   | { type: 'number'; min: number; max: number; step: number; unit: string | null }
   | { type: 'choice'; options: Array<ChoiceOption> }
   | { type: 'bool' }
-  | { type: 'text'; maxLength: number }
-  | {
-      type: 'path';
-      /**
-       * File extensions offered by the dialog filter (without dots).
-       */
-      extensions: Array<string>;
-    };
+  | { type: 'text'; maxLength: number };

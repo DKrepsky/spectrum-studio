@@ -1,4 +1,3 @@
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import {
   useCallback,
   useEffect,
@@ -14,17 +13,14 @@ import {
 import type { DriverInfo } from '../../bindings/DriverInfo';
 import type { ParamValue } from '../../bindings/ParamValue';
 import type { SavedSource } from '../../bindings/SavedSource';
-import { errorMessage } from '../../ipc/commands';
 import { SIMULATOR_CONFIG, useSession } from '../../state/session';
 import {
   TRANSPORT_LABEL,
   configKey,
-  fileDriverFor,
   dialogDrivers,
   menuModel,
   rowKey,
   rowTitle,
-  visibleDrivers,
   type DetectedRow,
   type YourRow,
 } from '../../state/sourceEntries';
@@ -92,10 +88,6 @@ export function SourceMenu({ buttonRef, onClose }: Props) {
     [list, discovery, drivers, activeId],
   );
   const canAdd = useMemo(() => dialogDrivers(drivers).length > 0, [drivers]);
-  const fileDrivers = useMemo(
-    () => visibleDrivers(drivers).filter((d) => d.transport === 'file'),
-    [drivers],
-  );
   const driverOf = (id: string) => drivers.find((d) => d.id === id);
 
   // Scan only while the menu is shown (not while the Add/Edit dialog covers it).
@@ -193,52 +185,6 @@ export function SourceMenu({ buttonRef, onClose }: Props) {
     } else {
       pick(() => useSession.getState().connectTo({ type: 'config', config, title: row.title }));
     }
-  };
-
-  const openFile = async () => {
-    if (transitioning) return;
-    const extensions = [
-      ...new Set(
-        fileDrivers.flatMap((d) =>
-          d.connectionParams.flatMap((p) => (p.kind.type === 'path' ? p.kind.extensions : [])),
-        ),
-      ),
-    ];
-    let path: string | string[] | null;
-    try {
-      path = await openDialog({
-        multiple: false,
-        directory: false,
-        filters: [{ name: 'Recordings', extensions }],
-      });
-    } catch (e) {
-      useSession.setState({ commandError: `Could not open the file dialog: ${errorMessage(e)}` });
-      return;
-    }
-    if (typeof path !== 'string') return;
-    const driver = driverOf(fileDriverFor(path));
-    if (!driver || driver.status !== 'available') {
-      useSession.setState({ commandError: `No driver can open ${path}.` });
-      onClose(true);
-      return;
-    }
-    const pathParam = driver.connectionParams.find((p) => p.kind.type === 'path');
-    const initial = { [pathParam?.id ?? 'path']: path };
-    const needsMore = driver.connectionParams.some((p) => p.required && p.id !== pathParam?.id);
-    if (needsMore) {
-      setView({ kind: 'form', driver, deviceId: null, initial });
-      return;
-    }
-    onClose(true);
-    void useSession.getState().connectTo({
-      type: 'config',
-      config: {
-        driverId: driver.id,
-        deviceId: null,
-        connection: initial,
-        settings: { centerHz: null, spanHz: null, params: {} },
-      },
-    });
   };
 
   const noDeviceHint = (driver: DriverInfo) =>
@@ -345,7 +291,7 @@ export function SourceMenu({ buttonRef, onClose }: Props) {
       tip={tooltip(row.title, driverOf(row.entry.config.driverId), connectionDetails(row.entry))}
       status={entryStatus(row)}
       badge={TRANSPORT_LABEL[row.transport]}
-      detail={yourDetail(row)}
+      detail={row.port}
       highlight={highlight === row.key}
       disabled={transitioning}
       onPick={() =>
@@ -423,14 +369,6 @@ export function SourceMenu({ buttonRef, onClose }: Props) {
                 }
               />
             )}
-            {fileDrivers.length > 0 && (
-              <FixedItem
-                testId="source-open-file"
-                label="Open file…"
-                disabled={transitioning}
-                onClick={() => void openFile()}
-              />
-            )}
             {canAdd && (
               <FixedItem
                 testId="source-add"
@@ -457,12 +395,6 @@ export function SourceMenu({ buttonRef, onClose }: Props) {
   );
 }
 
-/** Where a remembered source is attached: a recording's path, else the port. */
-function yourDetail(row: YourRow): string | null {
-  const path = row.entry.config.connection['path'];
-  return typeof path === 'string' && path !== '' ? path : row.port;
-}
-
 interface FixedProps {
   testId: string;
   label: string;
@@ -472,7 +404,7 @@ interface FixedProps {
   onClick: () => void;
 }
 
-/** A single-line menu item: the fixed simulator entry, Open file…, Add source…, Disconnect. */
+/** A single-line menu item: the fixed simulator entry, Add source…, Disconnect. */
 function FixedItem({ testId, label, badge, status, disabled, onClick }: FixedProps) {
   return (
     <button
@@ -509,7 +441,7 @@ interface RowProps {
   tip: string;
   status: EntryStatus;
   badge: string;
-  /** Port or path shown on line 2. */
+  /** Port shown on line 2. */
   detail: string | null;
   /** Detected but not remembered: line 2 starts with `New` while nothing else applies. */
   isNew?: boolean;
@@ -525,7 +457,7 @@ interface RowProps {
 }
 
 /**
- * A two-line source row. Line 1: glyph | name | badge; line 2: status text and port/path.
+ * A two-line source row. Line 1: glyph | name | badge; line 2: status text and port.
  * The actions sit in the badge column of line 2 and are always in the DOM (hidden by CSS until
  * hover or focus), so showing them changes no layout.
  */

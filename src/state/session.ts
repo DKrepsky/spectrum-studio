@@ -35,8 +35,6 @@ export interface SessionStore {
   commandError: string | null;
   /** The operation whose failure produced `commandError` (null for other errors). */
   commandErrorFrom: BusyOperation | null;
-  /** Confirmation of a completed action (e.g. an export), shown briefly. */
-  info: string | null;
 
   init: () => Promise<() => void>;
   receiveStatus: (status: SessionStatus) => void;
@@ -52,11 +50,7 @@ export interface SessionStore {
   resetHolds: () => Promise<void>;
   dismissNotice: () => Promise<void>;
   clearCommandError: () => void;
-  showInfo: (message: string | null) => void;
-  exportCsv: () => Promise<void>;
 }
-
-let infoTimer: ReturnType<typeof setTimeout> | undefined;
 
 function titleOf(entry: SavedSource): string {
   return rowTitle(entry, useSources.getState().drivers);
@@ -92,7 +86,6 @@ export const useSession = create<SessionStore>()((set, get) => {
     busy: null,
     commandError: null,
     commandErrorFrom: null,
-    info: null,
 
     init: async () => {
       const unlisten = await api.onStatus((s) => get().receiveStatus(s));
@@ -236,18 +229,5 @@ export const useSession = create<SessionStore>()((set, get) => {
     },
 
     clearCommandError: () => set({ commandError: null, commandErrorFrom: null }),
-
-    showInfo: (info) => {
-      clearTimeout(infoTimer);
-      set({ info });
-      if (info) infoTimer = setTimeout(() => set({ info: null }), 8000);
-    },
-
-    exportCsv: async () => {
-      await command(null, async () => {
-        const result = await api.exportCsv();
-        if (result) get().showInfo(`Exported ${result.points} points to ${result.path}`);
-      });
-    },
   };
 });

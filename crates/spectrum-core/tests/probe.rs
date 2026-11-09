@@ -14,7 +14,7 @@ use spectrum_core::model::{
 use spectrum_core::sources::planned::planned_drivers;
 use spectrum_core::sources::simulator::{self, SimulatorDriver};
 use spectrum_core::sources::{
-    OpenedSource, Source, SourceData, SourceDriver, SourceError, SourceErrorKind,
+    OpenedSource, Source, SourceData, SourceDriver, SourceError, SourceErrorKind, TraceBlock,
 };
 use spectrum_core::{DriverRegistry, NullSink, SessionError, SessionManager};
 
@@ -55,7 +55,13 @@ impl Source for IdleSource {
     }
     fn read(&mut self, _wanted: usize) -> Result<SourceData, SourceError> {
         std::thread::sleep(Duration::from_millis(5));
-        Ok(SourceData::EndOfStream)
+        Ok(SourceData::Trace(TraceBlock {
+            values: vec![-90.0],
+            start_hz: 1e9,
+            bin_hz: 1e6,
+            unit: AmplitudeUnit::Dbm,
+            rbw_hz: None,
+        }))
     }
     fn stop(&mut self) -> Result<(), SourceError> {
         Ok(())
@@ -105,7 +111,6 @@ impl SourceDriver for Handle {
                     tuning: None,
                     span_options_hz: vec![],
                     amplitude_unit: AmplitudeUnit::Dbm,
-                    finite: false,
                     params: vec![],
                 },
                 settings: SourceSettings {

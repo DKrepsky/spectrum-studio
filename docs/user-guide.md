@@ -17,7 +17,6 @@
 | ▶ Run / ■ Stop | Starts or stops acquisition. Run connects first if the selected source is not connected. |
 | State pill | Authoritative backend state: Disconnected, Connecting…, Connected, Acquiring, Disconnecting…. |
 | Center / Span | Tuning and span, enabled only when the source supports them. Center accepts `100.2M`, `433.92 MHz`, `2.4G`, `12k`; ↑/↓ step by a tenth of the span. Invalid input stays highlighted until corrected or Escape. |
-| Export CSV | Saves the displayed spectrum (see [file-formats.md](file-formats.md)). |
 
 ## Choosing a source
 
@@ -25,11 +24,11 @@ There is no separate connect step: **picking a source in the menu connects to it
 source is stopped and released first). Open the menu by clicking the source button or with
 **Ctrl+K**; navigate with the arrow keys, Home/End and Enter, close it with Escape.
 
-![The source menu with the simulator connected, a remembered SA430, two recordings and the fixed entries](images/source-menu.png)
+![The source menu with the simulator connected, a remembered SA430 and the fixed entries](images/source-menu.png)
 
 Every row has the same layout: a **status circle**, the name, and a fixed-width badge for the kind
-of source (**USB**, **Serial**, **File**, **Built-in**). A second line gives the status in words and
-where the source is attached (the serial port or the file path). Long names are cut with an
+of source (**USB**, **Serial**, **Built-in**). A second line gives the status in words and where the
+source is attached (the serial port). Long names are cut with an
 ellipsis; hover the row for the full name and its details.
 
 - **Your sources:** every source you have connected to or added, most recent first, with the
@@ -45,8 +44,6 @@ ellipsis; hover the row for the full name and its details.
   dimmed as **Not detected**.
 - **Signal simulator:** listed until you have used it once, after which it is a normal entry
   under *Your sources*.
-- **Open file…:** pick a recording or trace; the file type selects the matching reader. Recordings
-  are remembered like any other source, so they reappear under *Your sources*.
 - **Add source…:** adds a source you set up by hand, for example an SA430 on a serial port you
   name (see *Add and edit a source*). Nothing is connected until you pick the new row.
 - **Disconnect:** releases the current source but keeps it selected, so **Run** connects it again.
@@ -95,7 +92,7 @@ Details:
   disabled: there is one row per device.
 - If you edit an existing source and the tested serial differs from the one stored, a warning says
   that saving binds the source to the other device; the name and settings are kept.
-- Recordings and the simulator can only be renamed. A recording's file is shown read-only.
+- The simulator can only be renamed.
 - While the source is connected, its connection fields are locked (disconnect to change them) but
   the name changes immediately and acquisition keeps running.
 - **Forget** in the dialog does the same as the row's **×**, with the same **Undo**.
@@ -166,14 +163,6 @@ frequency, so retuning moves signals across the display like a real receiver:
 | Testing | seed 1; *Simulate device loss after* N s (in Source settings, reached from the simulator entry under *Your sources*); *Fail to connect* (a connection option, only set by editing the remembered entry in `sources.json`, as used by the tests) |
 
 The same seed and settings always produce the same samples.
-
-## Recordings
-
-- **IQ recording:** SigMF (`.sigmf-meta`/`.sigmf-data`) or raw `cf32`/`cs16`/`cu8`/`cs8`. Raw
-  files need the sample rate (and optionally the centre frequency). Playback is paced to real
-  time; *Loop playback* and *Playback speed* are in Source settings.
-- **Spectrum trace (CSV):** shown as supplied in its own unit; no FFT is applied. A single trace
-  ends the "recording", so the display shows HOLD afterwards.
 
 ## When things go wrong
 

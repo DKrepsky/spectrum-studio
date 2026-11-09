@@ -1,13 +1,12 @@
 import type { DriverInfo } from '../bindings/DriverInfo';
 import type { ParamSpec } from '../bindings/ParamSpec';
-import { fileDriver, plannedDriver, savedSource, simulatorDriver } from '../test/fixtures';
+import { plannedDriver, savedSource, simulatorDriver } from '../test/fixtures';
 import { emptyConfig } from './sourceConfig';
 import {
   detectedKey,
   fallbackTitle,
   defaultName,
   dialogDrivers,
-  fileDriverFor,
   isActiveBusy,
   menuModel,
   otherDrivers,
@@ -34,9 +33,19 @@ const network: DriverInfo = {
   transport: 'network',
   status: 'available',
   supportsDiscovery: false,
-  connectionParams: [{ ...fileDriver.connectionParams[0]!, id: 'host', required: true }],
+  connectionParams: [
+    {
+      id: 'host',
+      label: 'Host',
+      group: null,
+      help: null,
+      kind: { type: 'text', maxLength: 64 },
+      default: '',
+      required: true,
+    },
+  ],
 };
-const drivers = [simulatorDriver, fileDriver, sa430, network, plannedDriver];
+const drivers = [simulatorDriver, sa430, network, plannedDriver];
 const noScan = { results: [], scanned: false, scanning: false };
 
 const device = (deviceId: string, label = `Dev ${deviceId}`, location: string | null = null) => ({
@@ -57,9 +66,7 @@ describe('rowTitle', () => {
     expect(rowTitle({ ...e, name: '', label: '' }, drivers)).toBe('Signal simulator');
   });
 
-  it('builds fallbacks from file name, device id and host:port', () => {
-    const file = { ...emptyConfig('iq-file'), connection: { path: '/a/b/cap.cf32' } };
-    expect(fallbackTitle(file, drivers)).toBe('IQ recording · cap.cf32');
+  it('builds fallbacks from device id and host:port', () => {
     expect(fallbackTitle({ ...emptyConfig('sa430'), deviceId: '/dev/ttyACM0' }, drivers)).toBe(
       'SA430 · /dev/ttyACM0',
     );
@@ -73,7 +80,7 @@ describe('menuModel', () => {
   it('shows the simulator row only until the simulator has been used', () => {
     expect(menuModel([], noScan, drivers, null).simulatorInFixedBlock).toBe(true);
     expect(menuModel([savedSource()], noScan, drivers, null).simulatorInFixedBlock).toBe(false);
-    expect(menuModel([], noScan, [fileDriver], null).simulatorInFixedBlock).toBe(false);
+    expect(menuModel([], noScan, [sa430], null).simulatorInFixedBlock).toBe(false);
   });
 
   it('hides planned and unknown drivers everywhere', () => {
@@ -175,36 +182,32 @@ describe('menuModel', () => {
 });
 
 describe('otherDrivers', () => {
-  it('lists available non-file, non-internal drivers with connection params', () => {
+  it('lists available non-internal drivers with connection params', () => {
     expect(otherDrivers(drivers).map((d) => d.id)).toEqual(['net']);
-    expect(otherDrivers([simulatorDriver, fileDriver, plannedDriver, sa430])).toEqual([]);
-  });
-});
-
-describe('fileDriverFor', () => {
-  it('chooses by extension', () => {
-    expect(fileDriverFor('/a/b/trace.CSV')).toBe('trace-csv');
-    expect(fileDriverFor('/a/notes.txt')).toBe('trace-csv');
-    expect(fileDriverFor('/a/rec.sigmf-meta')).toBe('iq-file');
+    expect(otherDrivers([simulatorDriver, plannedDriver, sa430])).toEqual([]);
   });
 });
 
 describe('splitConnectionParams', () => {
   const spec = (id: string, required: boolean): ParamSpec => ({
-    ...fileDriver.connectionParams[0]!,
     id,
+    label: id,
+    group: null,
+    help: null,
+    kind: { type: 'text', maxLength: 64 },
+    default: '',
     required,
   });
-  const specs = [spec('opt', false), spec('rate', true), spec('path', true)];
+  const specs = [spec('opt', false), spec('rate', true), spec('host', true)];
 
   it('puts missing required params first and the rest behind show more', () => {
-    const r = splitConnectionParams(specs, { path: '/x.cf32' });
+    const r = splitConnectionParams(specs, { host: '10.0.0.1' });
     expect(r.primary.map((s) => s.id)).toEqual(['rate']);
-    expect(r.more.map((s) => s.id)).toEqual(['opt', 'path']);
+    expect(r.more.map((s) => s.id)).toEqual(['opt', 'host']);
   });
 
   it('treats empty strings as missing', () => {
-    expect(splitConnectionParams(specs, { rate: '', path: 'p' }).primary.map((s) => s.id)).toEqual([
+    expect(splitConnectionParams(specs, { rate: '', host: 'h' }).primary.map((s) => s.id)).toEqual([
       'rate',
     ]);
   });

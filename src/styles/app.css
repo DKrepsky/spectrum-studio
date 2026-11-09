@@ -161,9 +161,6 @@ select:disabled {
 .toolbar-source > :not(.source-control) {
   flex: none;
 }
-.toolbar-end {
-  margin-left: auto;
-}
 .field {
   display: flex;
   align-items: center;
@@ -226,10 +223,6 @@ select:disabled {
   .toolbar .badge {
     padding: 1px 5px;
   }
-  .toolbar-end button {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
 }
 
 /* Notices */
@@ -249,12 +242,6 @@ select:disabled {
 .notice-internal,
 .notice-command {
   background: rgba(255, 107, 107, 0.12);
-}
-.notice-info {
-  background: rgba(62, 224, 181, 0.1);
-}
-.notice-endOfStream {
-  background: rgba(90, 169, 255, 0.12);
 }
 
 /* Workspace */
@@ -531,16 +518,6 @@ select:disabled {
 }
 .required {
   color: var(--danger);
-}
-.path-field {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-  justify-content: flex-end;
-}
-.path-field input {
-  flex: 1;
-  min-width: 0;
 }
 
 /* Status bar */

@@ -37,7 +37,6 @@ fn init_logging() {
 pub fn run() {
     init_logging();
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let registry = driver_registry();
             let store =
@@ -79,7 +78,6 @@ pub fn run() {
             commands::test_source,
             commands::forget_source,
             commands::restore_source,
-            commands::export_csv,
         ])
         .build(tauri::generate_context!());
 

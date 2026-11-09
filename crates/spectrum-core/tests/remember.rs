@@ -12,7 +12,7 @@ use spectrum_core::remember::{
 };
 use spectrum_core::sources::simulator::{self, SimulatorDriver};
 use spectrum_core::sources::{OpenedSource, SourceDriver, SourceError};
-use spectrum_core::store::ConfigStore;
+use spectrum_core::store::{ConfigStore, connectable};
 use spectrum_core::{DriverRegistry, NullSink, SessionManager};
 
 fn session() -> SessionManager {
@@ -344,4 +344,48 @@ fn editing_the_port_of_an_unbound_entry_binds_the_device_found_there() {
     // A bound entry keeps its identity when only the port hint changes.
     let moved = update_source(&m, &store, &saved.id, &update("/dev/ttyACM3")).unwrap();
     assert_eq!(moved.config.device_id.as_deref(), Some("S1"));
+}
+
+/// Entries of drivers that no longer exist (file readers removed) must load, stay hidden from the
+/// connectable list, survive a rewrite of `sources.json` and never break normalisation.
+#[test]
+fn entries_of_removed_drivers_stay_hidden_and_survive_a_rewrite() {
+    let dir = tempfile::tempdir().unwrap();
+    let legacy = r#"{
+        "version": 3,
+        "sources": [
+            {"id": "old-csv", "name": "Old trace", "config": {
+                "driverId": "trace-csv", "connection": {"path": "/x/trace.csv"}},
+             "createdMs": 1, "updatedMs": 1, "lastUsedMs": 1},
+            {"id": "old-iq", "name": "Old IQ", "config": {
+                "driverId": "iq-file", "connection": {"path": "/x/tone.cf32"}},
+             "createdMs": 2, "updatedMs": 2, "lastUsedMs": 2}
+        ]
+    }"#;
+    std::fs::write(dir.path().join("sources.json"), legacy).unwrap();
+    let registry = DriverRegistry::with_core_drivers();
+    let store = ConfigStore::open_with(dir.path(), &|driver, id, label| {
+        registry.normalize_device_id(driver, id, label)
+    });
+    assert!(store.warnings().is_empty());
+    assert_eq!(store.sources_all().len(), 2);
+    assert!(connectable(&store.sources_all(), &registry.infos()).is_empty());
+    assert_eq!(registry.normalize_device_id("iq-file", None, "x"), None);
+
+    // A connect rewrites the file; the removed-driver entries are carried over untouched.
+    let m = session();
+    connect_new(&m, &store, sim()).unwrap();
+    let reopened = ConfigStore::open(dir.path());
+    let all = reopened.sources_all();
+    assert!(
+        all.iter()
+            .any(|s| s.id == "old-csv" && s.name == "Old trace")
+    );
+    assert!(
+        all.iter()
+            .any(|s| s.id == "old-iq" && s.config.driver_id == "iq-file")
+    );
+    let visible = connectable(&all, &registry.infos());
+    assert_eq!(visible.len(), 1);
+    assert_eq!(visible[0].config.driver_id, simulator::DRIVER_ID);
 }

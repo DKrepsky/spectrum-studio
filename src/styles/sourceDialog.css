@@ -71,14 +71,6 @@
   border: 0;
   padding: 0;
 }
-.source-dialog .path-field {
-  justify-content: stretch;
-}
-.source-dialog input[readonly].ro {
-  color: var(--text-muted);
-  font-family: var(--mono);
-  font-size: 12px;
-}
 .source-dialog input.locked,
 .source-dialog select.locked,
 .source-dialog .dialog-params.locked input,

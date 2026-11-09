@@ -97,9 +97,8 @@ export function SourceDialog({ target, onClose, returnFocusTo }: SourceDialogPro
   const savingRef = useRef(false);
 
   const locked = entry != null && isActiveBusy(sessionState, busy, activeId, entry.id);
-  const fileLike = driver?.transport === 'file';
   const noParams = driver?.transport === 'internal';
-  const editableParams = !fileLike && !noParams && specs.length > 0;
+  const editableParams = !noParams && specs.length > 0;
   const paramsDisabled = locked || saving;
   const canTest = editableParams && !locked;
 
@@ -247,7 +246,6 @@ export function SourceDialog({ target, onClose, returnFocusTo }: SourceDialogPro
   const driverOptions = adding ? addable : driver ? [driver] : [];
   const driverLabel = (d: DriverInfo) =>
     !adding && d.transport === 'internal' ? `${d.name} (built-in)` : d.name;
-  const filePath = String(entry?.config.connection['path'] ?? '');
 
   const testResult = () => {
     if (test.st === 'idle')
@@ -365,23 +363,6 @@ export function SourceDialog({ target, onClose, returnFocusTo }: SourceDialogPro
                       .join(' ')}
               </span>
             )}
-          </div>
-        )}
-        {fileLike && (
-          <div className="form-row">
-            <label htmlFor={`${titleId}-file`}>File</label>
-            <input
-              id={`${titleId}-file`}
-              className="ro"
-              type="text"
-              readOnly
-              tabIndex={-1}
-              value={filePath}
-              title={filePath}
-            />
-            <span className="help">
-              The file cannot be changed. To use another file, choose Open file….
-            </span>
           </div>
         )}
         {noParams && (

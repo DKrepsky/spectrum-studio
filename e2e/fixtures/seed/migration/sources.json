@@ -19,7 +19,7 @@
       "config": {
         "driverId": "trace-csv",
         "connection": {
-          "path": "{{REPO}}/e2e/fixtures/recordings/trace.csv"
+          "path": "/home/user/captures/old-trace.csv"
         }
       },
       "createdMs": 2000,

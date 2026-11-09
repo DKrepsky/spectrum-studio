@@ -3,6 +3,7 @@ name: designer
 description: UI/UX designer for Spectrum Studio. Receives user stories from the product manager and returns design specs (flows, layout, states, copy, accessibility). Use for any user-visible change.
 tools: Read, Write, Edit, Glob, Grep, Bash
 memory: project
+model: haiku
 skills:
   - team-messaging
 ---

@@ -216,7 +216,6 @@ impl SourceDriver for Sa430Driver {
                     }),
                     span_options_hz: SPAN_OPTIONS_HZ.to_vec(),
                     amplitude_unit: AmplitudeUnit::Dbm,
-                    finite: false,
                     params: runtime_params(),
                 },
                 settings,

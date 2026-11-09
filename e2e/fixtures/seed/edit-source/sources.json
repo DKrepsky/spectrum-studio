@@ -11,12 +11,13 @@
       "lastUsedMs": 3000
     },
     {
-      "id": "edit-iq",
-      "name": "Seeded IQ tone",
+      "id": "edit-spare",
+      "name": "Spare simulator",
       "label": "",
       "config": {
-        "driverId": "iq-file",
-        "connection": { "path": "{{REPO}}/e2e/fixtures/recordings/tone.sigmf-meta" }
+        "driverId": "simulator",
+        "connection": { "failConnect": true },
+        "settings": { "centerHz": 433920000.0 }
       },
       "createdMs": 2000,
       "updatedMs": 2000,

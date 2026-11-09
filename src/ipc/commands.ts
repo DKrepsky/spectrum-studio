@@ -32,11 +32,6 @@ export function errorMessage(error: unknown): string {
   return 'An unexpected error occurred.';
 }
 
-export interface ExportResult {
-  path: string;
-  points: number;
-}
-
 export const api = {
   getStatus: () => invoke<SessionStatus>('get_status'),
   listDrivers: () => invoke<DriverInfo[]>('list_drivers'),
@@ -72,7 +67,6 @@ export const api = {
   saveDisplayPreferences: (display: DisplayPreferences) =>
     invoke<null>('save_display_preferences', { display }),
   /** Opens a native save dialog in the backend; `null` when cancelled. */
-  exportCsv: () => invoke<ExportResult | null>('export_csv'),
   onStatus: (handler: (status: SessionStatus) => void): Promise<UnlistenFn> =>
     listen<SessionStatus>(STATUS_EVENT, (event) => handler(event.payload)),
 };

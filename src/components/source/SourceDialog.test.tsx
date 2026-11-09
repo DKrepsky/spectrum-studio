@@ -10,7 +10,6 @@ import { useSources } from '../../state/sources';
 import {
   OTHER_SA430_SERIAL,
   SA430_SERIAL,
-  fileDriver,
   sa430Device,
   sa430Driver,
   savedSource,
@@ -39,17 +38,6 @@ const spare: SavedSource = savedSource({
     driverId: 'sa430',
     deviceId: OTHER_SA430_SERIAL,
     connection: { port: '/dev/ttyACM5' },
-    settings: { centerHz: null, spanHz: null, params: {} },
-  },
-});
-const recording: SavedSource = savedSource({
-  id: 'rec',
-  name: 'Roof capture',
-  label: '',
-  config: {
-    driverId: 'iq-file',
-    deviceId: null,
-    connection: { path: '/home/kr/captures/roof.cf32' },
     settings: { centerHz: null, spanHz: null, params: {} },
   },
 });
@@ -92,7 +80,7 @@ function setup(
   useSources.setState({
     list,
     activeId,
-    drivers: [simulatorDriver, fileDriver, { ...fileDriver, id: 'trace-csv' }, sa430Driver],
+    drivers: [simulatorDriver, sa430Driver],
     error: null,
   });
   return render(<Harness target={target} />);
@@ -408,7 +396,7 @@ describe('SourceDialog', () => {
     });
   });
 
-  describe('simulator and file entries', () => {
+  describe('simulator entries', () => {
     it('simulator: note, locked driver, no fields, no Test, renames only', async () => {
       setup({ mode: 'edit', entry: sim }, { list: [sim] });
       expect(screen.getByRole('dialog')).toHaveTextContent(
@@ -427,26 +415,6 @@ describe('SourceDialog', () => {
         name: 'Demo',
         deviceId: null,
         connection: {},
-      });
-    });
-
-    it('file: read-only File field with the path, no Test, renames only', async () => {
-      setup({ mode: 'edit', entry: recording }, { list: [recording] });
-      const file = screen.getByLabelText('File');
-      expect(file).toHaveValue('/home/kr/captures/roof.cf32');
-      expect(file).toHaveAttribute('readonly');
-      expect(file).toHaveAttribute('title', '/home/kr/captures/roof.cf32');
-      expect(screen.getByRole('dialog')).toHaveTextContent(
-        'The file cannot be changed. To use another file, choose Open file….',
-      );
-      expect(screen.queryByTestId('add-source-test')).not.toBeInTheDocument();
-      await typeInto(name(), 'Roof 2');
-      await userEvent.click(save());
-      await waitFor(() => expect(onClose).toHaveBeenCalled());
-      expect(apiMock.updateSource).toHaveBeenCalledWith('rec', {
-        name: 'Roof 2',
-        deviceId: null,
-        connection: { path: '/home/kr/captures/roof.cf32' },
       });
     });
   });
@@ -510,7 +478,7 @@ describe('SourceDialog', () => {
       expect(screen.getByTestId('add-source-save')).toHaveFocus();
     });
 
-    it('skips locked fields and the read-only file', async () => {
+    it('skips locked fields', async () => {
       useSession.setState({ status: status({ state: 'acquiring' }) });
       setup({ mode: 'edit', entry: bench }, { activeId: 'bench' });
       await userEvent.tab();

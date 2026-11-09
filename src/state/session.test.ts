@@ -63,11 +63,11 @@ describe('session store', () => {
   });
 
   it('a failed new config stays active in memory with a failed key', async () => {
-    const config = { ...emptyConfig('iq-file'), connection: { path: '/x/rec.cf32' } };
-    apiMock.connectSource.mockRejectedValue({ message: 'No such file.' });
-    await useSession.getState().connectTo({ type: 'config', config, title: 'rec' });
-    expect(useSources.getState().active).toMatchObject({ id: null, title: 'rec' });
-    expect(useSources.getState().failed).toBe('iq-file');
+    const config = { ...emptyConfig('sa430'), connection: { port: '/dev/ttyUSB9' } };
+    apiMock.connectSource.mockRejectedValue({ message: 'No such port.' });
+    await useSession.getState().connectTo({ type: 'config', config, title: 'bench' });
+    expect(useSources.getState().active).toMatchObject({ id: null, title: 'bench' });
+    expect(useSources.getState().failed).toBe('sa430');
   });
 
   it('ignores an unknown remembered id', async () => {
@@ -129,9 +129,9 @@ describe('session store', () => {
   });
 
   it('follows an external reconnect to a different source', () => {
-    const other = savedSource({ id: 'e2', name: 'Other', config: emptyConfig('iq-file') });
+    const other = savedSource({ id: 'e2', name: 'Other', config: emptyConfig('sa430') });
     useSources.setState({ list: [entry, other] });
-    const source = { ...activeSimulator, config: emptyConfig('iq-file') };
+    const source = { ...activeSimulator, config: emptyConfig('sa430') };
     useSession.getState().receiveStatus(status({ revision: 1, state: 'connected', source }));
     expect(useSources.getState().active).toMatchObject({ id: 'e2', title: 'Other' });
   });

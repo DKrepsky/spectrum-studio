@@ -1,6 +1,5 @@
 import '../../test/mockApi';
 
-import { open } from '@tauri-apps/plugin-dialog';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -11,7 +10,6 @@ import { emptyConfig } from '../../state/sourceConfig';
 import { useSources } from '../../state/sources';
 import {
   activeSimulator,
-  fileDriver,
   plannedDriver,
   SA430_SERIAL,
   sa430Device,
@@ -108,7 +106,6 @@ const serialDriver: DriverInfo = {
 };
 
 const scanDriver: DriverInfo = { ...serialDriver, connectionParams: [] };
-const traceDriver: DriverInfo = { ...fileDriver, id: 'trace-csv', name: 'Trace CSV' };
 
 const alpha = savedSource({ id: 'a', name: 'Alpha', lastUsedMs: 3 });
 const bravo = savedSource({
@@ -120,7 +117,7 @@ const bravo = savedSource({
 });
 const charlie = savedSource({ id: 'c', name: 'Charlie', lastUsedMs: 1 });
 
-const baseDrivers = [simulatorDriver, fileDriver, traceDriver, plannedDriver, networkDriver];
+const baseDrivers = [simulatorDriver, plannedDriver, networkDriver];
 
 function setup({
   list = [],
@@ -180,7 +177,6 @@ describe('source button and menu', () => {
       expect(button()).toHaveAttribute('aria-expanded', 'true');
       expect(screen.getByRole('menu')).toBeInTheDocument();
       expect(screen.getByTestId('source-simulator')).toBeInTheDocument();
-      expect(screen.getByTestId('source-open-file')).toHaveTextContent('Open file…');
       expect(screen.getByTestId('source-add')).toHaveTextContent('Add source…');
       expect(screen.queryByText(/Other sources/)).not.toBeInTheDocument();
       expect(screen.queryByRole('group', { name: 'Your sources' })).not.toBeInTheDocument();
@@ -397,7 +393,6 @@ describe('source button and menu', () => {
       expect(radios).toHaveLength(2);
       expect(radios[0]).toHaveAttribute('aria-checked', 'true');
       expect(radios[1]).toHaveAttribute('aria-checked', 'false');
-      expect(screen.getByRole('menuitem', { name: 'Open file…' })).toBeInTheDocument();
     });
 
     it('jumps with type-ahead and activates with Enter', async () => {
@@ -634,14 +629,9 @@ describe('source button and menu', () => {
         connection: { port: '/dev/ttyUSB0' },
       },
     });
-    const file = savedSource({
-      id: 'f',
-      name: 'Roof antenna',
-      config: { ...emptyConfig('iq-file'), connection: { path: '/home/kr/captures/roof.cf32' } },
-    });
     const sim = savedSource({ id: 's', name: 'Signal simulator' });
-    const drivers = [simulatorDriver, fileDriver, sa430Driver];
-    const list = [present, absent, file, sim];
+    const drivers = [simulatorDriver, sa430Driver];
+    const list = [present, absent, sim];
 
     const scan = (devices = [sa430Device(SA430_SERIAL, '/dev/ttyACM0')]) =>
       apiMock.discoverAll.mockResolvedValue([{ driverId: 'sa430', devices, error: null }]);
@@ -680,13 +670,8 @@ describe('source button and menu', () => {
         badge: 'USB',
         line2: 'Not detected·/dev/ttyUSB0',
       });
-      expectStructure('source-entry-f', {
-        status: 'idle',
-        badge: 'File',
-        line2: '/home/kr/captures/roof.cf32',
-      });
       expectStructure('source-entry-s', { status: 'idle', badge: 'Built-in', line2: '' });
-      for (const id of ['p', 'x', 'f', 's']) {
+      for (const id of ['p', 'x', 's']) {
         const row = screen.getByTestId(`source-entry-${id}`).closest('[data-menu-row]')!;
         expect(
           within(row as HTMLElement)
@@ -870,81 +855,9 @@ describe('source button and menu', () => {
     });
 
     it('hides Add source… when no driver qualifies', async () => {
-      setup({ drivers: [simulatorDriver, fileDriver, plannedDriver] });
+      setup({ drivers: [simulatorDriver, plannedDriver] });
       await openMenu();
       expect(screen.queryByTestId('source-add')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Open file…', () => {
-    const openMock = vi.mocked(open);
-
-    it('connects a recording by the driver its extension selects', async () => {
-      apiMock.connectSource.mockResolvedValue(status({ revision: 2, state: 'connected' }));
-      setup();
-      await openMenu();
-      openMock.mockResolvedValueOnce('/data/capture.cf32');
-      await userEvent.click(screen.getByTestId('source-open-file'));
-      await waitFor(() =>
-        expect(apiMock.connectSource).toHaveBeenCalledWith(
-          expect.objectContaining({
-            driverId: 'iq-file',
-            connection: { path: '/data/capture.cf32' },
-          }),
-        ),
-      );
-      expect(openMock).toHaveBeenCalledWith(
-        expect.objectContaining({ multiple: false, directory: false }),
-      );
-
-      await openMenu();
-      openMock.mockResolvedValueOnce('/data/sweep.CSV');
-      await userEvent.click(screen.getByTestId('source-open-file'));
-      await waitFor(() =>
-        expect(apiMock.connectSource).toHaveBeenLastCalledWith(
-          expect.objectContaining({
-            driverId: 'trace-csv',
-            connection: { path: '/data/sweep.CSV' },
-          }),
-        ),
-      );
-    });
-
-    it('does nothing when the dialog is cancelled', async () => {
-      setup();
-      await openMenu();
-      openMock.mockResolvedValueOnce(null);
-      await userEvent.click(screen.getByTestId('source-open-file'));
-      await waitFor(() => expect(openMock).toHaveBeenCalled());
-      expect(apiMock.connectSource).not.toHaveBeenCalled();
-      expect(menu()).toBeInTheDocument();
-    });
-
-    it('opens the form with the path prefilled when the file driver needs more', async () => {
-      const rawIq: DriverInfo = {
-        ...fileDriver,
-        connectionParams: [
-          ...fileDriver.connectionParams,
-          {
-            id: 'sampleRateHz',
-            label: 'Sample rate',
-            group: null,
-            help: null,
-            kind: { type: 'number', min: 1, max: 1e9, step: 1, unit: 'Hz' },
-            default: 0,
-            required: true,
-          },
-        ],
-      };
-      setup({ drivers: [simulatorDriver, rawIq, traceDriver] });
-      await openMenu();
-      openMock.mockResolvedValueOnce('/data/raw.cf32');
-      await userEvent.click(screen.getByTestId('source-open-file'));
-      const form = await screen.findByTestId('source-form');
-      expect(within(form).getByLabelText(/Sample rate/)).toHaveFocus();
-      await userEvent.click(within(form).getByRole('button', { name: 'Show more' }));
-      expect(within(form).getByLabelText(/File/)).toHaveValue('/data/raw.cf32');
-      expect(apiMock.connectSource).not.toHaveBeenCalled();
     });
   });
 });

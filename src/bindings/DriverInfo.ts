@@ -16,7 +16,7 @@ export type DriverInfo = {
   status: DriverStatus;
   supportsDiscovery: boolean;
   /**
-   * Parameters needed to open a connection (host, file path, ...), shown in "add manually".
+   * Parameters needed to open a connection (host, port, ...), shown in "add manually".
    */
   connectionParams: Array<ParamSpec>;
 };

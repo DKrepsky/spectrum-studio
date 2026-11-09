@@ -9,8 +9,9 @@ built-in, repeatable signal simulator.
 ## Features
 
 - **Sources:** built-in signal simulator (tones, noise, drifting/bursting/FM/swept signals,
-  fault injection), IQ recordings (SigMF, raw cf32/cs16/cu8/cs8) and CSV spectrum traces. SDRs
-  and bench analyzers are planned and listed as such. See [`docs/sources.md`](docs/sources.md).
+  fault injection) and the TI SA430 spectrum analyzer. SDRs and other bench analyzers are planned
+  and listed as such. File input and CSV export are not offered for now (see
+  [ADR 0011](docs/adr/0011-remove-file-sources.md)). See [`docs/sources.md`](docs/sources.md).
 - **Spectrum processing:** FFT 256–32768 points; Hann, rectangular, Blackman-Harris and flat-top
   windows; power averaging; max/min hold. Amplitudes are labelled in dBFS (uncalibrated), dBm
   only for calibrated data.
@@ -23,8 +24,7 @@ built-in, repeatable signal simulator.
   source with a non-destructive *Test connection*, sources remembered with their last settings,
   safe switching, reconnect after failures.
 
-  ![The source menu: status circles, names, kind badges and port or path per row](docs/images/source-menu.png)
-- **Export:** CSV with frequency, levels, units and full measurement metadata.
+  ![The source menu: status circles, names, kind badges and port per row](docs/images/source-menu.png)
 - **Persistence:** preferences and remembered sources survive restarts (`~/.config/io.github.spectrumstudio`).
 
 ## Quick start
@@ -60,7 +60,6 @@ npm run tauri build
 | Architecture and module boundaries | [docs/architecture.md](docs/architecture.md) |
 | Signal processing, units and accuracy | [docs/dsp.md](docs/dsp.md) |
 | Source model and adding integrations | [docs/sources.md](docs/sources.md) |
-| Supported file formats | [docs/file-formats.md](docs/file-formats.md) |
 | Development setup, commands, packaging | [docs/development.md](docs/development.md) |
 | Testing strategy and running tests | [docs/testing.md](docs/testing.md) |
 | Engineering guidelines | [docs/guidelines.md](docs/guidelines.md) |

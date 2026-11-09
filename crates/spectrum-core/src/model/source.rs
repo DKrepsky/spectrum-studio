@@ -14,8 +14,6 @@ pub enum SourceKind {
     Sdr,
     /// Instrument that measures and returns spectrum traces itself.
     SpectrumAnalyzer,
-    /// Recording loaded from disk.
-    File,
     /// Built-in signal generator.
     Simulator,
 }
@@ -28,7 +26,6 @@ pub enum Transport {
     Usb,
     Serial,
     Network,
-    File,
     Internal,
 }
 
@@ -56,7 +53,7 @@ pub struct DriverInfo {
     pub transport: Transport,
     pub status: DriverStatus,
     pub supports_discovery: bool,
-    /// Parameters needed to open a connection (host, file path, ...), shown in "add manually".
+    /// Parameters needed to open a connection (host, port, ...), shown in "add manually".
     pub connection_params: Vec<ParamSpec>,
 }
 
@@ -157,8 +154,6 @@ pub struct Capabilities {
     /// Selectable spans (the IQ sample rate for IQ sources). Empty means the span is fixed.
     pub span_options_hz: Vec<f64>,
     pub amplitude_unit: AmplitudeUnit,
-    /// The source ends by itself (e.g. a file without looping).
-    pub finite: bool,
     /// Device-specific runtime settings.
     pub params: Vec<ParamSpec>,
 }
@@ -217,5 +212,27 @@ impl SourceConfig {
             connection: ParamMap::new(),
             settings: SettingsPatch::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Payloads written before the `finite` field was removed still deserialize: unknown keys are ignored.
+    #[test]
+    fn capabilities_ignore_the_removed_finite_key() {
+        let json = r#"{
+            "dataKind": "trace",
+            "tuning": null,
+            "spanOptionsHz": [],
+            "amplitudeUnit": "dbm",
+            "finite": true,
+            "params": []
+        }"#;
+        let caps: Capabilities = serde_json::from_str(json).unwrap();
+        assert_eq!(caps.data_kind, DataKind::Trace);
+        assert_eq!(caps.amplitude_unit, AmplitudeUnit::Dbm);
+        assert!(caps.tuning.is_none());
     }
 }

@@ -14,15 +14,16 @@ import {
   waitForState,
 } from './helpers';
 
-// Seeded with a version 1 sources.json (e2e/fixtures/seed/migration): two usable entries, one
-// of an unknown driver ("ghost") and one of a planned driver ("soapysdr").
+// Seeded with a version 1 sources.json (e2e/fixtures/seed/migration): one usable entry, one of a
+// removed driver ("trace-csv"), one of an unknown driver ("ghost") and one of a planned driver
+// ("soapysdr").
 const sourcesFile = () => join(process.env.SPECTRUM_E2E_APP_CONFIG!, 'sources.json');
 
 describe('Upgrading a version 1 sources file', () => {
-  it('lists the usable saved sources and hides unknown and planned ones', async () => {
+  it('lists the usable saved sources and hides removed, unknown and planned ones', async () => {
     await openSourceMenu();
     expect(await textOf(byTestId('source-entry-old-sim'))).toContain('Old simulator setup');
-    expect(await textOf(byTestId('source-entry-old-trace'))).toContain('Old CSV trace');
+    await expect(await byTestId('source-entry-old-trace')).not.toBeExisting();
     await expect(await byTestId('source-entry-old-ghost')).not.toBeExisting();
     await expect(await byTestId('source-entry-old-soapy')).not.toBeExisting();
     await closeSourceMenu();

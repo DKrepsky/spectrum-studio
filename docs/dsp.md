@@ -13,7 +13,7 @@ trace source (already measured, in its own unit) ──────────�
 
 - One spectrum is computed per frame from the most recent `N` contiguous samples. Blocks shorter
   than `N` are accumulated; a discontinuity (retune, gap, loop) discards the partial buffer.
-- Trace sources (spectrum analyzers, CSV traces) skip the FFT entirely — their data is never
+- Trace sources (spectrum analyzers) skip the FFT entirely — their data is never
   treated as IQ.
 - Frames carry the exact settings that produced them (centre, span, bin spacing, RBW, FFT size,
   window, averaging state, unit). The UI labels the display from the frame, not from requested
@@ -23,8 +23,7 @@ trace source (already measured, in its own unit) ──────────�
 
 The power in bin *k* is `P[k] = |X[k]|² / (Σ w[n])²`, so a complex sinusoid `A·e^{jωt}` centred on
 a bin reads `20·log10(A)` **dBFS**, independent of FFT size and window. Full scale is a complex
-magnitude of 1.0 (a sample with I = 1, Q = 0). Each file format scales its integers to this
-range (see [file-formats.md](file-formats.md)).
+magnitude of 1.0 (a sample with I = 1, Q = 0).
 
 | Unit | Meaning | Calibrated? |
 | --- | --- | --- |

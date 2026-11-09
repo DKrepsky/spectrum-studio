@@ -3,6 +3,7 @@ name: staff-engineer
 description: Staff engineer for Spectrum Studio. Owns software architecture and development coordination. Turns approved stories plus designs into technical plans and developer tasks, writes ADRs, and reviews developer output. Use before any implementation and for code review.
 tools: Read, Write, Edit, Glob, Grep, Bash
 memory: project
+model: sonnet
 skills:
   - team-messaging
   - verify

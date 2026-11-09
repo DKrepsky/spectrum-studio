@@ -25,34 +25,6 @@
       "createdMs": 3000,
       "updatedMs": 3000,
       "lastUsedMs": 3000
-    },
-    {
-      "id": "seed-uneven",
-      "name": "Uneven trace",
-      "label": "",
-      "config": {
-        "driverId": "trace-csv",
-        "connection": {
-          "path": "{{REPO}}/e2e/fixtures/recordings/uneven.csv"
-        }
-      },
-      "createdMs": 2000,
-      "updatedMs": 2000,
-      "lastUsedMs": 2000
-    },
-    {
-      "id": "seed-missing",
-      "name": "Missing recording",
-      "label": "",
-      "config": {
-        "driverId": "iq-file",
-        "connection": {
-          "path": "/nonexistent/e2e/missing.sigmf-meta"
-        }
-      },
-      "createdMs": 1000,
-      "updatedMs": 1000,
-      "lastUsedMs": 1000
     }
   ]
 }

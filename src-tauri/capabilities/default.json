@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: core IPC/events and the native file-open dialog (used to pick recordings). Saving happens through backend commands.",
+  "description": "Main window: core IPC and events only. Persistence happens through backend commands.",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open"]
+  "permissions": ["core:default"]
 }

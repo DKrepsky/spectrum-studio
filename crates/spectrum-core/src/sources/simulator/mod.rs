@@ -144,7 +144,6 @@ impl SimulatorSource {
                 }),
                 span_options_hz: SPAN_OPTIONS_HZ.to_vec(),
                 amplitude_unit: AmplitudeUnit::Dbfs,
-                finite: false,
                 params,
             },
             rng: Rng::new(scene.seed),

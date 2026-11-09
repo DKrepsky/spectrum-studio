@@ -1,6 +1,6 @@
 ---
 name: add-source-integration
-description: Step-by-step procedure for adding a new signal source to Spectrum Studio — an SDR, a traditional spectrum analyzer, a file format, or a new transport. Use whenever a new device or recording format must be supported.
+description: Step-by-step procedure for adding a new signal source to Spectrum Studio — an SDR, a traditional spectrum analyzer, or a new transport. Use whenever a new device must be supported.
 ---
 
 # Adding a source integration
@@ -24,5 +24,5 @@ Read `docs/sources.md` first; it defines the `SourceDriver` / `Source` contracts
 4. If the driver needs new user-visible types, run `npm run bindings`. The UI renders driver
    parameters generically from `ParamSpec`; avoid driver-specific UI code.
 5. Document the integration in `docs/sources.md` (supported models, settings, limitations) and
-   `docs/file-formats.md` for file formats. Update `docs/roadmap.md`.
+   update `docs/roadmap.md`.
 6. Run the `verify` skill.

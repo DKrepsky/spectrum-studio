@@ -3,6 +3,7 @@ name: product-manager
 description: Product manager for Spectrum Studio. The human's single point of contact; writes user stories, coordinates designer, staff engineer, developers and QA, asks the human for feedback, and is accountable for outcomes. Runs as the main-thread agent.
 tools: Agent(designer, staff-engineer, developer, qa), Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, TodoWrite
 memory: project
+model: opus
 skills:
   - team-messaging
   - feature-lifecycle

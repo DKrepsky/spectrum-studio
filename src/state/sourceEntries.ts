@@ -13,28 +13,20 @@ export const TRANSPORT_LABEL: Record<Transport, string> = {
   usb: 'USB',
   serial: 'Serial',
   network: 'Network',
-  file: 'File',
   internal: 'Built-in',
 };
 
 export const SIMULATOR_ID = 'simulator';
-const TRACE_EXTENSIONS = ['csv', 'txt'];
-
-/** Picks the file driver for a path by its extension. */
-export function fileDriverFor(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
-  return TRACE_EXTENSIONS.includes(ext) ? 'trace-csv' : 'iq-file';
-}
 
 /** Drivers that may be connected; Planned ones are never exposed to the user. */
 export function visibleDrivers(drivers: readonly DriverInfo[]): DriverInfo[] {
   return drivers.filter((d) => d.status === 'available');
 }
 
-/** Drivers offered by the Add source dialog: not file/simulator, with connection params. */
+/** Drivers offered by the Add source dialog: not the simulator, with connection params. */
 export function dialogDrivers(drivers: readonly DriverInfo[]): DriverInfo[] {
   return visibleDrivers(drivers).filter(
-    (d) => d.transport !== 'internal' && d.transport !== 'file' && d.connectionParams.length > 0,
+    (d) => d.transport !== 'internal' && d.connectionParams.length > 0,
   );
 }
 
@@ -61,18 +53,12 @@ export function configKey(config: SourceConfig): string {
   return config.deviceId == null ? config.driverId : `${config.driverId}/${config.deviceId}`;
 }
 
-function basename(path: string): string {
-  return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
-}
-
 function str(value: ParamValue | undefined): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 }
 
-/** Detail that distinguishes one source of a driver from another: file name, device id or host:port. */
+/** Detail that distinguishes one source of a driver from another: device id or host:port. */
 function connectionDetail(config: SourceConfig): string {
-  const path = str(config.connection['path']);
-  if (path) return basename(path);
   if (config.deviceId) return config.deviceId;
   const host = str(config.connection['host']);
   if (host) {

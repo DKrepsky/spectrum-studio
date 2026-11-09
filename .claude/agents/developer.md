@@ -2,6 +2,7 @@
 name: developer
 description: Implementation worker for Spectrum Studio. Implements one task from a staff-engineer task spec (Rust and/or React/TypeScript) with tests, and reports back. Spawn one per independent task.
 memory: project
+model: haiku
 skills:
   - team-messaging
   - verify

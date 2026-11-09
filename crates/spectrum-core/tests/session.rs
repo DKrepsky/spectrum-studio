@@ -57,7 +57,6 @@ impl SourceDriver for ScriptedDriver {
                     tuning: None,
                     span_options_hz: vec![],
                     amplitude_unit: AmplitudeUnit::Dbm,
-                    finite: true,
                     params: vec![],
                 },
                 settings: SourceSettings {
@@ -120,13 +119,12 @@ impl Source for ScriptedSource {
     fn start(&mut self) -> Result<(), SourceError> {
         Ok(())
     }
-    /// Two traces, then a recoverable error, then two traces and end of stream.
+    /// Two traces, then a recoverable error, then traces again.
     fn read(&mut self, _wanted: usize) -> Result<SourceData, SourceError> {
         self.reads += 1;
         std::thread::sleep(Duration::from_millis(5));
         match self.reads {
             3 => Err(SourceError::io("Timeout reading trace.")),
-            6 => Ok(SourceData::EndOfStream),
             _ => Ok(SourceData::Trace(TraceBlock {
                 values: vec![-90.0, -40.0, -90.0, -90.0, -90.0],
                 start_hz: 998e6,
@@ -212,10 +210,6 @@ fn full_lifecycle_with_simulator() {
     let s = m.status();
     assert_eq!(s.state, SessionState::Disconnected);
     assert!(s.source.is_none());
-    assert!(
-        m.latest_frame().is_some(),
-        "last frame stays available for export"
-    );
 
     let revisions: Vec<u32> = sink.0.lock().unwrap().iter().map(|s| s.revision).collect();
     assert!(revisions.windows(2).all(|w| w[1] > w[0]));
@@ -280,7 +274,7 @@ fn switching_sources_releases_the_previous_one() {
     let (m, _) = manager();
     m.connect(sim_config()).unwrap();
     m.start().unwrap();
-    m.wait_frame(0, WAIT).unwrap();
+    let last = m.wait_frame(0, WAIT).unwrap().frame.header.seq;
 
     let status = m
         .connect(SourceConfig::new("scripted"))
@@ -288,10 +282,8 @@ fn switching_sources_releases_the_previous_one() {
     let active = status.source.unwrap();
     assert_eq!(active.driver_name, "Scripted analyzer");
     assert_eq!(status.state, SessionState::Connected);
-    assert!(
-        m.latest_frame().is_none(),
-        "frames from the previous source are discarded"
-    );
+    // The new source is connected but not started, so no frame from it (or the old one) follows.
+    assert!(m.wait_frame(last, Duration::from_millis(300)).is_none());
 }
 
 #[test]
@@ -348,7 +340,7 @@ fn connection_failures_are_reported() {
 }
 
 #[test]
-fn trace_sources_report_read_errors_and_end_of_stream() {
+fn trace_sources_report_read_errors() {
     let (m, _) = manager();
     let status = m.connect(SourceConfig::new("scripted")).unwrap();
     assert!(status.source.unwrap().capabilities.tuning.is_none());
@@ -373,13 +365,6 @@ fn trace_sources_report_read_errors_and_end_of_stream() {
         "a recoverable error keeps the source open"
     );
 
-    m.start().unwrap();
-    let s = wait_until(&m, |s| {
-        s.last_notice
-            .as_ref()
-            .is_some_and(|n| n.kind == NoticeKind::EndOfStream)
-    });
-    assert_eq!(s.state, SessionState::Connected);
     m.dismiss_notice();
     assert!(m.status().last_notice.is_none());
 }
@@ -480,12 +465,6 @@ fn discover_all_filters_drivers_and_isolates_failures() {
     registry.register(scan_driver(
         "internal",
         Transport::Internal,
-        DriverStatus::Available,
-        false,
-    ));
-    registry.register(scan_driver(
-        "file",
-        Transport::File,
         DriverStatus::Available,
         false,
     ));

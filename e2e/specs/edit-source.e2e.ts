@@ -17,9 +17,9 @@ import {
   waitForState,
 } from './helpers';
 
-// Seeded sources (e2e/fixtures/seed/edit-source/sources.json): a simulator and an IQ recording.
+// Seeded sources (e2e/fixtures/seed/edit-source/sources.json): two simulator presets.
 const SIM = 'source-entry-edit-sim';
-const FILE = 'source-entry-edit-iq';
+const SPARE = 'source-entry-edit-spare';
 
 async function saveDialog() {
   await (await byTestId('add-source-save')).click();
@@ -56,27 +56,15 @@ describe('Edit source', () => {
     await byTestId('add-source-dialog').waitForExist({ reverse: true });
   });
 
-  it('shows a recording read-only: no driver, path or Test connection to change', async () => {
-    await openEditDialog(FILE);
-    const dialog = await byTestId('add-source-dialog');
-    await expect(await byTestId('add-source-driver')).toBeDisabled();
-    const path = await dialog.$('input.ro');
-    await expect(path).toHaveAttribute('readonly');
-    expect(String(await path.getValue())).toContain('tone.sigmf-meta');
-    await expect(await byTestId('add-source-test')).not.toBeExisting();
-    await (await byTestId('add-source-cancel')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
-  });
-
   it('forgets from the dialog and brings the source back with Undo', async () => {
-    await openEditDialog(FILE);
+    await openEditDialog(SPARE);
     await (await byTestId('edit-source-forget')).click();
     await byTestId('add-source-dialog').waitForExist({ reverse: true });
-    await expect(await byTestId(FILE)).not.toBeExisting();
+    await expect(await byTestId(SPARE)).not.toBeExisting();
     await expect(await byTestId('source-forgot-toast')).toBeDisplayed();
     await (await byTestId('source-undo')).click();
-    await expect(await byTestId(FILE)).toBeExisting();
-    expect(await textOf(byTestId(FILE))).toContain('Seeded IQ tone');
+    await expect(await byTestId(SPARE)).toBeExisting();
+    expect(await textOf(byTestId(SPARE))).toContain('Spare simulator');
     await closeSourceMenu();
   });
 

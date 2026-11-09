@@ -1,5 +1,7 @@
 # ADR 0003 — Binary frames pulled by the UI
 
+> **Update (2026-10-31):** file sources and CSV export were removed; see [ADR 0011](0011-remove-file-sources.md). The text below is kept as it was written.
+
 Status: accepted (2026-10-25)
 
 ## Context

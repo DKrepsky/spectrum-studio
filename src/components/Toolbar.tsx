@@ -2,7 +2,6 @@ import type { SessionState } from '../bindings/SessionState';
 import { formatFrequencyShort } from '../format/frequency';
 import { useSession } from '../state/session';
 import { useSources } from '../state/sources';
-import { useFrameTick } from '../state/useFrameTick';
 import { FrequencyInput } from './FrequencyInput';
 import { SourceButton } from './source/SourceButton';
 
@@ -14,11 +13,10 @@ const STATE_LABEL: Record<SessionState, string> = {
   disconnecting: 'Disconnecting…',
 };
 
-export function Toolbar({ onExport }: { onExport: () => void }) {
+export function Toolbar() {
   const status = useSession((s) => s.status);
   const hasSource = useSources((s) => s.active !== null);
   const busy = useSession((s) => s.busy);
-  const hasFrame = useFrameTick(1000) !== null;
   const { run, stop, applySettings } = useSession.getState();
 
   const state = status?.state ?? 'disconnected';
@@ -111,17 +109,6 @@ export function Toolbar({ onExport }: { onExport: () => void }) {
             ))}
           </select>
         </label>
-      </div>
-
-      <div className="toolbar-group toolbar-end">
-        <button
-          onClick={onExport}
-          disabled={!hasFrame}
-          data-testid="export-button"
-          title={hasFrame ? 'Export the displayed spectrum to CSV' : 'No spectrum to export yet'}
-        >
-          Export CSV
-        </button>
       </div>
     </header>
   );

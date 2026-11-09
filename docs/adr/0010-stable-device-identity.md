@@ -1,5 +1,7 @@
 # ADR 0010 — Stable device identity
 
+> **Update (2026-10-31):** file sources and CSV export were removed; see [ADR 0011](0011-remove-file-sources.md). The text below is kept as it was written.
+
 Status: accepted (2026-10-31). Amends [ADR 0009](0009-automatic-source-memory.md) and
 [ADR 0006](0006-local-json-persistence.md).
 

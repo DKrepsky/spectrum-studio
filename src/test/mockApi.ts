@@ -101,8 +101,6 @@ export class FakeBackend {
   add = (name: string, config: SourceConfig): SavedSource => {
     const clean = this.checkName(name, null);
     if (config.driverId === 'simulator') throw new Error('The simulator is built in.');
-    if (config.driverId === 'iq-file' || config.driverId === 'trace-csv')
-      throw new Error('Use Open file… to add a recording.');
     if (config.driverId === sa430Driver.id && config.deviceId == null) {
       const port = config.connection['port'];
       if (typeof port !== 'string' || port.trim() === '') throw new Error('Enter the serial port.');
@@ -132,8 +130,6 @@ export class FakeBackend {
       deviceId === entry.config.deviceId && sameParams(update.connection, entry.config.connection);
     const driver = entry.config.driverId;
     if (!same && driver === 'simulator') throw new Error('The simulator has no settings.');
-    if (!same && (driver === 'iq-file' || driver === 'trace-csv'))
-      throw new Error('The file cannot be changed.');
     const next: SourceConfig = { ...entry.config, deviceId, connection: update.connection };
     const active = this.session.active;
     if (
@@ -213,7 +209,6 @@ export const apiMock = {
   getPreferences: vi.fn(),
   storeWarnings: vi.fn(() => Promise.resolve([])),
   saveDisplayPreferences: vi.fn(() => Promise.resolve(null)),
-  exportCsv: vi.fn(),
   onStatus: vi.fn(() => Promise.resolve(() => undefined)),
 };
 
@@ -221,5 +216,3 @@ vi.mock('../ipc/commands', async (importOriginal) => {
   const original = await importOriginal<typeof import('../ipc/commands')>();
   return { ...original, api: apiMock };
 });
-
-vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(() => Promise.resolve(null)) }));

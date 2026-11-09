@@ -61,13 +61,13 @@
       "lastUsedMs": 3000
     },
     {
-      "id": "vis-file",
-      "name": "Seeded IQ tone",
+      "id": "vis-port",
+      "name": "Seeded long port",
       "label": "",
       "config": {
-        "driverId": "iq-file",
+        "driverId": "sa430",
         "connection": {
-          "path": "{{REPO}}/e2e/fixtures/recordings/tone.sigmf-meta"
+          "port": "/dev/serial/by-id/usb-Example_Lab_Spectrum_Analyzer_SN000123456789-if00-port0"
         }
       },
       "createdMs": 2000,

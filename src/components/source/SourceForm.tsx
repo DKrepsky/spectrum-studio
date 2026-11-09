@@ -21,7 +21,7 @@ interface Props {
   deviceId: string | null;
   /** Display name for the entry being connected (a detected device's label). */
   title?: string | undefined;
-  /** Prefilled connection values, e.g. a file chosen with "Open file…". */
+  /** Prefilled connection values, e.g. a remembered source being edited. */
   initial: Values;
   /** Show "No <driver> found…" (discovery-capable driver with nothing detected). */
   noDeviceHint: boolean;

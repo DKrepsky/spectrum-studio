@@ -25,12 +25,11 @@ const BAD_PORT = '/dev/spectrum-e2e-no-such-port';
 const describeHardware = process.env.SPECTRUM_E2E_SA430 === '1' ? describe : describe.skip;
 
 describe('Add source', () => {
-  it('first launch: the menu offers the simulator, Open file and Add source, no scan button', async () => {
+  it('first launch: the menu offers the simulator and Add source, no scan button', async () => {
     await expect(await byTestId('session-state')).toHaveText('Disconnected');
     await openSourceMenu();
     await expect(await byTestId('source-simulator')).toBeDisplayed();
     await expect(await byTestId('source-add')).toBeDisplayed();
-    await expect(await byTestId('source-open-file')).toBeDisplayed();
     const text = await textOf(byTestId('source-menu'));
     expect(text).toContain('Detected devices');
     expect(text).not.toMatch(/scan\b(?!ning)/i);

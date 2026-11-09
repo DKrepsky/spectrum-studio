@@ -13,9 +13,8 @@ export function NoticeBanner() {
   const state = useSession((s) => s.status?.state);
   const commandError = useSession((s) => s.commandError);
   const commandErrorFrom = useSession((s) => s.commandErrorFrom);
-  const info = useSession((s) => s.info);
   const busy = useSession((s) => s.busy);
-  const { connectTo, start, dismissNotice, clearCommandError, showInfo } = useSession.getState();
+  const { connectTo, start, dismissNotice, clearCommandError } = useSession.getState();
 
   return (
     <>
@@ -42,21 +41,12 @@ export function NoticeBanner() {
                 Reconnect
               </button>
             )}
-          {(notice.kind === 'acquisitionFailed' || notice.kind === 'endOfStream') &&
-            state === 'connected' && (
-              <button disabled={busy !== null} onClick={() => void start()}>
-                Restart
-              </button>
-            )}
+          {notice.kind === 'acquisitionFailed' && state === 'connected' && (
+            <button disabled={busy !== null} onClick={() => void start()}>
+              Restart
+            </button>
+          )}
           <button className="icon" aria-label="Dismiss" onClick={() => void dismissNotice()}>
-            ×
-          </button>
-        </div>
-      )}
-      {info && (
-        <div className="notice notice-info" role="status" data-testid="info-message">
-          <span className="notice-message">{info}</span>
-          <button className="icon" aria-label="Dismiss" onClick={() => showInfo(null)}>
             ×
           </button>
         </div>

@@ -1,5 +1,3 @@
-import { open } from '@tauri-apps/plugin-dialog';
-
 import type { ParamSpec } from '../bindings/ParamSpec';
 import type { ParamValue } from '../bindings/ParamValue';
 import { FrequencyInput } from './FrequencyInput';
@@ -129,36 +127,6 @@ function ParamField({ spec, value, onChange, disabled, id }: FieldProps) {
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
         />
-      );
-      break;
-    case 'path':
-      control = (
-        <span className="path-field">
-          <input
-            id={id}
-            type="text"
-            value={String(value)}
-            disabled={disabled}
-            onChange={(e) => onChange(e.target.value)}
-          />
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => {
-              void open({
-                multiple: false,
-                directory: false,
-                filters: kind.extensions.length
-                  ? [{ name: spec.label, extensions: kind.extensions }]
-                  : [],
-              }).then((path) => {
-                if (typeof path === 'string') onChange(path);
-              });
-            }}
-          >
-            Browse…
-          </button>
-        </span>
       );
       break;
   }

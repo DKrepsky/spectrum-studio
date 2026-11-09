@@ -28,8 +28,8 @@
     "active": true,
     "targets": ["deb", "appimage"],
     "category": "Utility",
-    "shortDescription": "Spectrum analyzer for SDRs, instruments, recordings and simulation",
-    "longDescription": "Spectrum Studio is a local-first desktop spectrum analyzer. It computes spectra from SDR IQ streams and recordings, displays traces from spectrum analyzers, and includes a built-in signal simulator.",
+    "shortDescription": "Spectrum analyzer for SDRs, instruments and simulation",
+    "longDescription": "Spectrum Studio is a local-first desktop spectrum analyzer. It computes spectra from SDR IQ streams, displays traces from spectrum analyzers, and includes a built-in signal simulator.",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"],
     "linux": {
       "deb": {

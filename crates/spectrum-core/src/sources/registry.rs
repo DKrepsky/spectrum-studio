@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use super::files::{IqFileDriver, TraceFileDriver};
 use super::planned::planned_drivers;
 use super::simulator::SimulatorDriver;
 use super::{SourceDriver, SourceError};
@@ -17,13 +16,11 @@ impl DriverRegistry {
         Self::default()
     }
 
-    /// The integrations that live in this crate (simulator, file readers) plus the planned ones.
+    /// The integrations that live in this crate (the simulator) plus the planned ones.
     /// Hardware drivers live in their own crates and are registered by the application.
     pub fn with_core_drivers() -> Self {
         let mut registry = Self::new();
         registry.register(SimulatorDriver::new());
-        registry.register(IqFileDriver::new());
-        registry.register(TraceFileDriver);
         for driver in planned_drivers() {
             registry.register(driver);
         }

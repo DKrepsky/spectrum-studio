@@ -1,7 +1,7 @@
 # Architecture
 
-Spectrum Studio is a Tauri 2 desktop application. A Rust backend owns devices, signal processing,
-files and persistence; a React/TypeScript frontend renders the instrument UI inside the system
+Spectrum Studio is a Tauri 2 desktop application. A Rust backend owns devices, signal processing
+and persistence; a React/TypeScript frontend renders the instrument UI inside the system
 WebKitGTK webview. Everything runs locally — there is no server, account or network dependency.
 
 ```
@@ -11,17 +11,16 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 └────────┼───────────────────────────────┼────────────────────────────────────┘
          │ invoke(commands)              │
 ┌────────┴───────────── src-tauri (thin shell) ───────────────────────────────┐
-│ commands.rs: validate args → SessionManager / Store / export                │
-│ sink.rs: SessionSink → Tauri events · native save dialog for export        │
+│ commands.rs: validate args → SessionManager / Store                       │
+│ sink.rs: SessionSink → Tauri events                                      │
 └────────┬────────────────────────────────────────────────────────────────────┘
          │ plain Rust API
 ┌────────┴──────────────── crates/spectrum-core ──────────────────────────────┐
 │ session/   SessionManager + acquisition worker thread (state machine)       │
-│ sources/   SourceDriver/Source traits, registry, simulator, files, planned  │
+│ sources/   SourceDriver/Source traits, registry, simulator, planned         │
 │ dsp/       windows, FFT → power spectrum, averaging, holds, peak search     │
 │ model/     units, params, capabilities, settings, frames, session status    │
-│ formats/   SigMF / raw IQ readers, CSV trace import/export                  │
-│ display.rs value rendering for messages (Hz with SI prefix, ISO 8601 time)  │
+│ display.rs value rendering for messages (Hz with SI prefix)               │
 │ store.rs   versioned JSON persistence (preferences, remembered sources)     │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -32,17 +31,16 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 | --- | --- | --- |
 | `model` | Plain data types shared by all layers (serde; ts-rs behind the `bindings` feature). | Contain behaviour beyond validation. |
 | `dsp` | Pure numeric functions/structs. Deterministic, no I/O, no threads. | Know about sources or UI. |
-| `sources` | Talk to devices/files; expose capabilities; produce `SourceData`. | Do spectrum post-processing or UI logic. |
+| `sources` | Talk to devices and the simulator; expose capabilities; produce `SourceData`. | Do spectrum post-processing or UI logic. |
 | `session` | One active source at a time; lifecycle, threading, error recovery, feeding the DSP pipeline. | Know about specific devices. |
-| `formats` | Parse/write files with explicit validation errors. | Touch the session. |
 | `store` | Load/save JSON atomically, migrate/repair (`sources.json` v3 with a backup of the old file), merge records of one device. | Hold application state. |
-| `src-tauri` | Translate IPC ⇄ core API; choose filesystem paths; native dialogs. | Contain domain logic. |
+| `src-tauri` | Translate IPC ⇄ core API; choose persistence paths. | Contain domain logic. |
 | `src/` (UI) | Present state, collect user intent, draw plots. | Compute spectra or assume backend state. |
 
 ## Data flow during acquisition
 
 1. The UI calls `connect_remembered(id)` (a source from the menu's *Your sources*) or
-   `connect_source(config)` (a detected device, a file, a form). On success the store upserts the
+   `connect_source(config)` (a detected device or a form). On success the store upserts the
    remembered entry (identity, label, effective settings, last-used time); a failure remembers
    nothing ([ADR 0009](adr/0009-automatic-source-memory.md)). `SessionManager` stops and joins any previous worker, then
    spawns a worker thread that opens the source through its driver. Status transitions
@@ -79,7 +77,7 @@ frames instead of queueing them, so latency stays bounded.
 message. Rules:
 
 - Switching sources always runs stop → close → join before opening the new source.
-- A read error or end of stream stops acquisition, closes the source when the device is gone, and
+- A read error stops acquisition, closes the source when the device is gone, and
   emits the error; the UI offers *Reconnect* using the remembered configuration.
 - The UI marks the plot as **not live** when acquisition is not running or no frame has arrived for
   longer than a timeout, so stale data is never presented as current.
@@ -96,9 +94,8 @@ code.
 ## Security
 
 - No remote content: the CSP allows only bundled assets; the webview never loads URLs.
-- Tauri capabilities grant only core IPC/events and the dialog plugin's *open* dialog (to pick
-  recordings). Export opens the native save dialog from Rust, so the webview can never choose a
-  path to write. Files are only read by the format parsers, which validate everything they read.
+- Tauri capabilities grant only core IPC and events. The app writes no user files: its only
+  writes are its own persisted JSON files.
 - All IPC inputs are deserialised into typed structs and validated (`validate()` methods) before use.
 - Persisted files are written atomically (temp file + rename); corrupt files are backed up and
   replaced with defaults instead of crashing the app.

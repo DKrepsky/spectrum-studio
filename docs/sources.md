@@ -21,11 +21,11 @@ trait Source: Send {                         // an open connection, used by one 
     fn stop(&mut self) -> Result<(), SourceError>;
 }
 
-enum SourceData { Iq(IqBlock), Trace(TraceBlock), EndOfStream }
+enum SourceData { Iq(IqBlock), Trace(TraceBlock) }
 ```
 
-- **DriverInfo.kind:** `Sdr`, `SpectrumAnalyzer`, `File`, `Simulator` — how the UI groups sources.
-- **DriverInfo.transport:** `Usb`, `Serial`, `Network`, `File`, `Internal` — shown as a badge.
+- **DriverInfo.kind:** `Sdr`, `SpectrumAnalyzer`, `Simulator` — how the UI groups sources.
+- **DriverInfo.transport:** `Usb`, `Serial`, `Network`, `Internal` — shown as a badge.
 - **DriverInfo.status:** `Available` or `Planned` (cannot be opened). `list_drivers` still returns
   planned drivers, but the UI does not show them anywhere (menu, forms): nothing that cannot work is
   offered. They stay in `docs/roadmap.md` and in the registry so the plan remains tracked.
@@ -35,10 +35,10 @@ enum SourceData { Iq(IqBlock), Trace(TraceBlock), EndOfStream }
   and must never open, probe or reset a device, because the UI calls it every few seconds while
   the source menu is open, also while another source is acquiring. Drivers that cannot enumerate
   without opening set `supports_discovery: false`. `discover_all` runs every available driver
-  with discovery (not `internal`/`file`) one at a time; a failing driver is reported in its
+  with discovery (not `internal`) one at a time; a failing driver is reported in its
   `error` and does not hide the others.
-- **ParamSpec** describes device-specific settings (number with range/unit, choice, bool, text,
-  path). The UI renders forms from them; the core validates submitted values against them
+- **ParamSpec** describes device-specific settings (number with range/unit, choice, bool, text).
+  The UI renders forms from them; the core validates submitted values against them
   (`model/params.rs`), so drivers receive only valid, complete parameter maps.
 
 ### Device identity ([ADR 0010](adr/0010-stable-device-identity.md))
@@ -72,16 +72,17 @@ drivers that talk to hardware:
 
 ### Remembered sources
 
-The user rarely saves sources by hand. A successful connect (`connect_source` for a new device or
-file, `connect_remembered` for a listed one) upserts an entry in `sources.json` identified by
+The user rarely saves sources by hand. A successful connect (`connect_source` for a new device,
+`connect_remembered` for a listed one) upserts an entry in `sources.json` identified by
 `driverId` + `deviceId` (device sources; the connection is ignored) or by `driverId` + `connection`
-(file and simulator sources); stores the device label reported at connect time, and keeps the
+(simulator presets); stores the device label reported at connect time, and keeps the
 entry's effective settings up to date while it is in use (`apply_source_settings`). Records that
 share an identity are *merged*, never duplicated. A failed connect remembers nothing. The user can
 also create (`add_source`) and edit (`update_source`) entries without connecting; both are
-validated in Rust (unique name, unique identity, connection locked on the live source, file and
-simulator entries can only be renamed). Entries whose driver is unknown or `Planned` are hidden
-from the UI but preserved verbatim in the file. Presence ("Not detected") is derived by matching a
+validated in Rust (unique name, unique identity, connection locked on the live source, simulator
+entries can only be renamed). Entries whose driver is unknown, removed or `Planned` are hidden
+from the UI but preserved verbatim in the file (for example the entries of the removed file
+readers, see [ADR 0011](adr/0011-remove-file-sources.md)). Presence ("Not detected") is derived by matching a
 remembered entry's `driverId` + `deviceId` against the latest discovery result, only for drivers
 that support discovery. Rationale and schema: [ADR 0009](adr/0009-automatic-source-memory.md),
 [ADR 0010](adr/0010-stable-device-identity.md).
@@ -121,8 +122,6 @@ queued to the worker and applied between reads.
 | Id | Name | Kind / transport | Status |
 | --- | --- | --- | --- |
 | `simulator` | Signal simulator | Simulator / Internal | Available |
-| `iq-file` | IQ recording (SigMF, cf32, cs16, cu8, cs8) | File / File | Available |
-| `trace-csv` | Spectrum trace (CSV) | File / File | Available |
 | `sa430` | TI SA430 spectrum analyzer | Analyzer / Serial | Available |
 | `soapysdr` | SoapySDR devices (RTL-SDR, HackRF, Airspy, …) | SDR / USB | Planned |
 | `rtl_tcp` | rtl_tcp server | SDR / Network | Planned |
@@ -170,17 +169,6 @@ saturates at full scale. Simulated time advances by 1/30 s per block and samples
 documented PRNG ([ADR 0005](adr/0005-deterministic-simulator.md)), so output depends only on the
 seed and settings. Fault injection: *Fail to connect* (connection option) and *Simulate device
 loss after N s* (runtime setting). Parameters are listed in the [user guide](user-guide.md#simulator).
-
-### IQ recordings
-
-Replayed through the same pipeline as a live SDR, paced to real time (30 blocks/s); each block
-reads `N` samples at the playback position and advances by `fs·speed/30` samples. Looping is
-optional; without it the source reports end of stream.
-
-### CSV traces
-
-Read once on connect (invalid files are rejected with the line number and reason) and delivered as
-one `Trace` block, then end of stream.
 
 ## Adding an integration
 

@@ -1,10 +1,9 @@
 //! Signal source integrations.
 //!
-//! A [`SourceDriver`] represents an integration type (the simulator, an IQ file reader, a family
-//! of SDRs...). Opening it yields a [`Source`]: a live connection that reports its
-//! [`Capabilities`] and produces [`SourceData`]. Sources run on the session worker thread.
+//! A [`SourceDriver`] represents an integration type (the simulator, a family of SDRs...). Opening
+//! it yields a [`Source`]: a live connection that reports its [`Capabilities`] and produces
+//! [`SourceData`]. Sources run on the session worker thread.
 
-pub mod files;
 pub mod pacer;
 pub mod planned;
 pub mod registry;
@@ -124,8 +123,6 @@ pub struct TraceBlock {
 pub enum SourceData {
     Iq(IqBlock),
     Trace(TraceBlock),
-    /// A finite source has no more data.
-    EndOfStream,
 }
 
 /// An integration type. Implementations must be cheap to construct and thread-safe.
@@ -242,7 +239,6 @@ mod tests {
             }),
             span_options_hz: vec![1e6, 2e6],
             amplitude_unit: AmplitudeUnit::Dbfs,
-            finite: false,
             params: vec![ParamSpec::number("gain", "Gain", 0.0, 10.0, 1.0, 0.0)],
         }
     }

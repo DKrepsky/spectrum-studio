@@ -200,18 +200,6 @@ impl Worker {
         let frame = match self.source.read(self.pipeline.samples_wanted()) {
             Ok(SourceData::Iq(block)) => self.pipeline.push_iq(block, &ctx),
             Ok(SourceData::Trace(block)) => self.pipeline.push_trace(block, &ctx),
-            Ok(SourceData::EndOfStream) => {
-                tracing::info!(device = %self.label, "end of stream");
-                let _ = self.stop_acquisition();
-                self.set_state(
-                    SessionState::Connected,
-                    Some((
-                        NoticeKind::EndOfStream,
-                        "Reached the end of the recording.".into(),
-                    )),
-                );
-                return true;
-            }
             Err(e) if e.is_fatal() => {
                 tracing::error!(device = %self.label, error = %error_chain(&e), "source lost");
                 self.acquiring = false;

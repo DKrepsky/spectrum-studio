@@ -4,18 +4,15 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde::Serialize;
 use spectrum_core::SessionManager;
-use spectrum_core::formats::csv::write_spectrum_csv;
 use spectrum_core::model::{
     DeviceDescriptor, DiscoveryResult, DriverInfo, ParamMap, ProcessingSettings, SessionStatus,
     SettingsPatch, SourceConfig, SourceSettings, SourceTestResult, SourceUpdate,
 };
 use spectrum_core::remember;
 use spectrum_core::store::{DisplayPreferences, Preferences, SavedSource, SourceList};
+use tauri::State;
 use tauri::ipc::Response;
-use tauri::{AppHandle, Manager, State};
-use tauri_plugin_dialog::DialogExt;
 
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
@@ -230,69 +227,4 @@ pub fn restore_source(
 ) -> CommandResult<SourceList> {
     state.store.restore_source(source)?;
     Ok(state.store.source_list(&state.session.drivers()))
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExportResult {
-    pub path: String,
-    pub points: usize,
-}
-
-/// Asks for a destination with a native dialog and writes the latest frame as CSV. Returns
-/// `None` if the user cancelled. The path never comes from the webview.
-#[tauri::command]
-pub async fn export_csv(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> CommandResult<Option<ExportResult>> {
-    let Some(frame) = state.session.latest_frame() else {
-        return Err(CommandError::new(
-            "There is no spectrum to export yet. Start an acquisition first.",
-        ));
-    };
-    let file_name = format!(
-        "spectrum-{}.csv",
-        spectrum_core::display::iso8601_utc(frame.frame.header.timestamp_ms)
-            .replace([':', '.'], "-")
-    );
-    let directory = app
-        .path()
-        .document_dir()
-        .or_else(|_| app.path().home_dir())
-        .ok();
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut dialog = app
-            .dialog()
-            .file()
-            .set_title("Export spectrum as CSV")
-            .set_file_name(&file_name)
-            .add_filter("CSV", &["csv"]);
-        if let Some(dir) = directory {
-            dialog = dialog.set_directory(dir);
-        }
-        let Some(path) = dialog.blocking_save_file() else {
-            return Ok(None);
-        };
-        let mut path = path
-            .into_path()
-            .map_err(|_| CommandError::new("Only local files can be written."))?;
-        if path
-            .extension()
-            .is_none_or(|e| !e.eq_ignore_ascii_case("csv"))
-        {
-            path.set_extension("csv");
-        }
-        let file = std::fs::File::create(&path)
-            .map_err(|e| CommandError::new(format!("Could not create {}: {e}", path.display())))?;
-        let mut writer = std::io::BufWriter::new(file);
-        write_spectrum_csv(&frame.frame, &mut writer)
-            .and_then(|()| std::io::Write::flush(&mut writer))
-            .map_err(|e| CommandError::new(format!("Could not write {}: {e}", path.display())))?;
-        Ok(Some(ExportResult {
-            path: path.display().to_string(),
-            points: frame.frame.live.len(),
-        }))
-    })
-    .await?
 }

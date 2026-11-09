@@ -51,11 +51,6 @@ pub enum ParamKind {
     Text {
         max_length: u32,
     },
-    /// A filesystem path chosen with a native file dialog.
-    Path {
-        /// File extensions offered by the dialog filter (without dots).
-        extensions: Vec<String>,
-    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -124,20 +119,6 @@ impl ParamSpec {
         }
     }
 
-    pub fn path(id: &str, label: &str, extensions: &[&str]) -> Self {
-        Self {
-            id: id.into(),
-            label: label.into(),
-            group: None,
-            help: None,
-            kind: ParamKind::Path {
-                extensions: extensions.iter().map(|e| (*e).into()).collect(),
-            },
-            default: ParamValue::Text(String::new()),
-            required: true,
-        }
-    }
-
     pub fn with_unit(mut self, unit: &str) -> Self {
         if let ParamKind::Number { unit: u, .. } = &mut self.kind {
             *u = Some(unit.into());
@@ -189,13 +170,6 @@ impl ParamSpec {
                         "{} is longer than {} characters.",
                         self.label, max_length
                     ))
-                } else {
-                    Ok(value.clone())
-                }
-            }
-            (ParamKind::Path { .. }, ParamValue::Text(t)) => {
-                if t.trim().is_empty() {
-                    Err(format!("{} is required.", self.label))
                 } else {
                     Ok(value.clone())
                 }
@@ -276,7 +250,7 @@ mod tests {
             ParamSpec::number("gain", "Gain", 0.0, 50.0, 1.0, 20.0),
             ParamSpec::boolean("agc", "AGC", false),
             ParamSpec::choice("mode", "Mode", &[("a", "A"), ("b", "B")], "a"),
-            ParamSpec::path("file", "File", &["cf32"]),
+            ParamSpec::number("rate", "Rate", 1.0, 10.0, 1.0, 2.0).required(),
         ]
     }
 
@@ -290,10 +264,10 @@ mod tests {
     #[test]
     fn fills_defaults_and_requires_required() {
         let err = resolve_params(&specs(), &ParamMap::new()).unwrap_err();
-        assert_eq!(err, "File is required.");
+        assert_eq!(err, "Rate is required.");
 
         let resolved =
-            resolve_params(&specs(), &map(&[("file", ParamValue::Text("x".into()))])).unwrap();
+            resolve_params(&specs(), &map(&[("rate", ParamValue::Number(3.0))])).unwrap();
         assert_eq!(resolved.number("gain"), Some(20.0));
         assert_eq!(resolved.flag("agc"), Some(false));
         assert_eq!(resolved.text("mode"), Some("a"));
@@ -302,7 +276,7 @@ mod tests {
     #[test]
     fn rejects_out_of_range_wrong_type_and_unknown() {
         let s = specs();
-        let base = [("file", ParamValue::Text("x".into()))];
+        let base = [("rate", ParamValue::Number(3.0))];
         let mut m = map(&base);
         m.insert("gain".into(), ParamValue::Number(51.0));
         assert!(

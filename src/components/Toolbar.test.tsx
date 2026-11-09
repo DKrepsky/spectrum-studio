@@ -10,7 +10,7 @@ import { apiMock } from '../test/mockApi';
 import { Toolbar } from './Toolbar';
 
 function renderToolbar() {
-  return render(<Toolbar onExport={vi.fn()} />);
+  return render(<Toolbar />);
 }
 
 describe('Toolbar', () => {
@@ -32,7 +32,6 @@ describe('Toolbar', () => {
     expect(screen.queryByTestId('stop-button')).not.toBeInTheDocument();
     expect(screen.queryByTestId('simulated-badge')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Center frequency')).toBeDisabled();
-    expect(screen.getByTestId('export-button')).toBeDisabled();
   });
 
   it('has one source control and none of the old connect buttons', () => {

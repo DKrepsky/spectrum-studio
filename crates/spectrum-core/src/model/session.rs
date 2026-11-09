@@ -28,8 +28,6 @@ pub enum NoticeKind {
     DeviceLost,
     /// A read failed but the source is still open.
     AcquisitionFailed,
-    /// A finite source (e.g. a file) reached its end.
-    EndOfStream,
     /// An internal error (bug); the session was reset.
     Internal,
 }

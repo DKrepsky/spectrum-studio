@@ -189,9 +189,9 @@ impl SessionManager {
         Ok(self.registry.discover(driver_id)?)
     }
 
-    /// Scans every available driver that can enumerate devices (not the built-in simulator or
-    /// file readers). A failing driver is reported in its result. One scan runs at a time, and
-    /// the session worker is never locked, so this cannot stall a running acquisition.
+    /// Scans every available driver that can enumerate devices (not the built-in simulator). A
+    /// failing driver is reported in its result. One scan runs at a time, and the session worker is
+    /// never locked, so this cannot stall a running acquisition.
     pub fn discover_all(&self) -> Vec<DiscoveryResult> {
         let _scan = lock(&self.scan);
         self.registry
@@ -200,7 +200,7 @@ impl SessionManager {
             .filter(|i| {
                 i.status == DriverStatus::Available
                     && i.supports_discovery
-                    && !matches!(i.transport, Transport::Internal | Transport::File)
+                    && i.transport != Transport::Internal
             })
             .map(|info| match self.registry.discover(&info.id) {
                 Ok(devices) => DiscoveryResult {
@@ -489,11 +489,6 @@ impl SessionManager {
 
     pub fn dismiss_notice(&self) {
         self.shared.update(|s| s.last_notice = None);
-    }
-
-    /// The most recent frame, if any (kept after stopping so it can be exported).
-    pub fn latest_frame(&self) -> Option<Arc<EncodedFrame>> {
-        lock(&self.shared.frame).clone()
     }
 
     /// Waits up to `timeout` for a frame with `seq > after_seq`.
