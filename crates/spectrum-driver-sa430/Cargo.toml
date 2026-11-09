@@ -10,8 +10,6 @@ rust-version.workspace = true
 [dependencies]
 spectrum-core = { path = "../spectrum-core" }
 sa430.workspace = true
-# Same major version as the sa430 crate uses (one copy in the tree); only the port settings are ours.
-serialport = "4.8"
 
 [dev-dependencies]
 sa430 = { workspace = true, features = ["test-utils"] }

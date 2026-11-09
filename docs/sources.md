@@ -156,7 +156,8 @@ author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmw
   after the current sweep, which can exceed the usual 250 ms `read` budget for large sweeps.
 - **Connect ([ADR 0012](adr/0012-sa430-connect-handshake.md)):** right after plug-in the analyzer
   corrupts the first frame sent within ~20 ms of the port opening. The driver therefore opens the
-  port itself, waits 200 ms, clears the input and then reads the calibration as the handshake.
+  port with the `sa430` crate's `SerialPortChannel::with_settle` (200 ms settle, then the input is
+  cleared; the driver has no serial dependency of its own) and reads the calibration as the handshake.
   The handshake uses a 600 ms read timeout (never past the connect deadline) and is retried up
   to 4 times on a fresh port (pauses 150/300/600 ms, 6 s overall). Retried: timeouts, device
   error or no-frame-start replies, and a busy or vanished port at open. A serial mismatch or

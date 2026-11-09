@@ -10,10 +10,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use sa430::channel::SerialPortChannel;
 use sa430::port::Port;
 use sa430::spectrum::{FREQUENCY_RANGES_MHZ, REF_LEVELS_DBM};
 use sa430::{Sa430, SweepRequest};
-use serialport::{ClearBuffer, DataBits, FlowControl, Parity, SerialPort, StopBits};
 
 use spectrum_core::model::params::resolve_params;
 use spectrum_core::model::{
@@ -35,8 +35,6 @@ const DEFAULT_SPAN_HZ: f64 = 10e6;
 const MAX_SWEEP_POINTS: f64 = 800.0;
 const SPAN_OPTIONS_HZ: [f64; 8] = [1e6, 2e6, 5e6, 10e6, 20e6, 40e6, 75e6, 149e6];
 
-/// Serial settings of the SA430 (the same as the `sa430` crate's own channel).
-const BAUD_RATE: u32 = 926_100;
 /// Read timeout once the handshake succeeded: the library default, which a long sweep needs.
 const SWEEP_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -94,8 +92,8 @@ impl ConnectPolicy {
     }
 }
 
-/// Real serial hardware. Opens the port itself, so the port can settle before the first frame
-/// and use a short handshake timeout (see ADR 0012).
+/// Real serial hardware. Opens the port with `sa430`'s channel, with the settle delay of the
+/// policy, and sets a short handshake timeout (see ADR 0012).
 pub struct SerialBackend;
 
 impl Sa430Backend for SerialBackend {
@@ -110,18 +108,11 @@ impl Sa430Backend for SerialBackend {
         deadline: Instant,
         sweeping: Arc<AtomicBool>,
     ) -> Result<Sa430, sa430::Error> {
-        let port = serialport::new(port_name, BAUD_RATE)
-            .stop_bits(StopBits::One)
-            .data_bits(DataBits::Eight)
-            .parity(Parity::None)
-            .flow_control(FlowControl::None)
-            .timeout(policy.handshake_timeout)
-            .open()?;
-        // The device corrupts a frame that arrives within ~20 ms of the port opening.
-        thread::sleep(policy.settle);
-        port.clear(ClearBuffer::Input)?;
+        // The device corrupts a frame that arrives within ~20 ms of the port opening, so the
+        // channel waits `settle` before it discards stale input and returns.
+        let channel = SerialPortChannel::with_settle(port_name, policy.settle)?;
         let link = SerialLink {
-            port,
+            channel,
             deadline,
             handshake_timeout: policy.handshake_timeout,
             sweeping,
@@ -148,7 +139,7 @@ fn read_timeout(
 
 /// The serial link of a device. Reads during the handshake never wait past the connect deadline.
 struct SerialLink {
-    port: Box<dyn SerialPort>,
+    channel: SerialPortChannel,
     deadline: Instant,
     handshake_timeout: Duration,
     sweeping: Arc<AtomicBool>,
@@ -163,18 +154,20 @@ impl Read for SerialLink {
             remaining,
         )
         .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "connect deadline reached"))?;
-        self.port.set_timeout(timeout).map_err(io::Error::other)?;
-        self.port.read(buf)
+        self.channel
+            .set_timeout(timeout)
+            .map_err(io::Error::other)?;
+        self.channel.read(buf)
     }
 }
 
 impl Write for SerialLink {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.port.write(buf)
+        self.channel.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.port.flush()
+        self.channel.flush()
     }
 }
 
@@ -1078,8 +1071,8 @@ mod tests {
     }
 
     fn denied() -> sa430::Error {
-        sa430::Error::from(serialport::Error::new(
-            serialport::ErrorKind::Io(io::ErrorKind::PermissionDenied),
+        sa430::Error::Serial(sa430::SerialError::new(
+            sa430::SerialErrorKind::PermissionDenied,
             "denied",
         ))
     }
