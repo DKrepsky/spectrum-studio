@@ -5,4 +5,4 @@
 - [Source journey 001](project-source-journey.md) — one-menu source UI, decisions, process lessons
 - [Acceptance process feedback](feedback-acceptance-process.md) — prototypes before build; visual QA with screenshots
 - [No file features](project-no-file-features.md) — open/export/replay/EndOfStream all removed 2026-11; prefer full dead-code removal
-- [Small tweaks fast path](feedback-small-tweaks.md) — precise UI tweaks: dev → visual QA → accept; offer commit at gate
+- [Small tweaks fast path](feedback-small-tweaks.md) — precise UI tweaks (002, 003): state defaults, dev → visual QA → accept+commit
