@@ -458,8 +458,9 @@ interface RowProps {
 
 /**
  * A two-line source row. Line 1: glyph | name | badge; line 2: status text and port.
- * The actions sit in the badge column of line 2 and are always in the DOM (hidden by CSS until
- * hover or focus), so showing them changes no layout.
+ * The badge is centred across both lines. The actions overlay the badge column, centred in the
+ * row, and are always in the DOM: CSS hides them until the row is hovered or one of the action
+ * buttons has focus (then the badge fades out), so showing them changes no layout.
  */
 function SourceRow({
   testId,

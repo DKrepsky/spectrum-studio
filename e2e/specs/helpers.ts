@@ -161,8 +161,8 @@ export async function openAddSourceDialog() {
 }
 
 /**
- * Makes the hover actions of a row clickable (they are `visibility: hidden` until the row is
- * hovered or focused). Hovers first; focusing the row is the fallback WebKit always honours.
+ * Makes the hover actions of a row clickable (they are transparent and non-interactive until the
+ * row is hovered or one of them has focus). Hovers first; focusing the button is the fallback.
  */
 export async function revealRowActions(entryTestId: string) {
   const row = await sourceRow(entryTestId.replace(/^source-entry-/, ''));

@@ -61,12 +61,42 @@ describe('source.css contract', () => {
   it('hides the actions without removing them, so showing them moves nothing', () => {
     const actions = rule('.source-actions');
     expect(actions).toContain('position: absolute');
-    expect(actions).toContain('width: 54px');
-    expect(actions).toContain('visibility: hidden');
+    expect(actions).toContain('width: 64px');
+    expect(actions).toContain('opacity: 0');
+    expect(actions).toContain('pointer-events: none');
     expect(actions).not.toContain('display: none');
-    expect(
-      rule('.source-row:hover .source-actions,\n.source-row:focus-within .source-actions'),
-    ).toContain('visibility: visible');
+  });
+
+  it('keeps hidden actions focusable: no visibility:hidden anywhere in the actions rules', () => {
+    // visibility:hidden removes an element from the focus order, so ArrowRight from a row
+    // could never reach Edit/Forget while the pointer was away (QA 002, BUG-1).
+    expect(rule('.source-actions')).not.toContain('visibility');
+    expect(rule('.source-row:hover .source-actions,\n.source-actions:focus-within')).not.toContain(
+      'visibility',
+    );
+    expect(css).not.toMatch(/^\s*visibility\s*:/m);
+  });
+
+  it('reveals the actions on hover and on focus inside them, and only then makes them clickable', () => {
+    const reveal = rule('.source-row:hover .source-actions,\n.source-actions:focus-within');
+    expect(reveal).toContain('opacity: 1');
+    expect(reveal).toContain('transform: none');
+    expect(reveal).toContain('pointer-events: auto');
+    expect(rule('.source-actions')).toContain('pointer-events: none');
+  });
+
+  it('fades the badge out while an action button has focus', () => {
+    expect(css).toContain('.source-row:has(.source-actions:focus-within) .src-badge');
+  });
+
+  it('centres the badge across both lines of a row', () => {
+    const badge = rule('.src-badge');
+    expect(badge).toContain('grid-row: 1 / span 2');
+    expect(badge).toContain('align-self: center');
+  });
+
+  it('does not reveal the actions for a focused main item', () => {
+    expect(css).not.toContain('.source-row:focus-within');
   });
 
   it('turns the pulse and the highlight fade off for reduced motion', () => {

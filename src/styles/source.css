@@ -189,13 +189,22 @@
 .source-item.dimmed .src-name {
   color: var(--text-muted);
 }
+/* Spans both lines of a row so it is centred vertically; fades out while the row's actions show. */
 .src-badge {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
   width: 64px;
   justify-self: stretch;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
+  transition: opacity 150ms ease-out;
+}
+.source-row:hover .src-badge,
+.source-row:has(.source-actions:focus-within) .src-badge {
+  opacity: 0;
 }
 .row-sub {
   grid-column: 2 / 3;
@@ -231,21 +240,43 @@
   font-family: var(--mono);
   font-size: 11px;
 }
-/* In the reserved badge column on line 2: never touches the name or the line-2 text. */
+/* Over the badge column, centred vertically in the row (top/bottom 0 + auto margins, so the
+   slide transform is free). Hidden until the row is hovered or one of its buttons has focus.
+   Hidden buttons stay focusable (no visibility:hidden, so ArrowLeft/Right reach them) but are
+   transparent and non-interactive (pointer-events: none), so clicks reach the row beneath. */
 .source-actions {
   position: absolute;
-  right: 9px;
-  bottom: 2px;
-  width: 54px;
+  top: 0;
+  bottom: 0;
+  right: 8px;
+  margin: auto 0;
+  width: 64px;
   height: 20px;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   gap: 2px;
-  visibility: hidden;
+  opacity: 0;
+  transform: translateX(-6px);
+  pointer-events: none;
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out;
 }
 .source-row:hover .source-actions,
-.source-row:focus-within .source-actions {
-  visibility: visible;
+.source-actions:focus-within {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-actions,
+  .src-badge {
+    transition: none;
+  }
+  .source-actions {
+    transform: none;
+  }
 }
 .source-actions button.icon {
   min-width: 26px;
