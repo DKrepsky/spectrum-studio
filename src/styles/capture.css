@@ -1,0 +1,195 @@
+/* Capture control: a split button (mode label + action icon, chevron opens the mode menu).
+   The mode sets the fill colour; the icon, the accessible name and the plot badge carry the action.
+   Geometry is fixed (128px main, 26px chevron) so no mode or state moves the toolbar (design.md 3.1). */
+.capture {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  height: var(--control-height);
+}
+.capture-main,
+.capture-chevron {
+  height: 100%;
+  border-width: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.capture-main {
+  width: 128px;
+  gap: 7px;
+  padding: 0 10px;
+  border-radius: var(--radius) 0 0 var(--radius);
+  border-right-width: 0;
+  font-weight: 600;
+}
+.capture-chevron {
+  width: 26px;
+  padding: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.capture-main svg,
+.capture-chevron svg {
+  flex: none;
+}
+
+.capture[data-mode='continuous'] .capture-main,
+.capture[data-mode='continuous'] .capture-chevron {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #062018;
+}
+.capture[data-mode='single'] .capture-main,
+.capture[data-mode='single'] .capture-chevron {
+  background: var(--single);
+  border-color: var(--single);
+  color: var(--single-ink);
+}
+.capture[data-mode='continuous'] .capture-chevron {
+  border-left: 1px solid rgba(6, 32, 24, 0.35);
+}
+.capture[data-mode='single'] .capture-chevron {
+  border-left: 1px solid rgba(18, 10, 36, 0.35);
+}
+.capture[data-mode='continuous'] .capture-main:hover:not(:disabled):not([aria-disabled='true']),
+.capture[data-mode='continuous'] .capture-chevron:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+.capture[data-mode='single'] .capture-main:hover:not(:disabled):not([aria-disabled='true']),
+.capture[data-mode='single'] .capture-chevron:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--single-strong);
+  border-color: var(--single-strong);
+}
+.capture button:disabled {
+  opacity: 0.45;
+}
+
+/* One focus ring around the whole split control, drawn on the toolbar surface. A per-segment ring
+   would sit on the neighbouring purple or teal fill at about 1.3:1 and disappear. */
+.capture .capture-main:focus-visible,
+.capture .capture-chevron:focus-visible,
+.capture .mode-item:focus-visible {
+  outline: none;
+}
+.capture:has(.capture-main:focus-visible, .capture-chevron:focus-visible) {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Acquiring: the main button is a Stop (Pause or cancel), so both segments turn red. Same geometry
+   and the same ink contrast as the mode fills; the chevron stays locked (see below). Placed after the
+   mode and hover rules so it wins at equal specificity. */
+.capture[data-state='acquiring'] .capture-main,
+.capture[data-state='acquiring'] .capture-chevron {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-ink);
+}
+.capture[data-state='acquiring'] .capture-chevron {
+  border-left: 1px solid rgba(18, 10, 36, 0.35);
+}
+.capture[data-state='acquiring'] .capture-main:hover:not(:disabled):not([aria-disabled='true']),
+.capture[data-state='acquiring'] .capture-chevron:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--danger-strong);
+  border-color: var(--danger-strong);
+}
+
+/* Busy (a command in flight): focusable and not dimmed, so keyboard focus and the tooltip stay. */
+.capture-main[aria-disabled='true'] {
+  cursor: progress;
+}
+/* Locked while acquiring or busy: keeps focus and the tooltip, reads as unavailable. */
+.capture-chevron[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: default;
+}
+.capture-chevron[aria-expanded='true'] {
+  filter: brightness(0.92);
+}
+
+/* Mode menu: the same surface, border and radius as .source-popover. */
+.mode-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  width: 280px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+.mode-heading {
+  margin: 6px 8px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.mode-popover .mode-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 16px;
+  column-gap: 10px;
+  align-items: start;
+  width: 100%;
+  padding: 7px 8px;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 6px;
+  text-align: left;
+  white-space: normal;
+}
+.mode-popover .mode-item:hover,
+.mode-popover .mode-item:focus-visible {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.mode-popover .mode-item:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: -2px;
+}
+.mode-ico {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+.mode-ico.continuous {
+  color: var(--accent);
+}
+.mode-ico.single {
+  color: var(--single);
+}
+.mode-name {
+  display: block;
+  font-weight: 600;
+}
+.mode-desc {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.mode-check {
+  margin-top: 2px;
+  color: var(--text);
+  visibility: hidden;
+}
+.mode-item[aria-checked='true'] .mode-check {
+  visibility: visible;
+}
+
+/* Announcements for screen readers only (the capture live region). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

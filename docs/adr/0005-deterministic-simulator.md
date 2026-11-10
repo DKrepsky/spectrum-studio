@@ -17,4 +17,6 @@ The simulator must produce repeatable signals so tests and bug reports are repro
 ## Consequences
 
 - One less dependency; ~40 lines of well-known code with tests.
-- Frames are labelled `simulated: true` and the UI shows a persistent SIMULATED badge.
+- Frames are labelled `simulated: true`. The persistent SIMULATED badge described here was removed by
+  [ADR 0013](0013-capture-modes.md) (work 006); the simulator is now identified by its source name
+  (*Signal simulator*) in the source button and its accessible name.

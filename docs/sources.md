@@ -117,6 +117,14 @@ Disconnected ──connect──► Connecting ──ok──► Connected ─�
 Connecting always stops and joins the previous worker first. Settings and processing changes are
 queued to the worker and applied between reads.
 
+**Capture modes.** *Continuous* acquires until stopped. *Single* publishes exactly one frame and then
+returns the session to `Connected` without a Stop, so the UI learns the end from `SessionStatus`
+([ADR 0013](adr/0013-capture-modes.md)). For trace sources a sweep is one `read`: the first sweep
+after Start is the frame, with no averaging of earlier sweeps. For IQ sources the first complete
+FFT block is the frame. A single capture that produces no frame within 30 s fails with a notice,
+and a Stop during a single capture discards the sweep in progress. No source needs code for either
+mode.
+
 ## Built-in integrations
 
 | Id | Name | Kind / transport | Status |

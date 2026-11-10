@@ -81,6 +81,10 @@ message. Rules:
   emits the error; the UI offers *Reconnect* using the remembered configuration.
 - The UI marks the plot as **not live** when acquisition is not running or no frame has arrived for
   longer than a timeout, so stale data is never presented as current.
+- The capture mode (`Continuous` or `Single`, [ADR 0013](adr/0013-capture-modes.md)) is part of
+  the session: `SessionStatus.captureMode` is set by the backend, the worker ends a single capture
+  after its first published frame (state back to `Connected`, no UI timer), and the backend refuses
+  a mode change while acquiring. The mode is saved in `preferences.json`.
 
 ## Extensibility
 

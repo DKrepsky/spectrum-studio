@@ -1,0 +1,56 @@
+{
+  "badge": "CAPTURING",
+  "toolbarOverflowPx": 0,
+  "center": {
+    "b": 38.09375,
+    "l": 602.234375,
+    "r": 752.234375,
+    "t": 9.90625,
+    "w": 150,
+    "h": 28.1875
+  },
+  "capture": {
+    "b": 39,
+    "l": 384.484375,
+    "r": 538.484375,
+    "t": 9,
+    "w": 154,
+    "h": 30
+  },
+  "main": {
+    "b": 39,
+    "l": 384.484375,
+    "r": 512.484375,
+    "t": 9,
+    "w": 128,
+    "h": 30
+  },
+  "mainLabel": "Single",
+  "winW": 1440,
+  "source": {
+    "b": 39,
+    "l": 151.875,
+    "r": 376.484375,
+    "t": 9,
+    "w": 224.609375,
+    "h": 30
+  },
+  "mainAria": "Cancel single capture",
+  "sourceScrollOverflowPx": 0,
+  "chevron": {
+    "b": 39,
+    "l": 512.484375,
+    "r": 538.484375,
+    "t": 9,
+    "w": 26,
+    "h": 30
+  },
+  "chevronDisabled": false,
+  "mainDisabled": false,
+  "chevronExpanded": "false",
+  "status": "Capturing one sweep…",
+  "sourceAria": "Source: SA430 08FF41E50F8B3A34, Acquiring",
+  "menuOpen": false,
+  "chevronAriaDisabled": "true",
+  "mainAriaDisabled": null
+}

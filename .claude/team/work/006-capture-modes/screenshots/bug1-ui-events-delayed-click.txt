@@ -1,0 +1,108 @@
+--- run 0: frame null -> 1, state Connected
+1794273771090 PRESS
+1794273771091 label=Start single capture aria-disabled=true
+1794273771093 label=Cancel single capture aria-disabled=true
+1794273771093 statusbar frame=-
+1794273771094 CLICK cancel (delay 0, aria-disabled=true)
+1794273771103 label=Cancel single capture aria-disabled=null
+1794273771208 label=Start single capture aria-disabled=null
+1794273771483 statusbar frame=1
+--- run 1: frame 1 -> 2, state Connected
+1794273772425 PRESS
+1794273772427 label=Start single capture aria-disabled=true
+1794273772432 label=Cancel single capture aria-disabled=true
+1794273772451 CLICK cancel (delay 5, aria-disabled=true)
+1794273772453 label=Cancel single capture aria-disabled=null
+1794273772545 label=Start single capture aria-disabled=null
+1794273772954 statusbar frame=2
+--- run 2: frame 2 -> 2, state Connected
+1794273773745 PRESS
+1794273773746 label=Start single capture aria-disabled=true
+1794273773757 label=Cancel single capture aria-disabled=true
+1794273773768 label=Cancel single capture aria-disabled=null
+1794273773773 CLICK cancel (delay 15, aria-disabled=null)
+1794273773774 label=Cancel single capture aria-disabled=true
+1794273773865 label=Start single capture aria-disabled=true
+1794273773891 label=Start single capture aria-disabled=null
+--- run 3: frame 2 -> 2, state Connected
+1794273775074 PRESS
+1794273775076 label=Start single capture aria-disabled=true
+1794273775079 label=Cancel single capture aria-disabled=true
+1794273775079 statusbar frame=2
+1794273775091 label=Cancel single capture aria-disabled=null
+1794273775109 CLICK cancel (delay 30, aria-disabled=null)
+1794273775110 label=Cancel single capture aria-disabled=true
+1794273775191 label=Start single capture aria-disabled=true
+1794273775211 label=Start single capture aria-disabled=null
+--- run 4: frame 2 -> 2, state Connected
+1794273776433 PRESS
+1794273776435 label=Start single capture aria-disabled=true
+1794273776456 label=Cancel single capture aria-disabled=true
+1794273776470 label=Cancel single capture aria-disabled=null
+1794273776506 CLICK cancel (delay 50, aria-disabled=null)
+1794273776507 label=Cancel single capture aria-disabled=true
+1794273776558 label=Start single capture aria-disabled=true
+1794273776570 label=Start single capture aria-disabled=null
+--- run 5: frame 2 -> 2, state Connected
+1794273777730 PRESS
+1794273777731 label=Start single capture aria-disabled=true
+1794273777740 label=Cancel single capture aria-disabled=true
+1794273777750 label=Cancel single capture aria-disabled=null
+1794273777820 CLICK cancel (delay 80, aria-disabled=null)
+1794273777821 label=Cancel single capture aria-disabled=true
+1794273777844 label=Start single capture aria-disabled=true
+1794273777854 label=Start single capture aria-disabled=null
+--- run 6: frame 2 -> 2, state Connected
+1794273779009 PRESS
+1794273779010 label=Start single capture aria-disabled=true
+1794273779021 label=Cancel single capture aria-disabled=true
+1794273779022 label=Cancel single capture aria-disabled=null
+1794273779022 CLICK cancel (delay 0, aria-disabled=null)
+1794273779023 label=Cancel single capture aria-disabled=true
+1794273779123 label=Start single capture aria-disabled=true
+1794273779130 label=Start single capture aria-disabled=null
+--- run 7: frame 2 -> 2, state Connected
+1794273780290 PRESS
+1794273780291 label=Start single capture aria-disabled=true
+1794273780307 label=Cancel single capture aria-disabled=true
+1794273780320 label=Cancel single capture aria-disabled=null
+1794273780320 CLICK cancel (delay 5, aria-disabled=null)
+1794273780321 label=Cancel single capture aria-disabled=true
+1794273780405 label=Start single capture aria-disabled=true
+1794273780425 label=Start single capture aria-disabled=null
+--- run 8: frame 2 -> 2, state Connected
+1794273781581 PRESS
+1794273781582 label=Start single capture aria-disabled=true
+1794273781593 label=Cancel single capture aria-disabled=true
+1794273781602 label=Cancel single capture aria-disabled=null
+1794273781608 CLICK cancel (delay 15, aria-disabled=null)
+1794273781609 label=Cancel single capture aria-disabled=true
+1794273781704 label=Start single capture aria-disabled=true
+1794273781712 label=Start single capture aria-disabled=null
+--- run 9: frame 2 -> 2, state Connected
+1794273782861 PRESS
+1794273782863 label=Start single capture aria-disabled=true
+1794273782875 label=Cancel single capture aria-disabled=true
+1794273782884 label=Cancel single capture aria-disabled=null
+1794273782905 CLICK cancel (delay 30, aria-disabled=null)
+1794273782905 label=Cancel single capture aria-disabled=true
+1794273782979 label=Start single capture aria-disabled=true
+1794273782991 label=Start single capture aria-disabled=null
+--- run 10: frame 2 -> 2, state Connected
+1794273784132 PRESS
+1794273784132 label=Start single capture aria-disabled=true
+1794273784142 label=Cancel single capture aria-disabled=true
+1794273784151 label=Cancel single capture aria-disabled=null
+1794273784192 CLICK cancel (delay 50, aria-disabled=null)
+1794273784193 label=Cancel single capture aria-disabled=true
+1794273784247 label=Start single capture aria-disabled=true
+1794273784266 label=Start single capture aria-disabled=null
+--- run 11: frame 2 -> 2, state Connected
+1794273785437 PRESS
+1794273785438 label=Start single capture aria-disabled=true
+1794273785441 label=Cancel single capture aria-disabled=true
+1794273785453 label=Cancel single capture aria-disabled=null
+1794273785521 CLICK cancel (delay 80, aria-disabled=null)
+1794273785522 label=Cancel single capture aria-disabled=true
+1794273785556 label=Start single capture aria-disabled=true
+1794273785587 label=Start single capture aria-disabled=null

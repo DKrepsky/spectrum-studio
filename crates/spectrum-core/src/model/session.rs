@@ -32,6 +32,19 @@ pub enum NoticeKind {
     Internal,
 }
 
+/// How acquisition runs: until stopped, or one complete sweep and then stop (owned by the session).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "bindings", ts(export))]
+pub enum CaptureMode {
+    /// Acquire until stopped.
+    #[default]
+    Continuous,
+    /// Acquire one complete sweep, then stop automatically.
+    Single,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
@@ -72,10 +85,13 @@ pub struct SessionStatus {
     /// Configuration of the most recent connection attempt, used for "Reconnect".
     pub last_config: Option<SourceConfig>,
     pub processing: ProcessingSettings,
+    /// The selected capture mode. Always set; the backend refuses to change it while acquiring,
+    /// so while acquiring it is also the running mode.
+    pub capture_mode: CaptureMode,
 }
 
 impl SessionStatus {
-    pub fn new(processing: ProcessingSettings) -> Self {
+    pub fn new(processing: ProcessingSettings, capture_mode: CaptureMode) -> Self {
         Self {
             revision: 0,
             state: SessionState::Disconnected,
@@ -83,6 +99,7 @@ impl SessionStatus {
             last_notice: None,
             last_config: None,
             processing,
+            capture_mode,
         }
     }
 }

@@ -72,6 +72,7 @@ export function status(overrides: Partial<SessionStatus> = {}): SessionStatus {
     lastNotice: null,
     lastConfig: null,
     processing,
+    captureMode: 'continuous',
     ...overrides,
   };
 }

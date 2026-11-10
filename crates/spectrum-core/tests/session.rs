@@ -1,17 +1,20 @@
 //! Session-level scenarios: lifecycle, switching, settings, failures and recovery.
 #![allow(clippy::unwrap_used)] // test helpers outside #[test] functions
 
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 
+use rustfft::num_complex::Complex32;
 use spectrum_core::model::{
-    AmplitudeUnit, Capabilities, DataKind, DriverInfo, DriverStatus, NoticeKind, ParamMap,
-    ParamValue, ProcessingSettings, SessionState, SessionStatus, SettingsPatch, SourceConfig,
-    SourceKind, SourceSettings, Transport,
+    AmplitudeUnit, Capabilities, CaptureMode, DataKind, DriverInfo, DriverStatus, NoticeKind,
+    ParamMap, ParamValue, ProcessingSettings, SessionState, SessionStatus, SettingsPatch,
+    SourceConfig, SourceKind, SourceSettings, Transport,
 };
 use spectrum_core::sources::simulator::{self, SimulatorDriver};
 use spectrum_core::sources::{
-    OpenedSource, Source, SourceData, SourceDriver, SourceError, SourceErrorKind, TraceBlock,
+    IqBlock, OpenedSource, Source, SourceData, SourceDriver, SourceError, SourceErrorKind,
+    TraceBlock,
 };
 use spectrum_core::{DriverRegistry, SessionError, SessionManager, SessionSink};
 
@@ -590,4 +593,548 @@ fn connect_keeps_the_given_config_when_the_driver_reports_nothing() {
         .insert("port".into(), ParamValue::Text("/dev/given".into()));
     let status = m.connect(given.clone()).unwrap();
     assert_eq!(status.source.unwrap().config, given);
+}
+
+/// What a [`SweepDriver`] produces on each read.
+#[derive(Clone, Copy)]
+enum Feed {
+    /// One complete trace per read (a trace instrument's sweep).
+    Trace,
+    /// IQ blocks of this many samples per read (an IQ device with short blocks).
+    Iq { block: usize },
+}
+
+/// Scripted failure injected on every read.
+#[derive(Clone, Copy)]
+enum Fault {
+    None,
+    Recoverable,
+    Fatal,
+}
+
+/// A source whose reads take `delay` and count themselves, for capture-mode scenarios.
+struct SweepDriver {
+    feed: Feed,
+    delay: Duration,
+    fault: Fault,
+    reads: Arc<AtomicU32>,
+}
+
+struct SweepSource {
+    caps: Capabilities,
+    settings: SourceSettings,
+    feed: Feed,
+    delay: Duration,
+    fault: Fault,
+    reads: Arc<AtomicU32>,
+}
+
+impl SourceDriver for SweepDriver {
+    fn info(&self) -> DriverInfo {
+        DriverInfo {
+            id: "sweep".into(),
+            name: "Sweep test source".into(),
+            ..ScriptedDriver.info()
+        }
+    }
+
+    fn open(&self, _config: &SourceConfig) -> Result<OpenedSource, SourceError> {
+        let data_kind = match self.feed {
+            Feed::Trace => DataKind::Trace,
+            Feed::Iq { .. } => DataKind::Iq,
+        };
+        Ok(OpenedSource {
+            source: Box::new(SweepSource {
+                caps: Capabilities {
+                    data_kind,
+                    tuning: None,
+                    span_options_hz: vec![],
+                    amplitude_unit: AmplitudeUnit::Dbm,
+                    params: vec![],
+                },
+                settings: SourceSettings {
+                    center_hz: 1e9,
+                    span_hz: 1e6,
+                    params: Default::default(),
+                },
+                feed: self.feed,
+                delay: self.delay,
+                fault: self.fault,
+                reads: self.reads.clone(),
+            }),
+            label: "Sweep #1".into(),
+            simulated: false,
+            device_id: None,
+            connection: ParamMap::new(),
+        })
+    }
+}
+
+impl Source for SweepSource {
+    fn capabilities(&self) -> &Capabilities {
+        &self.caps
+    }
+    fn settings(&self) -> &SourceSettings {
+        &self.settings
+    }
+    fn apply(&mut self, _patch: &SettingsPatch) -> Result<(), SourceError> {
+        Ok(())
+    }
+    fn start(&mut self) -> Result<(), SourceError> {
+        Ok(())
+    }
+    fn read(&mut self, _wanted: usize) -> Result<SourceData, SourceError> {
+        self.reads.fetch_add(1, Ordering::SeqCst);
+        std::thread::sleep(self.delay);
+        match self.fault {
+            Fault::None => {}
+            Fault::Recoverable => return Err(SourceError::io("Sweep timed out.")),
+            Fault::Fatal => return Err(SourceError::disconnected("Sweep device unplugged.")),
+        }
+        Ok(match self.feed {
+            Feed::Trace => SourceData::Trace(TraceBlock {
+                values: vec![-80.0; 64],
+                start_hz: 1e9,
+                bin_hz: 1e6,
+                unit: AmplitudeUnit::Dbm,
+                rbw_hz: Some(1e6),
+            }),
+            Feed::Iq { block } => SourceData::Iq(IqBlock {
+                samples: vec![Complex32::new(0.1, 0.0); block],
+                sample_rate_hz: 1e6,
+                center_hz: 1e9,
+                discontinuity: false,
+            }),
+        })
+    }
+    fn stop(&mut self) -> Result<(), SourceError> {
+        Ok(())
+    }
+}
+
+const FFT: u32 = 1024;
+
+fn sweep_manager(driver: SweepDriver) -> SessionManager {
+    let mut registry = DriverRegistry::new();
+    registry.register(driver);
+    SessionManager::new(
+        registry,
+        Arc::new(RecordingSink::default()),
+        ProcessingSettings {
+            fft_size: FFT,
+            ..Default::default()
+        },
+    )
+}
+
+fn sweep(feed: Feed, delay: Duration, fault: Fault) -> (SweepDriver, Arc<AtomicU32>) {
+    let reads = Arc::new(AtomicU32::new(0));
+    let driver = SweepDriver {
+        feed,
+        delay,
+        fault,
+        reads: reads.clone(),
+    };
+    (driver, reads)
+}
+
+fn sweep_config() -> SourceConfig {
+    SourceConfig::new("sweep")
+}
+
+#[test]
+fn capture_mode_defaults_to_continuous_and_is_kept_across_connections() {
+    let (m, _) = manager();
+    assert_eq!(m.status().capture_mode, CaptureMode::Continuous);
+
+    // Selected while disconnected, then kept through connect and disconnect.
+    m.set_capture_mode(CaptureMode::Single).unwrap();
+    assert_eq!(m.status().capture_mode, CaptureMode::Single);
+    m.connect(sim_config()).unwrap();
+    assert_eq!(m.status().capture_mode, CaptureMode::Single);
+    m.disconnect();
+    assert_eq!(m.status().capture_mode, CaptureMode::Single);
+
+    let m = SessionManager::new(
+        DriverRegistry::new(),
+        Arc::new(RecordingSink::default()),
+        ProcessingSettings::default(),
+    )
+    .with_capture_mode(CaptureMode::Single);
+    assert_eq!(m.status().capture_mode, CaptureMode::Single);
+}
+
+#[test]
+fn capture_mode_cannot_change_while_acquiring() {
+    let (m, _) = manager();
+    m.connect(sim_config()).unwrap();
+    m.start().unwrap();
+    m.wait_frame(0, WAIT).expect("continuous frame");
+
+    let err = m.set_capture_mode(CaptureMode::Single).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Pause or cancel acquisition to change the capture mode."
+    );
+    let s = m.status();
+    assert_eq!(s.capture_mode, CaptureMode::Continuous);
+    assert_eq!(s.state, SessionState::Acquiring);
+
+    m.stop().unwrap();
+    m.set_capture_mode(CaptureMode::Single).unwrap();
+    assert_eq!(m.status().capture_mode, CaptureMode::Single);
+}
+
+#[test]
+fn single_capture_on_simulator_delivers_one_raw_sweep_and_stops() {
+    let mut registry = DriverRegistry::new();
+    registry.register(SimulatorDriver::unpaced());
+    let m = SessionManager::new(
+        registry,
+        Arc::new(RecordingSink::default()),
+        ProcessingSettings {
+            fft_size: FFT,
+            averaging: 8,
+            ..Default::default()
+        },
+    )
+    .with_capture_mode(CaptureMode::Single);
+    m.connect(sim_config()).unwrap();
+    m.start().unwrap();
+
+    let f1 = m.wait_frame(0, WAIT).expect("one sweep");
+    assert_eq!(
+        f1.frame.header.averaged_count, 1,
+        "averaging does not delay it"
+    );
+    let s = wait_until(&m, |s| s.state == SessionState::Connected);
+    assert_eq!(s.capture_mode, CaptureMode::Single);
+    assert!(s.last_notice.is_none());
+    assert!(
+        m.wait_frame(f1.frame.header.seq, Duration::from_millis(300))
+            .is_none(),
+        "no second sweep after the single capture"
+    );
+
+    // Pressing it again takes a new single capture.
+    m.start().unwrap();
+    let f2 = m
+        .wait_frame(f1.frame.header.seq, WAIT)
+        .expect("second single capture");
+    assert_eq!(f2.frame.header.seq, f1.frame.header.seq + 1);
+    wait_until(&m, |s| s.state == SessionState::Connected);
+}
+
+#[test]
+fn single_capture_reports_acquiring_then_connected_without_a_stop() {
+    let (m, sink) = manager();
+    m.connect(sim_config()).unwrap();
+    m.set_capture_mode(CaptureMode::Single).unwrap();
+    m.start().unwrap();
+    wait_until(&m, |s| s.state == SessionState::Connected);
+
+    let history = sink.0.lock().unwrap();
+    let states: Vec<_> = history.iter().map(|s| (s.state, s.capture_mode)).collect();
+    let acquiring = states
+        .iter()
+        .position(|(state, _)| *state == SessionState::Acquiring)
+        .expect("acquiring was reported");
+    assert_eq!(states[acquiring].1, CaptureMode::Single);
+    assert!(
+        states[acquiring..]
+            .iter()
+            .any(|(state, _)| *state == SessionState::Connected),
+        "returns to connected by itself"
+    );
+}
+
+#[test]
+fn single_capture_of_an_iq_device_reads_until_one_fft_is_filled() {
+    let (driver, reads) = sweep(Feed::Iq { block: 128 }, Duration::ZERO, Fault::None);
+    let m = sweep_manager(driver).with_capture_mode(CaptureMode::Single);
+    m.connect(sweep_config()).unwrap();
+    m.start().unwrap();
+
+    let frame = m.wait_frame(0, WAIT).expect("one sweep");
+    assert_eq!(frame.frame.header.bins, FFT);
+    wait_until(&m, |s| s.state == SessionState::Connected);
+    assert_eq!(
+        reads.load(Ordering::SeqCst),
+        FFT / 128,
+        "one read per block"
+    );
+    assert!(
+        m.wait_frame(frame.frame.header.seq, Duration::from_millis(200))
+            .is_none()
+    );
+}
+
+#[test]
+fn single_capture_of_a_trace_source_is_one_read() {
+    let (driver, reads) = sweep(Feed::Trace, Duration::ZERO, Fault::None);
+    let m = sweep_manager(driver).with_capture_mode(CaptureMode::Single);
+    m.connect(sweep_config()).unwrap();
+    m.start().unwrap();
+
+    let frame = m.wait_frame(0, WAIT).expect("one sweep");
+    assert_eq!(frame.frame.header.data_kind, DataKind::Trace);
+    wait_until(&m, |s| s.state == SessionState::Connected);
+    assert_eq!(reads.load(Ordering::SeqCst), 1);
+}
+
+/// A single-sweep source whose one read reports "reading" and then blocks until the test releases
+/// it, so a test can act while the sweep is in flight without timing the device.
+struct GatedDriver {
+    reading: mpsc::Sender<()>,
+    release: Mutex<Option<mpsc::Receiver<()>>>,
+    reads: Arc<AtomicU32>,
+}
+
+struct GatedSource {
+    caps: Capabilities,
+    settings: SourceSettings,
+    reading: mpsc::Sender<()>,
+    release: mpsc::Receiver<()>,
+    reads: Arc<AtomicU32>,
+}
+
+/// The test's side of a [`GatedDriver`].
+struct Gate {
+    reading: mpsc::Receiver<()>,
+    release: mpsc::Sender<()>,
+    reads: Arc<AtomicU32>,
+}
+
+impl SourceDriver for GatedDriver {
+    fn info(&self) -> DriverInfo {
+        DriverInfo {
+            id: "gated".into(),
+            name: "Gated test source".into(),
+            ..ScriptedDriver.info()
+        }
+    }
+
+    fn open(&self, _config: &SourceConfig) -> Result<OpenedSource, SourceError> {
+        let release = self
+            .release
+            .lock()
+            .unwrap()
+            .take()
+            .ok_or_else(|| SourceError::unavailable("The gated test source opens once."))?;
+        Ok(OpenedSource {
+            source: Box::new(GatedSource {
+                caps: Capabilities {
+                    data_kind: DataKind::Trace,
+                    tuning: None,
+                    span_options_hz: vec![],
+                    amplitude_unit: AmplitudeUnit::Dbm,
+                    params: vec![],
+                },
+                settings: SourceSettings {
+                    center_hz: 1e9,
+                    span_hz: 1e6,
+                    params: Default::default(),
+                },
+                reading: self.reading.clone(),
+                release,
+                reads: self.reads.clone(),
+            }),
+            label: "Gated #1".into(),
+            simulated: false,
+            device_id: None,
+            connection: ParamMap::new(),
+        })
+    }
+}
+
+impl Source for GatedSource {
+    fn capabilities(&self) -> &Capabilities {
+        &self.caps
+    }
+    fn settings(&self) -> &SourceSettings {
+        &self.settings
+    }
+    fn apply(&mut self, _patch: &SettingsPatch) -> Result<(), SourceError> {
+        Ok(())
+    }
+    fn start(&mut self) -> Result<(), SourceError> {
+        Ok(())
+    }
+    fn read(&mut self, _wanted: usize) -> Result<SourceData, SourceError> {
+        self.reads.fetch_add(1, Ordering::SeqCst);
+        let _ = self.reading.send(());
+        // Blocks until the test releases the sweep (or drops the gate).
+        let _ = self.release.recv();
+        Ok(SourceData::Trace(TraceBlock {
+            values: vec![-80.0; 64],
+            start_hz: 1e9,
+            bin_hz: 1e6,
+            unit: AmplitudeUnit::Dbm,
+            rbw_hz: Some(1e6),
+        }))
+    }
+    fn stop(&mut self) -> Result<(), SourceError> {
+        Ok(())
+    }
+}
+
+/// A single-capture manager over one gated sweep, connected and started.
+fn gated_capture() -> (SessionManager, Gate) {
+    let (reading_tx, reading_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let reads = Arc::new(AtomicU32::new(0));
+    let driver = GatedDriver {
+        reading: reading_tx,
+        release: Mutex::new(Some(release_rx)),
+        reads: reads.clone(),
+    };
+    let mut registry = DriverRegistry::new();
+    registry.register(driver);
+    let m = SessionManager::new(
+        registry,
+        Arc::new(RecordingSink::default()),
+        ProcessingSettings {
+            fft_size: FFT,
+            ..Default::default()
+        },
+    )
+    .with_capture_mode(CaptureMode::Single);
+    m.connect(SourceConfig::new("gated")).unwrap();
+    m.start().unwrap();
+    let gate = Gate {
+        reading: reading_rx,
+        release: release_tx,
+        reads,
+    };
+    (m, gate)
+}
+
+#[test]
+fn stop_during_a_single_sweep_discards_it() {
+    let (m, gate) = gated_capture();
+    gate.reading
+        .recv_timeout(WAIT)
+        .expect("the sweep is in flight");
+
+    let stop_called = AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        let stop = scope.spawn(|| {
+            stop_called.store(true, Ordering::SeqCst);
+            m.stop()
+        });
+        // The Stop is queued once its thread is inside `stop()`. The worker reads the queue only
+        // after the read returns, so the release must come after it; a bounded wait gives the
+        // stop thread that head start. (A late release would publish the sweep and fail below.)
+        let deadline = std::time::Instant::now() + WAIT;
+        while !stop_called.load(Ordering::SeqCst) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the stop thread never ran"
+            );
+            std::thread::yield_now();
+        }
+        std::thread::sleep(Duration::from_millis(50));
+        gate.release.send(()).unwrap();
+        stop.join().unwrap().unwrap();
+    });
+
+    let s = m.status();
+    assert_eq!(s.state, SessionState::Connected);
+    assert!(s.last_notice.is_none(), "a cancel is not a failure");
+    assert!(
+        m.wait_frame(0, Duration::from_millis(100)).is_none(),
+        "the cancelled sweep is never published"
+    );
+    assert_eq!(gate.reads.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn stop_after_the_sweep_was_published_is_a_late_cancel() {
+    let (m, gate) = gated_capture();
+    gate.reading
+        .recv_timeout(WAIT)
+        .expect("the sweep is in flight");
+    gate.release.send(()).unwrap();
+    m.wait_frame(0, WAIT).expect("the sweep is published");
+    wait_until(&m, |s| s.state == SessionState::Connected);
+
+    m.stop().unwrap();
+    let s = m.status();
+    assert_eq!(s.state, SessionState::Connected);
+    assert!(s.last_notice.is_none());
+    assert!(
+        m.wait_frame(0, WAIT).is_some(),
+        "a sweep published before the Stop stays a completed capture"
+    );
+    assert_eq!(gate.reads.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn single_capture_read_error_fails_and_keeps_the_source() {
+    let (driver, _) = sweep(Feed::Trace, Duration::ZERO, Fault::Recoverable);
+    let m = sweep_manager(driver).with_capture_mode(CaptureMode::Single);
+    m.connect(sweep_config()).unwrap();
+    m.start().unwrap();
+
+    let s = wait_until(&m, |s| s.state == SessionState::Connected);
+    let notice = s.last_notice.expect("failure reported");
+    assert_eq!(notice.kind, NoticeKind::AcquisitionFailed);
+    assert_eq!(notice.message, "Single capture failed: Sweep timed out.");
+    assert!(
+        s.source.is_some(),
+        "a recoverable error keeps the source open"
+    );
+    assert!(m.wait_frame(0, Duration::from_millis(100)).is_none());
+}
+
+#[test]
+fn single_capture_fatal_read_error_is_device_loss() {
+    let (driver, _) = sweep(Feed::Trace, Duration::ZERO, Fault::Fatal);
+    let m = sweep_manager(driver).with_capture_mode(CaptureMode::Single);
+    m.connect(sweep_config()).unwrap();
+    m.start().unwrap();
+
+    let s = wait_until(&m, |s| s.state == SessionState::Disconnected);
+    let notice = s.last_notice.expect("device loss reported");
+    assert_eq!(notice.kind, NoticeKind::DeviceLost);
+    assert!(s.source.is_none());
+}
+
+#[test]
+fn single_capture_without_a_sweep_times_out() {
+    // One sample per read never fills an FFT, so no sweep is ever produced.
+    let (driver, _) = sweep(
+        Feed::Iq { block: 1 },
+        Duration::from_millis(20),
+        Fault::None,
+    );
+    let m = sweep_manager(driver)
+        .with_capture_mode(CaptureMode::Single)
+        .with_capture_timeout(Duration::from_millis(100));
+    m.connect(sweep_config()).unwrap();
+    m.start().unwrap();
+
+    let s = wait_until(&m, |s| s.state == SessionState::Connected);
+    let notice = s.last_notice.expect("timeout reported");
+    assert_eq!(notice.kind, NoticeKind::AcquisitionFailed);
+    assert_eq!(
+        notice.message,
+        "Single capture failed: the source produced no sweep in time."
+    );
+    assert!(m.wait_frame(0, Duration::from_millis(100)).is_none());
+}
+
+#[test]
+fn stop_during_a_continuous_capture_is_unchanged() {
+    let (driver, _) = sweep(Feed::Trace, Duration::ZERO, Fault::None);
+    let m = sweep_manager(driver);
+    m.connect(sweep_config()).unwrap();
+    m.start().unwrap();
+    let f = m.wait_frame(0, WAIT).expect("continuous frames");
+    let next = m
+        .wait_frame(f.frame.header.seq, WAIT)
+        .expect("keeps streaming");
+    assert!(next.frame.header.seq > f.frame.header.seq);
+    m.stop().unwrap();
+    assert_eq!(m.status().state, SessionState::Connected);
 }

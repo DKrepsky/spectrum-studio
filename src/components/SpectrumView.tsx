@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 
+import type { CaptureMode } from '../bindings/CaptureMode';
+import type { SessionState } from '../bindings/SessionState';
 import { formatFrequency } from '../format/frequency';
 import { UNIT_SYMBOL } from '../format/units';
 import { drawSpectrum, plotGeometry } from '../plot/spectrumRenderer';
 import { fullView, panBy, zoomAt } from '../plot/viewport';
 import { frameStore } from '../state/frames';
-import { useLiveness } from '../state/liveness';
+import { useLiveness, type LivenessKind } from '../state/liveness';
 import { useSession } from '../state/session';
 import { useSources } from '../state/sources';
 import { useView, type FrequencyView } from '../state/view';
@@ -32,12 +34,30 @@ function minViewWidth(): number {
   return frame ? frame.header.binHz * 8 : 1;
 }
 
+/** The empty-plot hint: only while there is no trace yet (design.md 5, copy). */
+function plotHint(
+  noSource: boolean,
+  state: SessionState | undefined,
+  mode: CaptureMode | undefined,
+  kind: LivenessKind,
+  hasFrame: boolean,
+): string | null {
+  if (noSource) return 'Choose a source to begin. Try Signal simulator.';
+  if (hasFrame) return null;
+  if (kind === 'capturing') return 'Capturing one sweep…';
+  if (state !== 'connected') return null;
+  return mode === 'single'
+    ? 'No trace yet. Press Play for one sweep.'
+    : 'No trace yet. Press Play to start continuous acquisition.';
+}
+
 export function SpectrumView() {
   const { containerRef, canvasRef, size } = useCanvasSize();
   const state = useSession((s) => s.status?.state);
+  const captureMode = useSession((s) => s.status?.captureMode);
   const sourceUnit = useSession((s) => s.status?.source?.capabilities.amplitudeUnit);
   const noSource = useSources((s) => s.active === null);
-  const live = useLiveness(state, frameStore.latest);
+  const live = useLiveness(state, frameStore.latest, captureMode);
   const liveRef = useRef(false);
   const hover = useRef<{ x: number; y: number } | null>(null);
   const dirty = useRef(true);
@@ -168,6 +188,7 @@ export function SpectrumView() {
   };
 
   const view = useView((s) => s.zoom);
+  const hint = plotHint(noSource, state, captureMode, live.kind, frameStore.latest !== null);
   const unit = UNIT_SYMBOL[frameStore.latest?.header.unit ?? sourceUnit ?? 'dbfs'];
   const shown = view ?? currentFullView();
 
@@ -194,9 +215,9 @@ export function SpectrumView() {
       >
         {live.label}
       </div>
-      {noSource && (
+      {hint && (
         <p className="plot-hint" data-testid="plot-hint">
-          Choose a source to begin. Try Signal simulator.
+          {hint}
         </p>
       )}
       {view && (

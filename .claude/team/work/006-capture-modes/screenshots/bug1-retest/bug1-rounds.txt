@@ -1,0 +1,12 @@
+round 1: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 2: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 3: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 4: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 5: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 6: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 7: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 8: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 9: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 10: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 11: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS
+round 12: outcome=clicked frame 3 -> 3 announced="Single capture cancelled" PASS

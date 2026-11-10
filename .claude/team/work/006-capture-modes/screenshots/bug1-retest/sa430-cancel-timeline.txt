@@ -1,0 +1,8 @@
+12 ms cancelClicked=true frame=1 badge=CAPTURING label=Cancel single capture
+122 ms cancelClicked=true frame=1 badge=HOLD · last data 22:42:12 label=Start single capture
+226 ms cancelClicked=true frame=1 badge=HOLD · last data 22:42:12 label=Start single capture
+327 ms cancelClicked=true frame=1 badge=HOLD · last data 22:42:12 label=Start single capture
+436 ms cancelClicked=true frame=1 badge=HOLD · last data 22:42:12 label=Start single capture
+539 ms cancelClicked=true frame=1 badge=HOLD · last data 22:42:12 label=Start single capture
+642 ms cancelClicked=true frame=1 badge=HOLD · last data 22:42:12 label=Start single capture
+after: frame 1

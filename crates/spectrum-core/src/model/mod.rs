@@ -10,7 +10,9 @@ pub mod units;
 pub use frame::{FrameHeader, Peak, SpectrumFrame, TraceKind};
 pub use params::{ParamKind, ParamMap, ParamMapExt, ParamSpec, ParamValue};
 pub use processing::{PeakSettings, ProcessingSettings, WindowKind};
-pub use session::{ActiveSource, NoticeKind, SessionNotice, SessionState, SessionStatus};
+pub use session::{
+    ActiveSource, CaptureMode, NoticeKind, SessionNotice, SessionState, SessionStatus,
+};
 pub use source::{
     Capabilities, DataKind, DeviceDescriptor, DiscoveryResult, DriverInfo, DriverStatus,
     FrequencyRange, SettingsPatch, SourceConfig, SourceKind, SourceSettings, SourceTestResult,

@@ -1,0 +1,1388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prototype 006 - capture modes (Spectrum Studio)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      /* ===== Real tokens and base rules copied from src/styles/app.css (values unchanged) ===== */
+      :root {
+        --bg: #0b1018;
+        --surface: #121a26;
+        --surface-2: #182233;
+        --surface-3: #1f2b3f;
+        --border: #26344a;
+        --text: #dbe4f0;
+        --text-muted: #8a9ab1;
+        --accent: #3ee0b5;
+        --accent-strong: #2bc79e;
+        --warn: #ffb547;
+        --warn-strong: #f0a22e;
+        --danger: #ff6b6b;
+        --info: #5aa9ff;
+        --sim: #c39bff;
+        /* NEW for 006: single-capture purple (contrast with --single-ink 6.3:1, see design.md) */
+        --single: #a47cff;
+        --single-strong: #9166f5;
+        --single-ink: #120a24;
+        --radius: 6px;
+        --font: 'Inter', 'Cantarell', 'Ubuntu', system-ui, sans-serif;
+        --mono: 'JetBrains Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #05080d;
+        color: var(--text);
+        font: 13px/1.4 var(--font);
+        user-select: none;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 5px 12px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      button:hover:not(:disabled) {
+        border-color: #3a4d6b;
+        background: #25344c;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #062018;
+        font-weight: 600;
+      }
+      button.primary:hover:not(:disabled):not([aria-disabled='true']) {
+        background: var(--accent-strong);
+      }
+      button.small {
+        padding: 2px 8px;
+        font-size: 12px;
+      }
+      button.icon {
+        padding: 0 6px;
+        background: transparent;
+        border-color: transparent;
+        font-size: 15px;
+        line-height: 1.2;
+      }
+      select,
+      .freq-input {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 4px 7px;
+        min-width: 0;
+      }
+      input:focus-visible,
+      select:focus-visible,
+      button:focus-visible {
+        outline: 2px solid var(--info);
+        outline-offset: 1px;
+      }
+      select:disabled {
+        opacity: 0.5;
+      }
+      .freq-input {
+        font-family: var(--mono);
+        width: 150px;
+        text-align: right;
+        padding: 4px 7px;
+      }
+
+      /* ===== Prototype chrome (not part of the app) ===== */
+      .proto {
+        padding: 14px 20px 10px;
+        border-bottom: 1px solid #1a2433;
+        background: #080c13;
+      }
+      .proto-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px 22px;
+      }
+      .proto-title {
+        color: var(--text-muted);
+        font-size: 12px;
+        margin-right: auto;
+      }
+      .proto-title strong {
+        color: var(--text);
+        font-size: 14px;
+        margin-right: 6px;
+      }
+      .proto-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .proto-group > span {
+        color: var(--text-muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-right: 4px;
+      }
+      .proto-group button[aria-pressed='true'] {
+        border-color: var(--info);
+        background: #14263d;
+      }
+      .proto-caption {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .proto-caption p {
+        margin: 0;
+      }
+      .proto-caption strong {
+        color: var(--text);
+      }
+      .inspector {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        color: #a9b8cc;
+      }
+      .proto-note {
+        font-size: 11px;
+        color: #6f7f96;
+        margin-top: 8px;
+      }
+      .window-wrap {
+        padding: 16px 0 40px;
+        overflow-x: auto;
+      }
+      .window {
+        position: relative;
+        width: var(--w, 1440px);
+        height: 760px;
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid #000;
+        border-radius: 6px;
+        background: var(--bg);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      }
+      body.bare {
+        overflow: hidden;
+      }
+      body.bare .proto,
+      body.bare .proto-note,
+      body.bare .proto-caption {
+        display: none;
+      }
+      body.bare .window-wrap {
+        padding: 0;
+        overflow: hidden;
+      }
+      body.bare .window {
+        width: 100vw;
+        height: 100vh;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .sr-measure {
+        display: block;
+        margin-top: 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: #6f7f96;
+      }
+      body.bare .sr-measure {
+        display: none;
+      }
+
+      /* ===== App layout (mirrors .app / .workspace / .status-bar) ===== */
+      .app {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-width: 0;
+      }
+      .workspace {
+        flex: 1 1 auto;
+        display: grid;
+        grid-template-columns: 1fr 330px;
+        min-height: 0;
+      }
+      .plots {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        background: var(--bg);
+        overflow: hidden;
+      }
+      .plot-area {
+        position: absolute;
+        inset: 12px 0 26px 52px;
+      }
+      .plot-area svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .grid-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 0;
+        border-top: 1px solid #1b2636;
+      }
+      .y-tick,
+      .x-tick {
+        position: absolute;
+        font-size: 11px;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .y-tick {
+        left: 0;
+        transform: translateY(-50%);
+        width: 44px;
+        text-align: right;
+      }
+      .x-tick {
+        bottom: 6px;
+        transform: translateX(-50%);
+      }
+      .axis-title {
+        position: absolute;
+        left: 8px;
+        top: 50%;
+        transform: translateY(-50%) rotate(-90deg);
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .plot-badge {
+        position: absolute;
+        top: 14px;
+        right: 22px;
+        padding: 2px 9px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        pointer-events: none;
+        background: rgba(8, 12, 18, 0.8);
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .liveness-live {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .liveness-waiting {
+        color: var(--warn);
+        border-color: var(--warn);
+      }
+      /* NEW: single capture in progress (mode colour, not the waiting/stale amber) */
+      .liveness-capture {
+        color: var(--single);
+        border-color: var(--single);
+      }
+      .plot-hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 15px;
+        pointer-events: none;
+        text-align: center;
+        padding: 0 40px;
+      }
+      .side-panel {
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+        padding: 8px 12px;
+        overflow: hidden;
+        min-width: 0;
+      }
+      .side-panel h3 {
+        margin: 10px 0 6px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        font-weight: 600;
+      }
+      .side-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin: 6px 0;
+        color: var(--text-muted);
+      }
+      .side-row .fake {
+        width: 130px;
+        height: 24px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg);
+      }
+      .status-bar {
+        display: flex;
+        gap: 16px;
+        padding: 4px 12px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 11.5px;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .status-label {
+        color: var(--text-muted);
+        font-family: var(--font);
+      }
+      .uncalibrated {
+        color: var(--warn);
+        margin-left: auto;
+      }
+
+      /* ===== Toolbar (copied from app.css) ===== */
+      .toolbar {
+        --control-height: 30px;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 7px 12px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        flex: none;
+        white-space: nowrap;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .brand-mark {
+        color: var(--accent);
+      }
+      .toolbar-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: none;
+      }
+      .toolbar-source {
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+      .toolbar-source > :not(.source-control) {
+        flex: none;
+      }
+      .field {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-muted);
+      }
+      .badge {
+        font-size: 11px;
+        padding: 1px 7px;
+        border-radius: 4px;
+        background: var(--surface-3);
+        color: var(--text-muted);
+        letter-spacing: 0.03em;
+      }
+      .badge.simulated {
+        background: rgba(195, 155, 255, 0.15);
+        color: var(--sim);
+        border: 1px solid var(--sim);
+        font-weight: 600;
+      }
+      @media (max-width: 1180px) {
+        .toolbar {
+          gap: 10px;
+          padding-left: 8px;
+          padding-right: 8px;
+        }
+        .toolbar-group,
+        .field {
+          gap: 5px;
+        }
+        .toolbar .freq-input {
+          width: 128px;
+        }
+        .toolbar .badge {
+          padding: 1px 5px;
+        }
+      }
+
+      /* Source button (copied from source.css, reduced to what the toolbar shows) */
+      .source-control {
+        position: relative;
+        display: flex;
+        flex: 0 1 auto;
+        min-width: 150px;
+        max-width: 280px;
+      }
+      .source-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1 1 auto;
+        min-width: 150px;
+        max-width: 280px;
+        height: var(--control-height);
+        background: var(--surface-3);
+      }
+      .source-button.attention {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .src-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+      }
+      .src-dot {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 16px;
+        flex: none;
+        color: var(--text-muted);
+        line-height: 1;
+      }
+      .src-dot[data-status]::before {
+        content: '';
+        display: block;
+        box-sizing: border-box;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--text-muted);
+      }
+      .src-dot[data-status='connected']::before,
+      .src-dot[data-status='acquiring']::before {
+        background: var(--accent);
+        box-shadow: 0 0 0 2px rgba(62, 224, 181, 0.28);
+      }
+      .src-dot[data-status='connecting']::before {
+        background: var(--info);
+        animation: src-pulse 1s ease-in-out infinite;
+      }
+      @keyframes src-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.25;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .src-dot[data-status='connecting']::before {
+          animation: none;
+        }
+      }
+
+      /* ===== NEW: capture control (split button) ===== */
+      .capture {
+        position: relative;
+        display: flex;
+        align-items: stretch;
+        flex: none;
+        height: var(--control-height);
+      }
+      .capture-main,
+      .capture-chevron {
+        height: 100%;
+        border-width: 1px;
+      }
+      .capture-main {
+        width: 128px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 0 10px;
+        border-radius: var(--radius) 0 0 var(--radius);
+        border-right-width: 0;
+        font-weight: 600;
+      }
+      .capture-chevron {
+        width: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border-radius: 0 var(--radius) var(--radius) 0;
+      }
+      .capture-main svg,
+      .capture-chevron svg {
+        flex: none;
+      }
+      .capture[data-mode='continuous'] .capture-main,
+      .capture[data-mode='continuous'] .capture-chevron {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #062018;
+      }
+      .capture[data-mode='single'] .capture-main,
+      .capture[data-mode='single'] .capture-chevron {
+        background: var(--single);
+        border-color: var(--single);
+        color: var(--single-ink);
+      }
+      .capture[data-mode='continuous'] .capture-chevron {
+        border-left: 1px solid rgba(6, 32, 24, 0.35);
+      }
+      .capture[data-mode='single'] .capture-chevron {
+        border-left: 1px solid rgba(18, 10, 36, 0.35);
+      }
+      .capture[data-mode='continuous'] .capture-main:hover:not(:disabled):not([aria-disabled='true']),
+      .capture[data-mode='continuous'] .capture-chevron:hover:not(:disabled):not([aria-disabled='true']) {
+        background: var(--accent-strong);
+        border-color: var(--accent-strong);
+      }
+      .capture[data-mode='single'] .capture-main:hover:not(:disabled):not([aria-disabled='true']),
+      .capture[data-mode='single'] .capture-chevron:hover:not(:disabled):not([aria-disabled='true']) {
+        background: var(--single-strong);
+        border-color: var(--single-strong);
+      }
+      .capture button:disabled {
+        opacity: 0.45;
+      }
+      /* One focus ring around the whole split control (drawn outside it, on the toolbar surface,
+         contrast 6.5:1). A per-segment ring would sit on the neighbouring purple/teal fill (about 1.3:1). */
+      .capture .capture-main:focus-visible,
+      .capture .capture-chevron:focus-visible,
+      .capture .mode-item:focus-visible {
+        outline: none;
+      }
+      .capture:has(.capture-main:focus-visible, .capture-chevron:focus-visible) {
+        outline: 2px solid var(--info);
+        outline-offset: 2px;
+        border-radius: var(--radius);
+      }
+      /* Busy (command in flight): focusable, not dimmed, progress cursor. */
+      .capture-main[aria-disabled='true'] {
+        cursor: progress;
+      }
+      /* Locked while acquiring: keeps focus and tooltip, reads as unavailable. */
+      .capture-chevron[aria-disabled='true'] {
+        opacity: 0.55;
+        cursor: default;
+      }
+      .capture-chevron[aria-expanded='true'] {
+        filter: brightness(0.92);
+      }
+
+      /* Mode menu (same surface, border and radius as .source-popover) */
+      .mode-popover {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        z-index: 20;
+        width: 280px;
+        padding: 6px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+      }
+      .mode-heading {
+        margin: 6px 8px 4px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+      }
+      .mode-item {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr) 16px;
+        column-gap: 10px;
+        align-items: start;
+        width: 100%;
+        padding: 7px 8px;
+        background: transparent;
+        border-color: transparent;
+        border-radius: 6px;
+        text-align: left;
+        white-space: normal;
+      }
+      .mode-item:hover,
+      .mode-item:focus-visible {
+        background: var(--surface-3);
+      }
+      .mode-item:focus-visible {
+        outline-offset: -2px;
+      }
+      .mode-ico {
+        width: 18px;
+        height: 18px;
+        margin-top: 1px;
+      }
+      .mode-ico.continuous {
+        color: var(--accent);
+      }
+      .mode-ico.single {
+        color: var(--single);
+      }
+      .mode-name {
+        display: block;
+        font-weight: 600;
+      }
+      .mode-desc {
+        display: block;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .mode-check {
+        margin-top: 2px;
+        color: var(--text);
+        visibility: hidden;
+      }
+      .mode-item[aria-checked='true'] .mode-check {
+        visibility: visible;
+      }
+      .mode-foot {
+        margin: 6px 8px 4px;
+        padding-top: 6px;
+        border-top: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      /* Notices (copied from app.css) */
+      .notice {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 12px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(255, 107, 107, 0.12);
+      }
+      .notice-message {
+        flex: 1;
+        min-width: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="proto" id="proto">
+      <div class="proto-head">
+        <div class="proto-title"><strong>006 capture modes</strong>split capture button prototype, real tokens</div>
+        <div class="proto-group" id="scen-group" role="group" aria-label="Scenarios"></div>
+        <div class="proto-group" id="width-group" role="group" aria-label="Window width">
+          <span>Window</span>
+        </div>
+      </div>
+      <div class="proto-caption">
+        <p id="caption"></p>
+        <pre class="inspector" id="inspector"></pre>
+      </div>
+      <p class="proto-note">
+        Prototype only: this page plays the backend (start/stop timing, one-sweep auto-stop) and the
+        source name is a mock. Click through: Play/Pause, the chevron menu, and the source button
+        (toggles connection). Scenario buttons jump to a state. Hash flags for screenshots: #s=&lt;scenario&gt;&amp;w=&lt;width&gt;&amp;still&amp;bare.
+      </p>
+      <output class="sr-measure" id="measure"></output>
+    </div>
+
+    <div class="window-wrap">
+      <div class="window" id="window">
+        <div class="app" id="app"></div>
+      </div>
+    </div>
+
+    <script>
+      /* ---------- icons (inline SVG, as in Toolbar.tsx) ---------- */
+      const ICON = {
+        play: '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg>',
+        pause:
+          '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><rect x="2.5" y="1.5" width="2.5" height="9" fill="currentColor"/><rect x="7" y="1.5" width="2.5" height="9" fill="currentColor"/></svg>',
+        stop: '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor"/></svg>',
+        chevron:
+          '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        check:
+          '<svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2.5 7.5l3 2.8 6-6.3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        // Mode glyphs: continuous = a trace with several sweeps; single = one sweep then flat.
+        continuous:
+          '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" focusable="false"><path d="M1.5 12.5h2l1.5-6 1.5 6 1.5-6 1.5 6 1.5-6 1.5 6 1.5-6 1.5 6h2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+        single:
+          '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" focusable="false"><path d="M1.5 12.5h5l2-8 2 8h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+      };
+
+      /* ---------- sample data (mock names, see prototype note) ---------- */
+      const SOURCES = {
+        sa430: { name: 'SA430 · /dev/ttyACM0', tip: 'SA430 · /dev/ttyACM0\nSA430 driver\nDevice: 08FF41E50F8B3A34', simulated: false },
+        long: {
+          name: 'SA430 08FF41E50F8B3A34 · Bench 3, north window, lab B, dock 2 pre-amp',
+          tip: 'SA430 08FF41E50F8B3A34 · Bench 3, north window, lab B, dock 2 pre-amp',
+          simulated: false,
+        },
+        sim: { name: 'Signal simulator', tip: 'Signal simulator', simulated: true },
+      };
+
+      const MODE_LABEL = { continuous: 'Continuous', single: 'Single' };
+
+      /* ---------- scenarios: the state the backend would report ----------
+         conn:   SessionState without acquisition (disconnected | connecting | connected | disconnecting)
+         acq:    idle | continuous | single   (single = one capture in progress)
+         busy:   null | starting | stopping   (command in flight, UI waits for SessionStatus)
+         frames: none | hold (last trace, stopped) | live                                   */
+      const SCENARIOS = {
+        empty: {
+          label: 'Empty: no source',
+          conn: 'disconnected', source: null, mode: 'continuous', acq: 'idle', busy: null, frames: 'none',
+          notice: null, menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>No source chosen.</strong> Capture control disabled, its tooltip says why. Mode still shows (Continuous is the first-run default). This is also the disabled look.',
+        },
+        'cont-idle': {
+          label: 'Continuous: idle',
+          conn: 'connected', source: 'sa430', mode: 'continuous', acq: 'idle', busy: null, frames: 'none',
+          notice: null, menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>Continuous, connected, not acquiring.</strong> Teal, Play icon, label "Continuous". Play starts continuous acquisition. Nothing captured yet, so the plot shows the hint.',
+        },
+        'cont-acq': {
+          label: 'Continuous: acquiring',
+          conn: 'connected', source: 'sa430', mode: 'continuous', acq: 'continuous', busy: null, frames: 'live',
+          notice: null, menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>Continuous, acquiring.</strong> Pause icon (same button, same width). Pause stops and holds the last trace. The chevron is locked while acquiring: pause first to change the mode.',
+        },
+        'single-idle': {
+          label: 'Single: idle (first use)',
+          conn: 'connected', source: 'sa430', mode: 'single', acq: 'idle', busy: null, frames: 'none',
+          notice: null, menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>Single, idle.</strong> Purple, label "Single". Play takes one sweep, then the backend stops and the control returns to this state. Nothing captured yet.',
+        },
+        'single-run': {
+          label: 'Single: capture in progress',
+          conn: 'connected', source: 'sa430', mode: 'single', acq: 'single', busy: null, frames: 'hold',
+          notice: null, menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>Single, one capture running.</strong> Stop icon: pressing it cancels the capture and keeps the previous trace. Badge says CAPTURING, never LIVE (it stops by itself). The previous trace stays visible until the new sweep arrives.',
+        },
+        'single-done': {
+          label: 'Single: auto-stopped (HOLD)',
+          conn: 'connected', source: 'sa430', mode: 'single', acq: 'idle', busy: null, frames: 'hold',
+          notice: null, menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>Single, finished.</strong> The backend stopped after one sweep. Trace is held (grey) with the existing HOLD badge. Button is back to idle, ready for the next capture.',
+        },
+        'menu-open': {
+          label: 'Menu open',
+          conn: 'connected', source: 'sa430', mode: 'continuous', acq: 'idle', busy: null, frames: 'hold',
+          notice: null, menu: true, lastData: '13:44:46',
+          caption:
+            '<strong>Mode menu open.</strong> Two radio items. Focus goes to the checked item. Arrows, Home/End, Enter/Space choose; Escape or Tab closes and returns focus to the chevron. Choosing a mode does not start a capture.',
+        },
+        busy: {
+          label: 'Transition: stopping',
+          conn: 'connected', source: 'sa430', mode: 'continuous', acq: 'continuous', busy: 'stopping', frames: 'live',
+          notice: null, menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>Command in flight.</strong> Backend has not confirmed the stop, so the icon has not changed. Both controls are aria-disabled (focusable, not dimmed, progress cursor). No optimistic UI.',
+        },
+        error: {
+          label: 'Error: capture failed',
+          conn: 'connected', source: 'sa430', mode: 'single', acq: 'idle', busy: null, frames: 'hold',
+          notice: {
+            kind: 'acquisitionFailed',
+            msg: 'Single capture failed: no sweep from SA430 08FF41E50F8B3A34. (Sample copy: the backend owns the text.)',
+          },
+          menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>Capture failed.</strong> The backend reports acquisitionFailed; the existing notice bar shows it and Restart runs the current mode again (here Single). Button is idle and purple, not stuck in Stop.',
+        },
+        long: {
+          label: 'Long source name',
+          conn: 'connected', source: 'long', mode: 'continuous', acq: 'idle', busy: null, frames: 'hold',
+          notice: null, menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>Long names.</strong> Source name truncates with an ellipsis and keeps its full text in the tooltip (title). The capture control keeps its fixed width, so the name is the only thing that gives way. Check it at 1024.',
+        },
+        sim: {
+          label: 'Simulator + SIMULATED',
+          conn: 'connected', source: 'sim', mode: 'single', acq: 'idle', busy: null, frames: 'hold',
+          notice: null, menu: false, lastData: '13:44:46',
+          caption:
+            '<strong>Simulator.</strong> SIMULATED badge stays (lavender, outlined). Its purple is close to the single-capture purple, so the badge differs in shape (outlined text tag vs solid button).',
+        },
+      };
+
+      const WIDTHS = [1440, 1180, 1024];
+      const STILL = location.hash.includes('still');
+      const BARE = location.hash.includes('bare');
+
+      let S = null;
+      let scenarioKey = 'cont-idle';
+      let width = 1440;
+      let timers = [];
+      let liveTimer = null;
+      let focusKey = null;
+      let captureTimer = null;
+
+      function clearTimers() {
+        timers.forEach(clearTimeout);
+        timers = [];
+      }
+      function later(ms, fn) {
+        if (STILL) return;
+        timers.push(setTimeout(fn, ms));
+      }
+      const clock = () => new Date().toLocaleTimeString(undefined, { hour12: false });
+      const isAcq = () => S.acq !== 'idle';
+      const connected = () => S.conn === 'connected';
+
+      function loadScenario(key) {
+        clearTimers();
+        scenarioKey = key;
+        S = JSON.parse(JSON.stringify(SCENARIOS[key]));
+        if (!STILL && S.busy === 'stopping') {
+          // Demo the transition: the backend confirms the stop after 1.6 s.
+          later(1600, () => {
+            S.busy = null;
+            S.acq = 'idle';
+            S.frames = 'hold';
+            S.lastData = clock();
+            render();
+          });
+        }
+        setLive();
+        renderChrome();
+        render();
+      }
+
+      function setLive() {
+        clearInterval(liveTimer);
+        liveTimer = null;
+        if (!STILL && S.acq === 'continuous' && S.frames === 'live') {
+          liveTimer = setInterval(() => updateTrace(), 300);
+        }
+      }
+
+      /* ---------- actions (simulated backend) ---------- */
+      function startCapture() {
+        if (S.busy || isAcq() || !connected()) return;
+        S.busy = 'starting';
+        render({ focus: 'main' });
+        later(280, () => {
+          S.busy = null;
+          if (S.mode === 'single') {
+            S.acq = 'single';
+            render({ focus: 'main' });
+            if (!STILL) {
+              captureTimer = setTimeout(() => {
+              // Backend: one sweep complete, then it stops itself. The UI only reacts to the status.
+              S.acq = 'idle';
+              S.frames = 'hold';
+              S.lastData = clock();
+              render({ focus: 'main' });
+              }, 2600);
+            }
+          } else {
+            S.acq = 'continuous';
+            S.frames = 'live';
+            setLive();
+            render({ focus: 'main' });
+          }
+        });
+      }
+
+      function stopCapture() {
+        if (S.busy || !isAcq()) return;
+        clearTimeout(captureTimer);
+        S.busy = 'stopping';
+        render({ focus: 'main' });
+        later(180, () => {
+          S.busy = null;
+          S.acq = 'idle';
+          if (S.frames === 'live') {
+            S.frames = 'hold';
+            S.lastData = clock();
+          }
+          // A cancelled single capture keeps the previous trace (frames stays hold or none).
+          setLive();
+          render({ focus: 'main' });
+        });
+      }
+
+      function toggleConnection() {
+        if (S.conn === 'connecting' || S.conn === 'disconnecting') return;
+        if (connected()) {
+          S.conn = 'disconnecting';
+          S.acq = 'idle';
+          S.busy = null;
+          setLive();
+          render({ focus: 'source' });
+          later(300, () => {
+            S.conn = 'disconnected';
+            S.source = null;
+            S.frames = 'none';
+            render({ focus: 'source' });
+          });
+        } else {
+          S.conn = 'connecting';
+          render({ focus: 'source' });
+          later(500, () => {
+            S.conn = 'connected';
+            S.source = S.source ?? 'sa430';
+            render({ focus: 'source' });
+          });
+        }
+      }
+
+      function chooseMode(mode) {
+        S.mode = mode;
+        S.menu = false;
+        render({ focus: 'chevron' });
+      }
+
+      function menuEnabled() {
+        return connected() && !isAcq() && !S.busy;
+      }
+
+      /* ---------- rendering ---------- */
+      function captionAndInspector() {
+        const label = MODE_LABEL[S.mode];
+        const acq = S.acq;
+        let main;
+        if (acq === 'single') {
+          main = { aria: 'Cancel single capture', title: 'Cancel capture: the previous trace stays on screen', icon: 'stop' };
+        } else if (acq === 'continuous') {
+          main = { aria: 'Pause continuous acquisition', title: 'Pause acquisition: the last trace stays on screen', icon: 'pause' };
+        } else if (S.mode === 'single') {
+          main = { aria: 'Start single capture', title: 'Start single capture: one sweep, then stop', icon: 'play' };
+        } else {
+          main = { aria: 'Start continuous acquisition', title: 'Start continuous acquisition', icon: 'play' };
+        }
+        if (!connected() && !isAcq()) {
+          main.title = S.conn === 'connecting' ? 'Connecting…' : S.conn === 'disconnecting' ? 'Disconnecting…' : 'Connect a source first';
+        }
+        return { label, main };
+      }
+
+      function captureHTML() {
+        const { label, main } = captionAndInspector();
+        const noSource = !connected() && !isAcq();
+        const busy = S.busy !== null;
+        const menuLocked = isAcq() || busy;
+        const chevronTitle = noSource
+          ? 'Connect a source first'
+          : isAcq()
+          ? 'Pause or cancel acquisition to change the mode'
+          : busy
+          ? 'Wait for the current change to finish'
+          : 'Choose capture mode';
+        const chevronAria = `Capture mode: ${label}`;
+        const expanded = S.menu ? 'true' : 'false';
+        const mainAttrs = [
+          `aria-label="${main.aria}"`,
+          `title="${main.title}"`,
+          noSource ? 'disabled' : '',
+          busy ? 'aria-disabled="true"' : '',
+          `data-focus="main"`,
+          `data-testid="acquire-button"`,
+        ].join(' ');
+        const chevAttrs = [
+          `aria-label="${chevronAria}"`,
+          `title="${chevronTitle}"`,
+          noSource ? 'disabled' : '',
+          menuLocked && !noSource ? 'aria-disabled="true"' : '',
+          `aria-haspopup="menu"`,
+          `aria-expanded="${expanded}"`,
+          `data-focus="chevron"`,
+        ].join(' ');
+        const variant = S.mode === 'single' ? 'single' : 'continuous';
+        const mainCls = `capture-main ${variant === 'single' ? '' : 'primary'}`.trim();
+        const chevCls = `capture-chevron ${variant === 'single' ? '' : 'primary'}`.trim();
+        return `
+          <div class="capture" data-mode="${S.mode}" data-acq="${S.acq}" role="group" aria-label="Capture">
+            <button type="button" class="${mainCls}" data-action="main" ${mainAttrs}>
+              ${ICON[main.icon]}<span class="capture-label">${label}</span>
+            </button>
+            <button type="button" class="${chevCls}" data-action="chevron" ${chevAttrs}>${ICON.chevron}</button>
+            ${S.menu ? menuHTML() : ''}
+          </div>`;
+      }
+
+      function menuHTML() {
+        const items = [
+          { mode: 'continuous', name: 'Continuous', desc: 'Keeps acquiring until you pause.', icon: 'continuous' },
+          { mode: 'single', name: 'Single', desc: 'Captures one sweep, then stops.', icon: 'single' },
+        ];
+        return `
+          <div class="mode-popover" role="menu" aria-label="Capture mode" data-menu>
+            <div class="mode-heading" aria-hidden="true">Capture mode</div>
+            ${items
+              .map(
+                (it) => `
+              <button type="button" class="mode-item" role="menuitemradio" data-menu-item
+                data-action="mode" data-mode="${it.mode}" aria-checked="${S.mode === it.mode}"
+                aria-labelledby="mn-${it.mode}" aria-describedby="md-${it.mode}">
+                <span class="mode-ico ${it.icon}" aria-hidden="true">${ICON[it.icon]}</span>
+                <span><span class="mode-name" id="mn-${it.mode}">${it.name}</span>
+                  <span class="mode-desc" id="md-${it.mode}">${it.desc}</span></span>
+                <span class="mode-check" aria-hidden="true">${ICON.check}</span>
+              </button>`,
+              )
+              .join('')}
+            <p class="mode-foot">Changing the mode does not start a capture.</p>
+          </div>`;
+      }
+
+      function sourceHTML() {
+        const src = S.source ? SOURCES[S.source] : null;
+        const dot = !src
+          ? ''
+          : `<span class="src-dot" data-status="${
+              S.conn === 'connecting' ? 'connecting' : S.conn === 'disconnecting' ? 'disconnecting' : isAcq() || S.conn === 'connected' ? 'connected' : 'idle'
+            }" aria-hidden="true"></span>`;
+        const name = src ? src.name : 'Choose a source';
+        const stateLabel = { connected: 'Connected', connecting: 'Connecting…', disconnecting: 'Disconnecting…', disconnected: 'Disconnected' }[S.conn];
+        const aria = src ? `Source: ${name}, ${isAcq() ? 'Acquiring' : stateLabel}` : 'Source: Choose a source';
+        const tip = src ? `${src.tip}\nChoose source (Ctrl+K)` : 'Choose source (Ctrl+K)';
+        return `
+          <div class="source-control">
+            <button type="button" class="source-button${src ? '' : ' attention'}" data-action="source" data-focus="source"
+              aria-haspopup="menu" aria-expanded="false" aria-label="${aria}" title="${tip.replace(/"/g, '&quot;')}">
+              ${dot}<span class="src-name">${name}</span><span aria-hidden="true">▾</span>
+            </button>
+          </div>`;
+      }
+
+      function badgeFor() {
+        if (!connected() && !isAcq()) {
+          if (S.conn === 'connecting') return ['Connecting…', 'stopped'];
+          return ['No source connected', 'stopped'];
+        }
+        if (S.acq === 'single') return ['CAPTURING', 'capture'];
+        if (S.acq === 'continuous') return S.frames === 'live' ? ['LIVE', 'live'] : ['Waiting for data…', 'waiting'];
+        if (S.frames === 'hold') return [`HOLD · last data ${S.lastData}`, 'stopped'];
+        return ['Stopped', 'stopped'];
+      }
+
+      function hintText() {
+        if (S.frames !== 'none' || isAcq()) return null;
+        if (!connected()) return 'Choose a source to begin. Try Signal simulator.';
+        return S.mode === 'single' ? 'No trace yet. Press Play for one sweep.' : 'No trace yet. Press Play to start continuous acquisition.';
+      }
+
+      /* Trace in a 1000x100 viewBox (y = % of plot height), so the HTML ticks line up. */
+      function tracePath(noisy) {
+        const peaks = [
+          [0.22, -44],
+          [0.36, -40],
+          [0.5, -19],
+          [0.68, -35],
+          [0.8, -52],
+        ];
+        const pts = [];
+        for (let i = 0; i <= 240; i++) {
+          const x = i / 240;
+          let db = -82 + Math.sin(i * 0.9) * 1.1 + (noisy ? (Math.random() - 0.5) * 3 : 0);
+          for (const [px, pl] of peaks) {
+            const d = (x - px) / 0.003;
+            db += (pl + 82) * Math.exp(-d * d);
+          }
+          const y = (-db / 120) * 100;
+          pts.push(`${(x * 1000).toFixed(1)},${y.toFixed(2)}`);
+        }
+        return 'M' + pts.join(' L');
+      }
+
+      function plotHTML() {
+        const [badgeText, kind] = badgeFor();
+        const hint = hintText();
+        const hasTrace = S.frames !== 'none';
+        const color = S.frames === 'live' ? 'var(--accent)' : 'var(--text-muted)';
+        const grid = [0, -20, -40, -60, -80, -100, -120]
+          .map((v) => {
+            const pct = (-v / 120) * 100;
+            return `<div class="grid-line" style="top:${pct}%"></div><div class="y-tick" style="top:${pct}%">${v}</div>`;
+          })
+          .join('');
+        return `
+          <div class="plot-area" data-plot>
+            ${grid}
+            <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+              ${hasTrace ? `<path id="trace" d="${tracePath(S.frames === 'live')}" fill="none" stroke="${color}" stroke-width="1.4" vector-effect="non-scaling-stroke"/>` : ''}
+            </svg>
+          </div>
+          <span class="axis-title">dBFS</span>
+          <div class="x-tick" style="left:calc(52px + 0%)">99.0 MHz</div>
+          <div class="x-tick" style="left:calc(52px + 50%)">100.0 MHz</div>
+          <div class="x-tick" style="right:8px">101.0 MHz</div>
+          <span class="plot-badge liveness-${kind}" data-testid="plot-badge">${badgeText}</span>
+          ${hint ? `<p class="plot-hint" data-testid="plot-hint">${hint}</p>` : ''}
+          ${S.acq === 'single' && !hasTrace ? '<p class="plot-hint">Capturing one sweep…</p>' : ''}`;
+      }
+
+      function noticeHTML() {
+        if (!S.notice) return '';
+        const restart = S.notice.kind === 'acquisitionFailed' && connected() && !isAcq()
+          ? '<button type="button" data-action="restart">Restart</button>'
+          : '';
+        return `<div class="notice notice-${S.notice.kind}" role="alert" data-testid="session-notice">
+          <span class="notice-message">${S.notice.msg}</span>${restart}
+          <button type="button" class="icon" aria-label="Dismiss" data-action="dismiss">×</button></div>`;
+      }
+
+      function render(opts = {}) {
+        if (opts.focus) focusKey = opts.focus;
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <header class="toolbar" role="toolbar" aria-label="Main toolbar">
+            <div class="brand"><span class="brand-mark" aria-hidden="true">▲</span>Spectrum Studio</div>
+            <div class="toolbar-group toolbar-source">
+              ${sourceHTML()}
+              ${captureHTML()}
+              ${S.source && SOURCES[S.source].simulated ? '<span class="badge simulated" title="Data is generated by the built-in simulator" data-testid="simulated-badge">SIMULATED</span>' : ''}
+            </div>
+            <div class="toolbar-group">
+              <label class="field"><span>Center</span>
+                <input class="freq-input" aria-label="Center frequency" value="${connected() ? '100.000000 MHz' : '0.000000 Hz'}" ${connected() ? '' : 'disabled'} /></label>
+              <label class="field"><span>Span</span>
+                <select aria-label="Span" ${connected() ? '' : 'disabled'}><option>${connected() ? '2.048 MHz' : '—'}</option></select></label>
+            </div>
+          </header>
+          ${noticeHTML()}
+          <main class="workspace">
+            <div class="plots">${plotHTML()}</div>
+            <aside class="side-panel" aria-label="Side panel (static)">
+              <h3>Measurement</h3>
+              <div class="side-row"><span>FFT size</span><span class="fake"></span></div>
+              <div class="side-row"><span>Window</span><span class="fake"></span></div>
+              <h3>Markers</h3>
+              <div class="side-row"><span>Peak search</span><span class="fake" style="width:90px"></span></div>
+              <h3>Display</h3>
+              <div class="side-row"><span>Reference level</span><span class="fake"></span></div>
+              <div class="side-row"><span>Range</span><span class="fake"></span></div>
+            </aside>
+          </main>
+          <footer class="status-bar">
+            <span><span class="status-label">Center</span> ${connected() ? '100.00000 MHz' : '—'}</span>
+            <span><span class="status-label">Span</span> ${connected() ? '2.048 MHz' : '—'}</span>
+            <span><span class="status-label">RBW</span> ${connected() ? '750 Hz' : '—'}</span>
+            <span><span class="status-label">FFT</span> ${connected() ? '4096 · Hann' : '—'}</span>
+            <span><span class="status-label">Unit</span> dBFS</span>
+            <span class="uncalibrated" title="Amplitudes are relative to full scale (dBFS). No calibration is applied.">Uncalibrated</span>
+          </footer>`;
+
+        // Keep the popover tied to the button that opened it: restore focus after each re-render.
+        const target = focusKey && app.querySelector(`[data-focus="${focusKey}"]`);
+        if (S.menu) {
+          const checked = app.querySelector('[role="menuitemradio"][aria-checked="true"]');
+          (checked || app.querySelector('[role="menuitemradio"]')).focus();
+        } else if (target && !target.disabled) {
+          target.focus();
+        }
+        focusKey = null;
+        setLive();
+        renderInspector();
+        renderMeasure();
+        document.getElementById('window').style.setProperty('--w', width + 'px');
+      }
+
+      function updateTrace() {
+        const path = document.getElementById('trace');
+        if (path) path.setAttribute('d', tracePath(true));
+      }
+
+      function renderInspector() {
+        const { label, main } = captionAndInspector();
+        const chev = `Capture mode: ${label}`;
+        const chevTitle = !connected() && !isAcq() ? 'Connect a source first' : isAcq() ? 'Pause or cancel acquisition to change the mode' : 'Choose capture mode';
+        const el = document.getElementById('inspector');
+        el.textContent =
+          `main        aria-label="${main.aria}"\n` +
+          `            title="${main.title}"\n` +
+          `            ${!connected() && !isAcq() ? 'native disabled' : S.busy ? 'aria-disabled="true" (busy)' : 'enabled'}\n` +
+          `chevron     aria-label="${chev}"  aria-haspopup="menu" aria-expanded="${S.menu}"\n` +
+          `            title="${chevTitle}"\n` +
+          `            ${!connected() && !isAcq() ? 'native disabled' : isAcq() || S.busy ? 'aria-disabled="true" (locked)' : 'enabled'}\n` +
+          `badge       ${badgeFor()[0]}`;
+      }
+
+      function renderChrome() {
+        const scen = document.getElementById('scen-group');
+        const keys = Object.keys(SCENARIOS);
+        scen.innerHTML =
+          '<span>Scenario</span>' +
+          keys
+            .map(
+              (k) =>
+                `<button type="button" aria-pressed="${k === scenarioKey}" data-scen="${k}">${SCENARIOS[k].label}</button>`,
+            )
+            .join('');
+        const caption = document.getElementById('caption');
+        caption.innerHTML = SCENARIOS[scenarioKey].caption;
+        const wg = document.getElementById('width-group');
+        wg.innerHTML =
+          '<span>Window</span>' +
+          WIDTHS.map(
+            (w) =>
+              `<button type="button" aria-pressed="${w === width}" data-width="${w}">${w}px${w === 1024 ? ' (minimum)' : ''}</button>`,
+          ).join('');
+      }
+
+      /* Measurements (printed into the page so --dump-dom can read them in headless checks). */
+      function renderMeasure() {
+        const out = document.getElementById('measure');
+        const tb = document.querySelector('.toolbar');
+        const name = document.querySelector('.src-name');
+        const cap = document.querySelector('.capture');
+        if (!tb || !cap) return;
+        const overflow = tb.scrollWidth > tb.clientWidth + 1;
+        const nameW = name ? name.getBoundingClientRect().width : 0;
+        const nameFull = name ? name.scrollWidth : 0;
+        const capW = cap.getBoundingClientRect().width;
+        out.textContent =
+          `measure: window=${width} toolbarOverflow=${overflow} capture=${capW.toFixed(0)}px ` +
+          `sourceName=${nameW.toFixed(0)}px (content ${nameFull}px${nameFull > nameW ? ', ellipsis' : ''}) ` +
+          `badge=${document.querySelector('.badge') ? 'yes' : 'no'}`;
+      }
+
+      /* ---------- events (delegated) ---------- */
+      document.getElementById('app').addEventListener('click', (e) => {
+        const el = e.target.closest('[data-action]');
+        if (!el || el.disabled) return;
+        if (el.getAttribute('aria-disabled') === 'true' && el.dataset.action !== 'source') {
+          // Busy/locked controls ignore the press (the tooltip explains why).
+          if (el.dataset.action === 'chevron') return;
+          if (el.dataset.action === 'main') return;
+        }
+        const action = el.dataset.action;
+        if (action === 'main') {
+          if (S.acq === 'idle') startCapture();
+          else stopCapture();
+        } else if (action === 'chevron') {
+          if (!menuEnabled()) return;
+          S.menu = !S.menu;
+          render({ focus: S.menu ? null : 'chevron' });
+          if (!S.menu) document.querySelector('[data-focus="chevron"]')?.focus();
+        } else if (action === 'mode') {
+          chooseMode(el.dataset.mode);
+        } else if (action === 'source') {
+          toggleConnection();
+        } else if (action === 'restart') {
+          S.notice = null;
+          startCapture();
+        } else if (action === 'dismiss') {
+          S.notice = null;
+          render();
+        }
+      });
+
+      // Keyboard: ArrowDown/Up on the chevron opens the menu (as the source button does).
+      document.getElementById('app').addEventListener('keydown', (e) => {
+        const t = e.target;
+        if (t.dataset && t.dataset.action === 'chevron' && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && !S.menu) {
+          e.preventDefault();
+          if (menuEnabled()) {
+            S.menu = true;
+            render();
+          }
+          return;
+        }
+        if (!S.menu) return;
+        const items = [...document.querySelectorAll('[data-menu-item]')];
+        const i = items.indexOf(t);
+        const go = (n) => {
+          e.preventDefault();
+          items[(n + items.length) % items.length].focus();
+        };
+        if (e.key === 'ArrowDown') go(i + 1);
+        else if (e.key === 'ArrowUp') go(i - 1);
+        else if (e.key === 'Home') go(0);
+        else if (e.key === 'End') go(items.length - 1);
+        else if (e.key === 'Escape') {
+          e.preventDefault();
+          S.menu = false;
+          render({ focus: 'chevron' });
+        } else if (e.key === 'Tab') {
+          // Close and let the browser continue from the chevron (next stop: Center).
+          S.menu = false;
+          render({ focus: 'chevron' });
+        }
+      });
+
+      document.addEventListener('mousedown', (e) => {
+        if (!S.menu) return;
+        if (e.target.closest('.capture')) return;
+        S.menu = false;
+        render();
+      });
+
+      document.getElementById('scen-group').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-scen]');
+        if (!b) return;
+        history.replaceState(null, '', `#s=${b.dataset.scen}&w=${width}${STILL ? '&still' : ''}${BARE ? '&bare' : ''}`);
+        loadScenario(b.dataset.scen);
+      });
+
+      document.getElementById('width-group').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-width]');
+        if (!b) return;
+        width = Number(b.dataset.width);
+        renderChrome();
+        render();
+      });
+
+      /* ---------- boot ---------- */
+      (function boot() {
+        const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+        const s = params.get('s');
+        if (s && SCENARIOS[s]) scenarioKey = s;
+        const w = Number(params.get('w'));
+        if (WIDTHS.includes(w)) width = w;
+        if (BARE) document.body.classList.add('bare');
+        loadScenario(scenarioKey);
+        const f = params.get('focus');
+        if (f) document.querySelector(`[data-focus="${f}"]`)?.focus();
+      })();
+    </script>
+  </body>
+</html>

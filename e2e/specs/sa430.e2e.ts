@@ -1,15 +1,21 @@
 import { $, $$, browser, expect } from '@wdio/globals';
 
 import {
+  acquireState,
   byTestId,
+  captureMode,
+  chooseMode,
   closeSourceMenu,
   ensureDisconnected,
   fillDialog,
+  frameSeq,
   livenessKind,
   openAddSourceDialog,
   openEditDialog,
   openSourceMenu,
   runTestConnection,
+  selectSource,
+  sessionState,
   setInput,
   statusBarText,
   textOf,
@@ -74,7 +80,6 @@ describeHardware('TI SA430 (real hardware)', () => {
     await device.waitForExist({ timeoutMsg: 'the remembered SA430 row is missing' });
     await device.click();
     await waitForState('Connected');
-    await expect(await byTestId('simulated-badge')).not.toBeExisting();
 
     await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring');
@@ -93,11 +98,110 @@ describeHardware('TI SA430 (real hardware)', () => {
   it('restores the retuned centre frequency after a restart', async () => {
     await browser.reloadSession();
     await waitForAppReady();
+    // The app never connects by itself, and Play is disabled until a source is connected.
+    await openSourceMenu();
+    const id = (await (await $('[data-testid^="source-entry-"]')).getAttribute('data-testid'))!;
+    await selectSource(id);
+    await waitForState('Connected', 20_000);
     await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring', 20_000);
     await browser.waitUntil(async () => /Center 434\.[45]/.test(await statusBarText()), {
       timeoutMsg: 'the remembered centre frequency was not restored',
     });
+    await ensureDisconnected();
+  });
+  it('captures one real sweep in Single mode and stops by itself', async () => {
+    await openSourceMenu();
+    const id = (await (await $('[data-testid^="source-entry-"]')).getAttribute('data-testid'))!;
+    await selectSource(id);
+    await waitForState('Connected');
+    await chooseMode('single');
+    const before = await frameSeq();
+    await (await byTestId('acquire-button')).click();
+    await browser.waitUntil(
+      async () => (await sessionState()) === 'Connected' && (await frameSeq()) !== before,
+      { timeout: 30_000, timeoutMsg: 'the single sweep did not arrive and stop' },
+    );
+    const status = await statusBarText();
+    expect(status).toContain('dBm');
+    expect(status).not.toContain('Uncalibrated');
+    expect(await acquireState()).toBe('idle');
+    // No further sweeps once the capture has stopped.
+    const seq = await frameSeq();
+    await browser.pause(2000);
+    expect(await frameSeq()).toBe(seq);
+    expect(await livenessKind()).toBe('stopped');
+    await chooseMode('continuous');
+    expect(await captureMode()).toBe('continuous');
+    await ensureDisconnected();
+  });
+
+  it('cancels a single capture the moment its Cancel label appears, with no frame (BUG-1)', async () => {
+    await openSourceMenu();
+    const id = (await (await $('[data-testid^="source-entry-"]')).getAttribute('data-testid'))!;
+    await selectSource(id);
+    await waitForState('Connected');
+    await chooseMode('single');
+    // One completed sweep first, so the frame count the rounds compare against is a number.
+    await (await byTestId('acquire-button')).click();
+    await browser.waitUntil(
+      async () => (await sessionState()) === 'Connected' && (await frameSeq()) !== null,
+      { timeout: 30_000, timeoutMsg: 'the first sweep did not arrive' },
+    );
+
+    // Repeated so an intermittent loss of the click shows up. Each round starts a capture and,
+    // in the same page task, clicks Cancel as soon as the label reads "Cancel single capture":
+    // the status event can arrive before the start command resolves, which is the BUG-1 window.
+    for (let round = 1; round <= 5; round++) {
+      await waitForState('Connected');
+      const before = await frameSeq();
+      // Arms the observer, then presses Start. The observer clicks Cancel in the same page task as
+      // soon as the label reads "Cancel single capture": the status event can arrive before the
+      // start command resolves, which is the BUG-1 window. The outcome goes to the page's dataset.
+      await browser.execute(() => {
+        const button = document.querySelector<HTMLButtonElement>('[data-testid="acquire-button"]')!;
+        const body = document.body.dataset;
+        body['cancelOutcome'] = 'pending';
+        const finish = (outcome: string) => {
+          body['cancelOutcome'] = outcome;
+          observer.disconnect();
+          clearTimeout(timer);
+        };
+        const observer = new MutationObserver(() => {
+          if (button.getAttribute('aria-label') !== 'Cancel single capture') return;
+          button.click();
+          finish('cancel-clicked');
+        });
+        const timer = setTimeout(() => finish('no-cancel-label'), 5000);
+        observer.observe(button, { attributes: true, childList: true, subtree: true });
+        button.click();
+      });
+      await browser.waitUntil(
+        async () =>
+          (await browser.execute(() => document.body.dataset['cancelOutcome'])) !== 'pending',
+        { timeout: 6000, timeoutMsg: `round ${round}: the outcome was never recorded` },
+      );
+      const outcome = await browser.execute(() => document.body.dataset['cancelOutcome']);
+      if (outcome !== 'cancel-clicked') throw new Error(`round ${round}: ${outcome}`);
+
+      // The cancelled sweep is never shown: the state returns to Connected with the same frame.
+      await waitForState('Connected', 20_000);
+      await browser.waitUntil(async () => (await acquireState()) === 'idle', {
+        timeoutMsg: `round ${round}: the capture did not return to idle`,
+      });
+      await browser.pause(300); // a frame published before the Stop would arrive within this window
+      const after = await frameSeq();
+      if (after !== before)
+        throw new Error(`round ${round}: a frame was shown after Cancel (${before} -> ${after})`);
+      expect(await sessionState()).toBe('Connected');
+      // textContent, not getText(): the region is visually hidden and WebDriver omits such text.
+      const announced = await browser.execute(
+        () => document.querySelector('[data-testid="capture-live-region"]')?.textContent ?? '',
+      );
+      if (!announced.includes('cancelled'))
+        throw new Error(`round ${round}: announced "${announced}"`);
+    }
+    await chooseMode('continuous');
     await ensureDisconnected();
   });
 });

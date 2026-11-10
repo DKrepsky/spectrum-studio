@@ -15,13 +15,13 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::model::params::resolve_params;
 use crate::model::session::now_ms;
 use crate::model::{
-    ActiveSource, DriverInfo, DriverStatus, ParamValue, ProcessingSettings, SettingsPatch,
-    SourceConfig, SourceKind, SourceSettings, SourceUpdate,
+    ActiveSource, CaptureMode, DriverInfo, DriverStatus, ParamValue, ProcessingSettings,
+    SettingsPatch, SourceConfig, SourceKind, SourceSettings, SourceUpdate,
 };
 
 pub const PREFERENCES_FILE: &str = "preferences.json";
@@ -97,6 +97,18 @@ pub struct Preferences {
     /// Remembered source selected when the application was last used (never connected
     /// automatically).
     pub last_source_id: Option<String>,
+    /// Capture mode selected for the next start. An unknown stored value loads as continuous.
+    #[serde(default, deserialize_with = "lenient_capture_mode")]
+    pub capture_mode: CaptureMode,
+}
+
+/// Reads a stored capture mode, falling back to the default for an unknown value so that only
+/// this field is lost. IPC arguments do not use this: `set_capture_mode` rejects invalid values.
+fn lenient_capture_mode<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<CaptureMode, D::Error> {
+    let raw = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(raw).unwrap_or_default())
 }
 
 impl Default for Preferences {
@@ -107,6 +119,7 @@ impl Default for Preferences {
             display: DisplayPreferences::default(),
             last_source: None,
             last_source_id: None,
+            capture_mode: CaptureMode::default(),
         }
     }
 }
@@ -1085,6 +1098,59 @@ mod tests {
         assert_eq!(p.processing.window, WindowKind::FlatTop);
         assert_eq!(p.display.palette, Palette::Viridis);
         assert_eq!(p.last_source_id.as_deref(), Some("src-1"));
+    }
+
+    #[test]
+    fn capture_mode_defaults_to_continuous() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ConfigStore::open(dir.path());
+        assert_eq!(store.preferences().capture_mode, CaptureMode::Continuous);
+        let raw: serde_json::Value = serde_json::to_value(store.preferences()).unwrap();
+        assert_eq!(raw["captureMode"], "continuous");
+    }
+
+    #[test]
+    fn capture_mode_persists_across_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ConfigStore::open(dir.path());
+        store
+            .update_preferences(|p| p.capture_mode = CaptureMode::Single)
+            .unwrap();
+        let reopened = ConfigStore::open(dir.path());
+        assert_eq!(reopened.preferences().capture_mode, CaptureMode::Single);
+        assert!(reopened.warnings().is_empty());
+    }
+
+    #[test]
+    fn unknown_stored_capture_mode_loads_as_continuous_and_keeps_the_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join(PREFERENCES_FILE),
+            br#"{"version":1,"captureMode":"burst","display":{"rangeDb":80},"lastSourceId":"src-1"}"#,
+        )
+        .unwrap();
+        let store = ConfigStore::open(dir.path());
+        assert!(store.warnings().is_empty());
+        let p = store.preferences();
+        assert_eq!(p.capture_mode, CaptureMode::Continuous);
+        assert_eq!(p.display.range_db, 80.0);
+        assert_eq!(p.last_source_id.as_deref(), Some("src-1"));
+        // The same value is refused at the IPC boundary, where it is an argument, not stored data.
+        assert!(serde_json::from_str::<CaptureMode>(r#""burst""#).is_err());
+    }
+
+    #[test]
+    fn a_non_string_stored_capture_mode_also_loads_as_continuous() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join(PREFERENCES_FILE),
+            br#"{"version":1,"captureMode":42,"display":{"rangeDb":80}}"#,
+        )
+        .unwrap();
+        let store = ConfigStore::open(dir.path());
+        assert!(store.warnings().is_empty());
+        assert_eq!(store.preferences().capture_mode, CaptureMode::Continuous);
+        assert_eq!(store.preferences().display.range_db, 80.0);
     }
 
     #[test]

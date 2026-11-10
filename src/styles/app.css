@@ -11,8 +11,15 @@
   --warn: #ffb547;
   --warn-strong: #f0a22e;
   --danger: #ff6b6b;
+  /* Stop fill of the capture control while acquiring (capture.css). Ink on --danger is 6.9:1,
+     on --danger-strong 5.2:1 (WCAG AA for label and icon). */
+  --danger-strong: #f04848;
+  --danger-ink: #120a24;
   --info: #5aa9ff;
-  --sim: #c39bff;
+  /* Single capture (mode colour, see design.md 3.2). Ink on the fill: --single-ink. */
+  --single: #a47cff;
+  --single-strong: #9166f5;
+  --single-ink: #120a24;
   --radius: 6px;
   --font: 'Inter', 'Cantarell', 'Ubuntu', system-ui, sans-serif;
   --mono: 'JetBrains Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
@@ -66,15 +73,6 @@ button.primary {
 }
 button.primary:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--accent-strong);
-}
-button.primary.stop {
-  background: var(--warn);
-  border-color: var(--warn);
-  color: #2a1a00;
-}
-button.primary.stop:hover:not(:disabled):not([aria-disabled='true']) {
-  background: var(--warn-strong);
-  border-color: var(--warn-strong);
 }
 button.small {
   padding: 2px 8px;
@@ -173,16 +171,6 @@ select:disabled {
   gap: 6px;
   color: var(--text-muted);
 }
-/* Play/Pause: square and as tall as the source button, so Play and Pause never shift the layout. */
-.acquire-button {
-  flex: none;
-  width: var(--control-height);
-  height: var(--control-height);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 .badge {
   font-size: 11px;
   padding: 1px 7px;
@@ -190,12 +178,6 @@ select:disabled {
   background: var(--surface-3);
   color: var(--text-muted);
   letter-spacing: 0.03em;
-}
-.badge.simulated {
-  background: rgba(195, 155, 255, 0.15);
-  color: var(--sim);
-  border: 1px solid var(--sim);
-  font-weight: 600;
 }
 
 /* Narrow windows (the minimum is 1024px): reclaim toolbar space instead of squeezing the source
@@ -335,6 +317,11 @@ select:disabled {
 .liveness-waiting {
   color: var(--warn);
   border-color: var(--warn);
+}
+/* A single capture in progress: the mode colour, never the amber of waiting or stale. */
+.liveness-capturing {
+  color: var(--single);
+  border-color: var(--single);
 }
 .plot-zoom-reset {
   position: absolute;
@@ -544,4 +531,6 @@ select:disabled {
   color: var(--text-muted);
   font-size: 15px;
   pointer-events: none;
+  text-align: center;
+  padding: 0 40px;
 }

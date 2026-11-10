@@ -1,0 +1,56 @@
+{
+  "badge": "No source connected",
+  "toolbarOverflowPx": 0,
+  "center": {
+    "b": 38.09375,
+    "l": 657.625,
+    "r": 807.625,
+    "t": 9.90625,
+    "w": 150,
+    "h": 28.1875
+  },
+  "capture": {
+    "b": 39,
+    "l": 439.875,
+    "r": 593.875,
+    "t": 9,
+    "w": 154,
+    "h": 30
+  },
+  "main": {
+    "b": 39,
+    "l": 439.875,
+    "r": 567.875,
+    "t": 9,
+    "w": 128,
+    "h": 30
+  },
+  "mainLabel": "Single",
+  "winW": 1440,
+  "source": {
+    "b": 39,
+    "l": 151.875,
+    "r": 431.875,
+    "t": 9,
+    "w": 280,
+    "h": 30
+  },
+  "mainAria": "Start single capture",
+  "sourceScrollOverflowPx": 0,
+  "chevron": {
+    "b": 39,
+    "l": 567.875,
+    "r": 593.875,
+    "t": 9,
+    "w": 26,
+    "h": 30
+  },
+  "chevronDisabled": true,
+  "mainDisabled": true,
+  "chevronExpanded": "false",
+  "status": "No source connected.",
+  "sourceAria": "Source: Very long source name used to check that truncation is clean, Disconnected",
+  "menuOpen": false,
+  "chevronAriaDisabled": null,
+  "mainAriaDisabled": null
+}

@@ -2,7 +2,7 @@ import { apiMock } from '../test/mockApi';
 
 import type { SessionStatus } from '../bindings/SessionStatus';
 import { activeSimulator, savedSource, simulatorDriver, status } from '../test/fixtures';
-import { useSession } from './session';
+import { type BusyOperation, useSession } from './session';
 import { emptyConfig } from './sourceConfig';
 import { useSources } from './sources';
 
@@ -146,5 +146,127 @@ describe('session store', () => {
     expect(apiMock.setProcessing).toHaveBeenCalledWith(
       expect.objectContaining({ fftSize: 1024, window: 'hann', averaging: 1 }),
     );
+  });
+});
+
+describe('session store capture mode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSession.setState({ status: null, busy: null, commandError: null, commandErrorFrom: null });
+  });
+
+  it('sends the chosen mode and reports the settingMode operation while in flight', async () => {
+    let finish: () => void = () => undefined;
+    apiMock.setCaptureMode.mockImplementationOnce(
+      () => new Promise((r) => (finish = () => r(null))),
+    );
+    const pending = useSession.getState().setCaptureMode('single');
+    expect(useSession.getState().busy).toBe('settingMode');
+    finish();
+    await pending;
+    expect(apiMock.setCaptureMode).toHaveBeenCalledWith('single');
+    expect(useSession.getState().busy).toBeNull();
+    expect(useSession.getState().commandError).toBeNull();
+  });
+
+  it('does not change the mode locally: only a backend status does', async () => {
+    useSession.getState().receiveStatus(status({ revision: 1, captureMode: 'continuous' }));
+    await useSession.getState().setCaptureMode('single');
+    expect(useSession.getState().status?.captureMode).toBe('continuous');
+    useSession.getState().receiveStatus(status({ revision: 2, captureMode: 'single' }));
+    expect(useSession.getState().status?.captureMode).toBe('single');
+  });
+
+  it('surfaces a rejected change as commandError and keeps the status mode', async () => {
+    useSession.getState().receiveStatus(status({ revision: 1, captureMode: 'continuous' }));
+    apiMock.setCaptureMode.mockRejectedValue({
+      message: 'Pause or cancel acquisition to change the capture mode.',
+    });
+    await useSession.getState().setCaptureMode('single');
+    expect(useSession.getState().commandError).toBe(
+      'Pause or cancel acquisition to change the capture mode.',
+    );
+    expect(useSession.getState().commandErrorFrom).toBe('settingMode');
+    expect(useSession.getState().status?.captureMode).toBe('continuous');
+    expect(useSession.getState().busy).toBeNull();
+  });
+});
+
+describe('session store start and stop while a start is in flight (BUG-1)', () => {
+  /** A start command the test resolves or rejects by hand, as the backend's reply would. */
+  function holdStart() {
+    let finish: (ok: boolean) => void = () => undefined;
+    apiMock.startAcquisition.mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          finish = (ok) => (ok ? resolve(null) : reject(new Error('No sweep')));
+        }),
+    );
+    return (ok = true) => finish(ok);
+  }
+
+  beforeEach(() => {
+    useSession.setState({ status: null, busy: null, commandError: null, commandErrorFrom: null });
+  });
+
+  it('sends a Stop queued during the start only after the start resolved, with no busy gap', async () => {
+    const finish = holdStart();
+    const busy: (BusyOperation | null)[] = [];
+    const unsubscribe = useSession.subscribe((s) => busy.push(s.busy));
+    const starting = useSession.getState().start();
+    const stopped = useSession.getState().stop();
+    expect(apiMock.stopAcquisition).not.toHaveBeenCalled();
+    expect(useSession.getState().busy).toBe('stopping');
+
+    finish();
+    expect(await stopped).toBe(true);
+    await starting;
+    unsubscribe();
+    expect(apiMock.stopAcquisition).toHaveBeenCalledTimes(1);
+    expect(busy.slice(0, -1)).not.toContain(null);
+    expect(busy.at(-1)).toBeNull();
+    expect(useSession.getState().busy).toBeNull();
+  });
+
+  it('sends one Stop for a second stop request while one is queued', async () => {
+    const finish = holdStart();
+    const starting = useSession.getState().start();
+    const first = useSession.getState().stop();
+    const second = useSession.getState().stop();
+    finish();
+    expect(await Promise.all([first, second])).toEqual([true, true]);
+    await starting;
+    expect(apiMock.stopAcquisition).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send a queued Stop when the start fails, and reports the start failure', async () => {
+    const finish = holdStart();
+    const starting = useSession.getState().start();
+    const stopped = useSession.getState().stop();
+    finish(false);
+    expect(await stopped).toBe(false);
+    await starting;
+    expect(apiMock.stopAcquisition).not.toHaveBeenCalled();
+    expect(useSession.getState().commandError).toBe('No sweep');
+    expect(useSession.getState().commandErrorFrom).toBe('starting');
+    expect(useSession.getState().busy).toBeNull();
+  });
+
+  it('reports a queued Stop that fails as a stopping failure and resolves false', async () => {
+    const finish = holdStart();
+    apiMock.stopAcquisition.mockRejectedValueOnce({ message: 'the port is busy' });
+    const starting = useSession.getState().start();
+    const stopped = useSession.getState().stop();
+    finish();
+    expect(await stopped).toBe(false);
+    await starting;
+    expect(useSession.getState().commandError).toBe('the port is busy');
+    expect(useSession.getState().commandErrorFrom).toBe('stopping');
+    expect(useSession.getState().busy).toBeNull();
+  });
+
+  it('stops directly when no start is in flight', async () => {
+    expect(await useSession.getState().stop()).toBe(true);
+    expect(apiMock.stopAcquisition).toHaveBeenCalledTimes(1);
   });
 });

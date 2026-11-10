@@ -43,11 +43,13 @@ pub fn run() {
                 ConfigStore::open_with(app.path().app_config_dir()?, &|driver, id, label| {
                     registry.normalize_device_id(driver, id, label)
                 });
+            let preferences = store.preferences();
             let session = SessionManager::new(
                 registry,
                 Arc::new(EventSink(app.handle().clone())),
-                store.preferences().processing,
-            );
+                preferences.processing,
+            )
+            .with_capture_mode(preferences.capture_mode);
             app.manage(AppState {
                 session: Arc::new(session),
                 store: Arc::new(store),
@@ -67,6 +69,7 @@ pub fn run() {
             commands::stop_acquisition,
             commands::apply_source_settings,
             commands::set_processing,
+            commands::set_capture_mode,
             commands::reset_holds,
             commands::dismiss_notice,
             commands::next_frame,

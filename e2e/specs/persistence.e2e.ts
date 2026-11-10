@@ -3,6 +3,8 @@ import { $, browser, expect } from '@wdio/globals';
 import {
   sessionState,
   byTestId,
+  captureMode,
+  chooseMode,
   closeSourceMenu,
   ensureDisconnected,
   fillDialog,
@@ -68,12 +70,18 @@ describe('Remembered sources and preferences', () => {
     await closeSourceMenu();
   });
 
-  it('changes display preferences', async () => {
+  it('changes display preferences and the capture mode', async () => {
     await $('#range').click();
     await setInput('#range', '90');
     await $('select[aria-label="Waterfall palette"]').selectByAttribute('value', 'viridis');
-    // Preferences are saved after a short debounce.
+    // Display preferences are saved after a short debounce.
     await browser.pause(1500);
+    // The capture control needs a connected source; the mode is saved as soon as it is chosen.
+    await openSourceMenu();
+    await selectSource(await simulatorEntryId());
+    await waitForState('Connected');
+    await chooseMode('single');
+    await ensureDisconnected();
   });
 
   it('restores preferences, the last source and its settings after a restart', async () => {
@@ -82,6 +90,8 @@ describe('Remembered sources and preferences', () => {
     expect(await sessionState()).toBe('Disconnected');
     await expect($('#range')).toHaveValue('90');
     await expect($('select[aria-label="Waterfall palette"]')).toHaveValue('viridis');
+    // The capture mode chosen before the restart is shown again (Single).
+    expect(await captureMode()).toBe('single');
 
     // The last source is selected again, but the app never connects by itself.
     await browser.waitUntil(async () => (await sourceButtonText()).includes('E2E FM setup'), {
@@ -93,12 +103,20 @@ describe('Remembered sources and preferences', () => {
     await selectSource(await simulatorEntryId());
     await waitForState('Connected');
 
+    // Single: one press delivers one sweep with the remembered centre, then the session stops.
     await (await byTestId('acquire-button')).click();
-    await waitForState('Acquiring');
     await browser.waitUntil(async () => (await statusBarText()).includes('Center 99.5'), {
       timeoutMsg: 'the remembered centre frequency was not restored',
     });
-    await ensureDisconnected();
+    await waitForState('Connected');
+    expect(await captureMode()).toBe('single');
+
+    // Continuous is saved too: it is shown again after another restart.
+    await chooseMode('continuous');
+    await browser.reloadSession();
+    await waitForAppReady();
+    await browser.waitUntil(async () => (await sourceButtonText()).includes('E2E FM setup'));
+    expect(await captureMode()).toBe('continuous');
     await openSourceMenu();
     await selectSource(await simulatorEntryId());
     await waitForState('Connected');

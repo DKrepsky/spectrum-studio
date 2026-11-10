@@ -36,10 +36,10 @@ describe('Toolbar', () => {
     );
     const button = screen.getByTestId('acquire-button');
     expect(button).toBeDisabled();
-    expect(button).toHaveAttribute('aria-label', 'Start acquisition');
+    expect(button).toHaveAttribute('aria-label', 'Start continuous acquisition');
     expect(button).toHaveAttribute('data-state', 'idle');
     expect(button).toHaveAttribute('title', 'Connect a source first');
-    expect(button).toHaveTextContent('');
+    expect(button).toHaveTextContent('Continuous');
     expect(screen.queryByText(/^(Run|Stop)$/)).not.toBeInTheDocument();
     expect(screen.queryByTestId('simulated-badge')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Center frequency')).toBeDisabled();
@@ -55,7 +55,7 @@ describe('Toolbar', () => {
     expect(screen.queryByTestId('connect-button')).not.toBeInTheDocument();
   });
 
-  it('disables Play until a source is chosen', () => {
+  it('disables the capture control until a source is chosen', () => {
     useSources.setState({ active: null });
     useSession.getState().receiveStatus(status({ revision: 1 }));
     renderToolbar();
@@ -70,7 +70,7 @@ describe('Toolbar', () => {
     expect(screen.getByTestId('acquire-button')).toBeDisabled();
   });
 
-  it('marks Play aria-disabled while a command is in flight, even when connected', () => {
+  it('marks the capture button aria-disabled while a command is in flight, even when connected', () => {
     useSession.getState().receiveStatus(status({ revision: 1, state: 'connected' }));
     useSession.setState({ busy: 'starting' });
     renderToolbar();
@@ -79,7 +79,7 @@ describe('Toolbar', () => {
     expect(button).toBeEnabled();
   });
 
-  it('keeps keyboard focus on Play while busy and ignores clicks until the command ends', async () => {
+  it('keeps keyboard focus on the capture button while busy and ignores clicks until the command ends', async () => {
     useSession.getState().receiveStatus(status({ revision: 1, state: 'connected' }));
     let finishStart!: () => void;
     apiMock.startAcquisition.mockImplementationOnce(
@@ -107,12 +107,12 @@ describe('Toolbar', () => {
     expect(button).toHaveFocus();
   });
 
-  it('starts acquisition from Play without connecting first', async () => {
+  it('starts acquisition from the capture button without connecting first', async () => {
     useSession.getState().receiveStatus(status({ revision: 1, state: 'connected' }));
     renderToolbar();
     const button = screen.getByTestId('acquire-button');
     expect(button).toBeEnabled();
-    expect(button).toHaveAttribute('aria-label', 'Start acquisition');
+    expect(button).toHaveAttribute('aria-label', 'Start continuous acquisition');
     await userEvent.click(button);
     expect(apiMock.startAcquisition).toHaveBeenCalledTimes(1);
     expect(apiMock.connectRemembered).not.toHaveBeenCalled();
@@ -127,9 +127,9 @@ describe('Toolbar', () => {
       .receiveStatus(status({ revision: 2, state: 'acquiring', source: activeSimulator }));
     renderToolbar();
     const button = screen.getByTestId('acquire-button');
-    expect(button).toHaveAttribute('aria-label', 'Pause acquisition');
+    expect(button).toHaveAttribute('aria-label', 'Pause continuous acquisition');
     expect(button).toHaveAttribute('data-state', 'acquiring');
-    expect(button).toHaveAttribute('title', 'Pause acquisition');
+    expect(button).toHaveAttribute('title', 'Pause acquisition: the last trace stays on screen');
     expect(button).toBeEnabled();
     await userEvent.click(button);
     expect(apiMock.stopAcquisition).toHaveBeenCalledTimes(1);
@@ -146,7 +146,7 @@ describe('Toolbar', () => {
       'aria-label',
       'Source: Signal simulator, Acquiring',
     );
-    expect(screen.getByTestId('simulated-badge')).toBeInTheDocument();
+    expect(screen.queryByTestId('simulated-badge')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Center frequency')).toHaveValue('100.000000 MHz');
     expect(screen.getByLabelText('Span')).toHaveValue('2048000');
   });

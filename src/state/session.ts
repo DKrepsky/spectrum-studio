@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import type { CaptureMode } from '../bindings/CaptureMode';
 import type { DriverInfo } from '../bindings/DriverInfo';
 import type { ProcessingSettings } from '../bindings/ProcessingSettings';
 import type { SavedSource } from '../bindings/SavedSource';
@@ -24,7 +25,8 @@ export const SIMULATOR_CONFIG: SourceConfig = {
 export type ConnectTarget =
   { type: 'remembered'; id: string } | { type: 'config'; config: SourceConfig; title?: string };
 
-export type BusyOperation = 'connecting' | 'disconnecting' | 'starting' | 'stopping' | 'applying';
+export type BusyOperation =
+  'connecting' | 'disconnecting' | 'starting' | 'stopping' | 'applying' | 'settingMode';
 
 export interface SessionStore {
   /** Last status received from the backend; `null` until the first one arrives. */
@@ -42,7 +44,10 @@ export interface SessionStore {
   connectTo: (target: ConnectTarget) => Promise<boolean>;
   disconnect: () => Promise<void>;
   start: () => Promise<void>;
-  stop: () => Promise<void>;
+  /** Resolves to false when the stop command failed (the error is in `commandError`). */
+  stop: () => Promise<boolean>;
+  /** Changes the capture mode; the store updates when the backend reports the new status. */
+  setCaptureMode: (mode: CaptureMode) => Promise<void>;
   applySettings: (patch: SettingsPatch) => Promise<boolean>;
   setProcessing: (change: Partial<ProcessingSettings>) => Promise<void>;
   resetHolds: () => Promise<void>;
@@ -55,18 +60,43 @@ function titleOf(entry: SavedSource): string {
 }
 
 export const useSession = create<SessionStore>()((set, get) => {
-  /** Runs a command, tracking busy state and surfacing errors. Returns false on failure. */
-  const command = async (busy: BusyOperation | null, fn: () => Promise<unknown>) => {
-    set({ busy, commandError: null, commandErrorFrom: null });
+  /** Runs one command, surfacing its error as the failure of `busy`. Returns false on failure. */
+  const attempt = async (busy: BusyOperation | null, fn: () => Promise<unknown>) => {
     try {
       await fn();
       return true;
     } catch (error) {
       set({ commandError: errorMessage(error), commandErrorFrom: busy });
       return false;
-    } finally {
-      set({ busy: null });
     }
+  };
+
+  /** Runs a command, tracking busy state and surfacing errors. Returns false on failure. */
+  const command = async (busy: BusyOperation | null, fn: () => Promise<unknown>) => {
+    set({ busy, commandError: null, commandErrorFrom: null });
+    const ok = await attempt(busy, fn);
+    set({ busy: null });
+    return ok;
+  };
+
+  /** A Stop pressed while `start` is in flight, sent once the start has resolved. */
+  let startInFlight = false;
+  let queuedStop: { done: Promise<boolean>; settle: (ok: boolean) => void } | null = null;
+
+  /** Queues one Stop behind the in-flight start; `busy` becomes 'stopping' at once, so no gap. */
+  const queueStop = (): Promise<boolean> => {
+    let settle: (ok: boolean) => void = () => undefined;
+    const done = new Promise<boolean>((resolve) => (settle = resolve));
+    queuedStop = { done, settle };
+    set({ busy: 'stopping' });
+    return done;
+  };
+
+  /** Sends the queued Stop, if any. Runs inside the start command, so `busy` never drops to null. */
+  const sendQueuedStop = async () => {
+    const queued = queuedStop;
+    queuedStop = null;
+    if (queued) queued.settle(await attempt('stopping', () => api.stopAcquisition()));
   };
 
   return {
@@ -184,11 +214,28 @@ export const useSession = create<SessionStore>()((set, get) => {
     },
 
     start: async () => {
-      await command('starting', () => api.startAcquisition());
+      startInFlight = true;
+      await command('starting', async () => {
+        try {
+          await api.startAcquisition();
+          startInFlight = false;
+          await sendQueuedStop();
+        } finally {
+          // A start that failed leaves nothing to stop: a queued Stop resolves as not sent.
+          startInFlight = false;
+          queuedStop?.settle(false);
+          queuedStop = null;
+        }
+      });
     },
 
-    stop: async () => {
-      await command('stopping', () => api.stopAcquisition());
+    stop: () => {
+      if (startInFlight) return queuedStop?.done ?? queueStop();
+      return command('stopping', () => api.stopAcquisition());
+    },
+
+    setCaptureMode: async (mode) => {
+      await command('settingMode', () => api.setCaptureMode(mode));
     },
 
     applySettings: (patch) => command('applying', () => api.applySourceSettings(patch)),

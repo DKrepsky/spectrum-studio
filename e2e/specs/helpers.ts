@@ -103,6 +103,34 @@ export async function acquireState(): Promise<string | null> {
   return (await byTestId('acquire-button')).getAttribute('data-state');
 }
 
+export type CaptureModeName = 'continuous' | 'single';
+
+/** The capture mode the toolbar shows (`data-mode` of the main button), from the backend status. */
+export async function captureMode(): Promise<string | null> {
+  return (await byTestId('acquire-button')).getAttribute('data-mode');
+}
+
+/**
+ * Chooses a capture mode from the chevron menu and waits until the toolbar shows it. Choosing a
+ * mode never starts a capture.
+ */
+export async function chooseMode(mode: CaptureModeName) {
+  await (await byTestId('capture-mode-button')).click();
+  const item = await byTestId(`capture-mode-${mode}`);
+  await item.waitForDisplayed({ timeoutMsg: 'the capture mode menu did not open' });
+  await item.click();
+  await browser.waitUntil(async () => (await captureMode()) === mode, {
+    timeoutMsg: `the capture mode did not become ${mode}`,
+  });
+  await byTestId('capture-mode-menu').waitForExist({ reverse: true });
+}
+
+/** The frame sequence number shown in the status bar (`Frame #<seq>`), or null without data. */
+export async function frameSeq(): Promise<number | null> {
+  const match = (await statusBarText()).match(/Frame #(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
 /**
  * Picks the Signal simulator (when not connected yet) and presses Play: the new first-run journey.
  * Once the simulator has been remembered it is listed under Your sources instead of the fixed

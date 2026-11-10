@@ -201,6 +201,7 @@ export const apiMock = {
   disconnectSource: vi.fn(() => Promise.resolve(null)),
   startAcquisition: vi.fn(() => Promise.resolve(null)),
   stopAcquisition: vi.fn(() => Promise.resolve(null)),
+  setCaptureMode: vi.fn<Api['setCaptureMode']>(() => Promise.resolve(null)),
   applySourceSettings: vi.fn(),
   setProcessing: vi.fn(() => Promise.resolve(null)),
   resetHolds: vi.fn(() => Promise.resolve(null)),

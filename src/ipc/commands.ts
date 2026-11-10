@@ -5,6 +5,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
+import type { CaptureMode } from '../bindings/CaptureMode';
 import type { DeviceDescriptor } from '../bindings/DeviceDescriptor';
 import type { DisplayPreferences } from '../bindings/DisplayPreferences';
 import type { DiscoveryResult } from '../bindings/DiscoveryResult';
@@ -55,6 +56,8 @@ export const api = {
   disconnectSource: () => invoke<null>('disconnect_source'),
   startAcquisition: () => invoke<null>('start_acquisition'),
   stopAcquisition: () => invoke<null>('stop_acquisition'),
+  /** Rejected by the backend while acquiring; the new mode arrives in the next session status. */
+  setCaptureMode: (mode: CaptureMode) => invoke<null>('set_capture_mode', { mode }),
   applySourceSettings: (patch: SettingsPatch) =>
     invoke<SourceSettings>('apply_source_settings', { patch }),
   setProcessing: (settings: ProcessingSettings) => invoke<null>('set_processing', { settings }),

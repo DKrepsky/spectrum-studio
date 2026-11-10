@@ -24,6 +24,7 @@ running application.
 | — | Source journey rework: status circles, fixed name/badge columns, one Add/Edit source dialog with *Test connection*, stable device identity (one row per physical device, rename survives replug), `sources.json` v3 with migration, merge of duplicates and backup | Done | E2E `add-source`, `edit-source`, `migration-dup`, `migration`, `persistence`, `visual` (real-pixel layout guard and screenshots), `sa430` (real SA430, `SPECTRUM_E2E_SA430=1`); Rust store/session/driver tests; Vitest menu/dialog/CSS-contract tests |
 | — | Reliable SA430 connect after plug-in: 200 ms settle after opening the port, bounded handshake retry (4 attempts, 6 s deadline), ADR 0012; settle and timeout from `sa430` 0.2.1, no direct `serialport` dependency | Done | Driver unit + session tests (scripted link), ignored hardware tests (10 cycles, reboot-then-connect, sweeps), real-app QA 10/10 + human replug on 2026-11-09 |
 | — | `.deb` and AppImage packages | Done | `npm run tauri build` |
+| 006 | Single-shot and continuous capture modes: one capture control with a mode menu, single capture stops by itself after one sweep, mode remembered, SIMULATED badge removed | Done (accepted 2026-11-10) | Rust session/store tests, Vitest capture control and toolbar tests, E2E `acquisition`, `persistence`, `sa430` (real SA430, 6/6 with `SPECTRUM_E2E_SA430=1`); E2E `visual` and `source-row` have 5 failing checks that fail the same way on HEAD (see Known limitations) |
 
 ## Known limitations
 
@@ -34,8 +35,12 @@ running application.
 - Open (BUG-2): unknown JSON fields in `sources.json` are not preserved when the file is rewritten, and names over 80 characters from a v1 file are truncated. The v3 upgrade keeps a backup of the old file (`sources.pre-v3-*.json`), so nothing is lost for good.
 - Open: a `sources.json` with a *newer* `version` than this build is accepted without a warning and overwritten as version 3 on the next change (fields this build does not know are dropped). Follow-up: refuse to overwrite, or back up, files from a newer schema.
 - Open (known defect): the source-menu hover actions sit below the badge pill instead of covering it (`visual.e2e.ts` marks it as a known failing check).
+- Open E2E failures (2026-11-10, same on HEAD before work 006): `visual.e2e.ts` fails the hover-actions check above and three source-button width cases ("the source button never showed Bench SA430 analyzer 2" after a failing pick, the menu stays open); `source-row.e2e.ts` intermittently fails the ArrowRight focus check ("Edit is not focus-within its row" — possible keyboard-accessibility bug, rank first). Next work item: fix or skip with reasons.
+- Open (006): a single-capture cancel that arrives just after the sweep was published keeps the trace (correct) but the screen-reader text may say "cancelled" when the frame reaches the UI after the status; closing it needs a backend completed-capture signal.
+- Open (006, test hygiene): the SA430 unplug Rust test `unplugging_the_analyzer_disconnects_the_session` failed once under heavy CPU load; the Rust single-cancel test uses a 50 ms head start. Make both deterministic.
 - The E2E layout guard cannot shrink the window below the 1024 px minimum, so the popover's `max-width: calc(100vw - 16px)` rule is covered only by the CSS contract test, not in real pixels.
-- SA430: no RBW readout, sweeps limited to 800 points and not interruptible (see `sources.md`).
+- SA430: no RBW readout, sweeps limited to 800 points and not interruptible (see `sources.md`). A
+  single capture on the SA430 can take up to one sweep (about 1 s) to stop after Cancel.
 - No amplitude calibration: IQ spectra are dBFS only.
 - One spectrum per frame from the newest samples (no overlapped Welch averaging within a block);
   the frame rate is capped at 30 fps by the simulator.

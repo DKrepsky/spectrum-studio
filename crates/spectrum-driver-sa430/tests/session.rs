@@ -15,7 +15,7 @@ use sa430::test_utils::{
     MockChannel, a_spectrum_response, add_calibration_responses, an_ack_response, an_error_response,
 };
 use spectrum_core::model::{
-    AmplitudeUnit, DataKind, NoticeKind, ParamValue, ProcessingSettings, SessionState,
+    AmplitudeUnit, CaptureMode, DataKind, NoticeKind, ParamValue, ProcessingSettings, SessionState,
     SessionStatus, SettingsPatch, SourceConfig,
 };
 use spectrum_core::{DriverRegistry, SessionError, SessionManager, SessionSink};
@@ -128,6 +128,16 @@ fn manager_with_links(
     ports: Vec<Port>,
     links: Vec<MockChannel>,
 ) -> (SessionManager, Arc<AtomicBool>) {
+    manager_with_links_in(ports, links, CaptureMode::Continuous, WAIT)
+}
+
+/// Like [`manager_with_links`], with the capture mode and the single-capture no-sweep bound.
+fn manager_with_links_in(
+    ports: Vec<Port>,
+    links: Vec<MockChannel>,
+    mode: CaptureMode,
+    capture_timeout: Duration,
+) -> (SessionManager, Arc<AtomicBool>) {
     let unplugged = Arc::new(AtomicBool::new(false));
     let backend = ScriptedBackend {
         ports,
@@ -136,10 +146,10 @@ fn manager_with_links(
     };
     let mut registry = DriverRegistry::new();
     registry.register(Sa430Driver::with_backend(Arc::new(backend)));
-    (
-        SessionManager::new(registry, Arc::new(NullSink), ProcessingSettings::default()),
-        unplugged,
-    )
+    let session = SessionManager::new(registry, Arc::new(NullSink), ProcessingSettings::default())
+        .with_capture_mode(mode)
+        .with_capture_timeout(capture_timeout);
+    (session, unplugged)
 }
 
 fn one_port() -> Vec<Port> {
@@ -374,6 +384,65 @@ fn a_device_that_never_answers_is_reported_and_never_connected() {
     let status = m.status();
     assert_eq!(status.state, SessionState::Disconnected);
     assert!(status.source.is_none());
+}
+
+#[test]
+fn single_capture_takes_one_sweep_then_stops_by_itself() {
+    // Two sweeps are queued: the second one must not be read unless a new capture starts.
+    let (m, _) = manager_with_links_in(
+        one_port(),
+        vec![calibrated(2, &SAMPLES)],
+        CaptureMode::Single,
+        WAIT,
+    );
+    m.connect(config()).unwrap();
+    assert_eq!(m.status().capture_mode, CaptureMode::Single);
+
+    m.start().unwrap();
+    let first = m.wait_frame(0, WAIT).unwrap();
+    assert_eq!(first.frame.live.len(), SAMPLES.len());
+    assert_eq!(first.frame.header.unit, AmplitudeUnit::Dbm);
+    wait_until(&m, |s| s.state == SessionState::Connected);
+    // Stopped by itself: no further frame and no failure notice.
+    assert!(
+        m.wait_frame(first.frame.header.seq, Duration::from_millis(300))
+            .is_none()
+    );
+    let s = m.status();
+    assert!(s.last_notice.is_none(), "{:?}", s.last_notice);
+
+    // A new start captures one more sweep.
+    m.start().unwrap();
+    let second = m.wait_frame(first.frame.header.seq, WAIT).unwrap();
+    assert!(second.frame.header.seq > first.frame.header.seq);
+    wait_until(&m, |s| s.state == SessionState::Connected);
+    m.disconnect();
+}
+
+#[test]
+fn single_capture_without_a_sweep_fails_and_stays_connected() {
+    // The link answers the calibration but never a sweep: the read fails within the bound.
+    let (m, _) = manager_with_links_in(
+        one_port(),
+        vec![calibrated(0, &[])],
+        CaptureMode::Single,
+        Duration::from_millis(200),
+    );
+    m.connect(config()).unwrap();
+    m.start().unwrap();
+    let s = wait_until(&m, |s| {
+        s.state == SessionState::Connected && s.last_notice.is_some()
+    });
+    let notice = s.last_notice.unwrap();
+    assert_eq!(notice.kind, NoticeKind::AcquisitionFailed);
+    assert!(
+        notice.message.starts_with("Single capture failed"),
+        "{}",
+        notice.message
+    );
+    assert!(m.wait_frame(0, Duration::from_millis(50)).is_none());
+    assert!(s.source.is_some());
+    m.disconnect();
 }
 
 /// Needs an SA430 on USB: `cargo test -p spectrum-driver-sa430 -- --ignored -- --ignored --nocapture`.

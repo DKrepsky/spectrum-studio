@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use spectrum_core::SessionManager;
 use spectrum_core::model::{
-    DeviceDescriptor, DiscoveryResult, DriverInfo, ParamMap, ProcessingSettings, SessionStatus,
-    SettingsPatch, SourceConfig, SourceSettings, SourceTestResult, SourceUpdate,
+    CaptureMode, DeviceDescriptor, DiscoveryResult, DriverInfo, ParamMap, ProcessingSettings,
+    SessionStatus, SettingsPatch, SourceConfig, SourceSettings, SourceTestResult, SourceUpdate,
 };
 use spectrum_core::remember;
 use spectrum_core::store::{DisplayPreferences, Preferences, SavedSource, SourceList};
@@ -124,6 +124,18 @@ pub async fn set_processing(
     state
         .store
         .update_preferences(|p| p.processing = to_store)
+        .map_err(|e| CommandError::new(format!("The setting was applied but not saved: {e}")))?;
+    Ok(())
+}
+
+/// Selects continuous or single capture for the next start. Refused while acquiring. The mode is
+/// typed, so an unknown value is rejected before this runs.
+#[tauri::command]
+pub async fn set_capture_mode(state: State<'_, AppState>, mode: CaptureMode) -> CommandResult<()> {
+    blocking(&state.session, move |s| s.set_capture_mode(mode)).await??;
+    state
+        .store
+        .update_preferences(|p| p.capture_mode = mode)
         .map_err(|e| CommandError::new(format!("The setting was applied but not saved: {e}")))?;
     Ok(())
 }

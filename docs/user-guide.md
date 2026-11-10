@@ -6,16 +6,17 @@
    and the Play button is disabled until you pick one.
 2. Click the source button (or press **Ctrl+K**) and choose **Signal simulator**. Picking a source
    connects to it; the source button then reads **… Connected** (its status circle shows the state).
-3. Press the Play button (▶). The button turns into Pause (❚❚), the source button reads
-   **… Acquiring**, the plot shows **LIVE**, and a purple **SIMULATED** badge reminds you the data
-   is generated.
+3. Press the main capture button (▶ **Continuous**). It turns red and becomes Pause (❚❚), the source button
+   reads **… Acquiring**, and the plot shows **LIVE**. The simulator is named **Signal simulator**
+   in the source button, so you always see that the data is generated.
 
 ## Toolbar
 
 | Control | Purpose |
 | --- | --- |
 | Source button | Shows the status circle and name of the current source; opens the source menu (see *Choosing a source*). |
-| ▶ / ❚❚ (Play / Pause) | Starts or pauses acquisition. Play is enabled only when a source is connected. Pause freezes the last trace on screen; Play resumes with the same settings. |
+| Capture button (▶ Continuous / ▶ Single) | Starts or pauses acquisition in the mode it shows. Enabled only when a source is connected. **Continuous** keeps acquiring until you pause; pause freezes the last trace on screen and resuming uses the same settings. **Single** takes one complete sweep, shows it, and stops by itself; press again for a new sweep. Cancelling a single capture keeps the previous trace. While acquiring, the button is red and shows Pause (Continuous) or Stop (Single). |
+| ▾ (capture mode) | Opens the capture mode menu (Continuous or Single). Choosing a mode never starts a capture. The mode cannot change while acquiring: pause or cancel first. The mode is remembered across restarts. |
 | Center / Span | Tuning and span, enabled only when the source supports them. Center accepts `100.2M`, `433.92 MHz`, `2.4G`, `12k`; ↑/↓ step by a tenth of the span. Invalid input stays highlighted until corrected or Escape. |
 
 ## Choosing a source

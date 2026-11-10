@@ -1,3 +1,5 @@
+import type { CaptureMode } from '../bindings/CaptureMode';
+import type { SessionState } from '../bindings/SessionState';
 import { formatFrequency, formatLevel } from '../format/frequency';
 import { UNIT_DESCRIPTION, UNIT_SYMBOL } from '../format/units';
 import { frameStore } from '../state/frames';
@@ -11,10 +13,29 @@ const WINDOW_LABEL = {
   flatTop: 'Flat top',
 };
 
+/** What the status bar says while there is no frame yet, in the words of the running mode. */
+function noDataText(
+  connected: boolean,
+  state: SessionState | undefined,
+  mode: CaptureMode | undefined,
+): string {
+  if (!connected) return 'No source connected.';
+  if (state === 'acquiring') {
+    return mode === 'single'
+      ? 'Capturing one sweep…'
+      : 'No data yet — waiting for the first sweep.';
+  }
+  return mode === 'single'
+    ? 'No data yet — press Play for one sweep.'
+    : 'No data yet — press Play to start acquisition.';
+}
+
 /** Settings and statistics of the frame on screen — always those that produced it. */
 export function StatusBar() {
   const frame = useFrameTick(500);
   const source = useSession((s) => s.status?.source);
+  const state = useSession((s) => s.status?.state);
+  const mode = useSession((s) => s.status?.captureMode);
   const h = frame?.header;
   const items: [string, string, string?][] = [];
   if (h) {
@@ -49,9 +70,7 @@ export function StatusBar() {
           </span>
         ))
       ) : (
-        <span className="status-item">
-          {source ? 'No data yet — press Play to start acquisition.' : 'No source connected.'}
-        </span>
+        <span className="status-item">{noDataText(source != null, state, mode)}</span>
       )}
       {h && h.unit !== 'dbm' && (
         <span className="status-item uncalibrated" title={UNIT_DESCRIPTION[h.unit]}>

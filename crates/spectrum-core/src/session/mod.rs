@@ -17,9 +17,9 @@ use thiserror::Error;
 use self::worker::{Command, WorkerHandle, notice};
 use crate::model::params::resolve_params;
 use crate::model::{
-    DeviceDescriptor, DiscoveryResult, DriverInfo, DriverStatus, NoticeKind, ParamMap, ParamValue,
-    ProcessingSettings, SessionState, SessionStatus, SettingsPatch, SourceConfig, SourceSettings,
-    SourceTestResult, SpectrumFrame, Transport,
+    CaptureMode, DeviceDescriptor, DiscoveryResult, DriverInfo, DriverStatus, NoticeKind, ParamMap,
+    ParamValue, ProcessingSettings, SessionState, SessionStatus, SettingsPatch, SourceConfig,
+    SourceSettings, SourceTestResult, SpectrumFrame, Transport,
 };
 use crate::sources::{DriverRegistry, SourceError, SourceErrorKind};
 
@@ -29,6 +29,8 @@ const OPEN_TIMEOUT: Duration = Duration::from_secs(30);
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
 /// How long a connection test waits for the device to answer.
 const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+/// How long a single capture may run without producing its sweep before it fails.
+const SINGLE_CAPTURE_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Error)]
 pub enum SessionError {
@@ -141,6 +143,7 @@ pub struct SessionManager {
     /// so an abandoned (timed-out) open keeps the flag until it has released the device.
     probing: Arc<AtomicBool>,
     probe_timeout: Duration,
+    capture_timeout: Duration,
 }
 
 impl SessionManager {
@@ -157,7 +160,7 @@ impl SessionManager {
         Self {
             registry,
             shared: Arc::new(Shared {
-                status: Mutex::new(SessionStatus::new(processing)),
+                status: Mutex::new(SessionStatus::new(processing, CaptureMode::default())),
                 sink,
                 frame: Mutex::new(None),
                 frame_ready: Condvar::new(),
@@ -167,6 +170,7 @@ impl SessionManager {
             scan: Mutex::new(()),
             probing: Arc::new(AtomicBool::new(false)),
             probe_timeout: PROBE_TIMEOUT,
+            capture_timeout: SINGLE_CAPTURE_TIMEOUT,
         }
     }
 
@@ -174,6 +178,20 @@ impl SessionManager {
     #[must_use]
     pub fn with_probe_timeout(mut self, timeout: Duration) -> Self {
         self.probe_timeout = timeout;
+        self
+    }
+
+    /// The capture mode the session starts with (default [`CaptureMode::Continuous`]).
+    #[must_use]
+    pub fn with_capture_mode(self, mode: CaptureMode) -> Self {
+        lock(&self.shared.status).capture_mode = mode;
+        self
+    }
+
+    /// Overrides how long a single capture may run without a sweep before it fails (default 30 s).
+    #[must_use]
+    pub fn with_capture_timeout(mut self, timeout: Duration) -> Self {
+        self.capture_timeout = timeout;
         self
     }
 
@@ -368,7 +386,11 @@ impl SessionManager {
         resolve_params(&info.connection_params, &config.connection)
             .map_err(SessionError::Invalid)?;
 
-        let processing = self.status().processing;
+        let SessionStatus {
+            processing,
+            capture_mode: mode,
+            ..
+        } = self.status();
         self.shared.clear_frame();
         self.shared.update(|s| {
             s.state = SessionState::Connecting;
@@ -390,8 +412,15 @@ impl SessionManager {
             error
         };
 
-        let (handle, opened) =
-            worker::spawn(driver, config, processing, self.shared.clone()).map_err(&failed)?;
+        let (handle, opened) = worker::spawn(
+            driver,
+            config,
+            processing,
+            mode,
+            self.capture_timeout,
+            self.shared.clone(),
+        )
+        .map_err(&failed)?;
         match opened.recv_timeout(OPEN_TIMEOUT) {
             Ok(Ok(active)) => {
                 tracing::info!(driver = %info.id, device = %active.device_label, "source connected");
@@ -459,8 +488,28 @@ impl SessionManager {
         });
     }
 
+    /// Starts acquisition in the session's capture mode: continuous, or one sweep then stop.
     pub fn start(&self) -> Result<(), SessionError> {
-        self.request(Command::Start)
+        self.request(|reply| Command::Start(self.status().capture_mode, reply))
+    }
+
+    /// Selects the capture mode used by the next [`start`](Self::start). Refused with
+    /// `SessionError::Invalid` while acquiring: pause or cancel first.
+    pub fn set_capture_mode(&self, mode: CaptureMode) -> Result<(), SessionError> {
+        let mut worker = lock(&self.worker);
+        if worker.is_none() {
+            self.shared.update(|s| s.capture_mode = mode);
+            return Ok(());
+        }
+        match self.request_locked(&mut worker, |reply| Command::SetMode(mode, reply)) {
+            // The worker ended by itself (device lost) before it could answer: no source is
+            // connected, so only the selection is kept.
+            Err(SessionError::NotConnected) => {
+                self.shared.update(|s| s.capture_mode = mode);
+                Ok(())
+            }
+            other => other,
+        }
     }
 
     pub fn stop(&self) -> Result<(), SessionError> {
@@ -512,20 +561,28 @@ impl SessionManager {
         make: impl FnOnce(worker::Reply<T>) -> Command,
     ) -> Result<T, SessionError> {
         let mut worker = lock(&self.worker);
+        self.request_locked(&mut worker, make)
+    }
+
+    fn request_locked<T>(
+        &self,
+        worker: &mut Option<WorkerHandle>,
+        make: impl FnOnce(worker::Reply<T>) -> Command,
+    ) -> Result<T, SessionError> {
         let Some(handle) = worker.as_ref() else {
             return Err(SessionError::NotConnected);
         };
         let (tx, rx) = mpsc::channel();
         if handle.tx.send(make(tx)).is_err() {
             // The worker ended by itself (device lost); reap it.
-            self.shutdown_worker(&mut worker);
+            self.shutdown_worker(worker);
             return Err(SessionError::NotConnected);
         }
         match rx.recv_timeout(COMMAND_TIMEOUT) {
             Ok(result) => result,
             Err(RecvTimeoutError::Timeout) => Err(SessionError::Timeout),
             Err(RecvTimeoutError::Disconnected) => {
-                self.shutdown_worker(&mut worker);
+                self.shutdown_worker(worker);
                 Err(SessionError::NotConnected)
             }
         }

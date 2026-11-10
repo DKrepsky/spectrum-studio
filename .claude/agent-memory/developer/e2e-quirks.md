@@ -15,3 +15,20 @@ metadata:
 - Row hover actions slide for 150 ms: before measuring their box, wait until `transform` is `none` and `getAnimations()` is empty (`waitForActionsSettled` in `visual.e2e.ts`). Focusing only the row item does not reveal them (`:focus-within` is on the actions), so do not wait there.
 - Busy Play/Pause uses `aria-disabled`, not `disabled`: a natively disabled button drops keyboard focus to BODY in WebKit. Keep `disabled` only for the real not-ready state.
 - `.prettierignore` and `eslint.config.js` exclude `.claude/team/work/**/evidence/` (QA evidence is not product code).
+
+## Added in T7 (BUG-1)
+- wdio 10 has no `browser.executeAsync`; for in-page async work, arm a MutationObserver or timer in
+  `browser.execute`, write the outcome to `document.body.dataset`, and poll it with `waitUntil`.
+- `expect(actual, message)` is not allowed by the wdio expect typings: use `if (...) throw new Error(...)`
+  for messages with round numbers.
+- `getText()` on the visually-hidden live region returned "" while `textContent` had the text: read
+  `textContent` through `browser.execute` for `.visually-hidden` elements.
+- Pre-fix check recipe: back up the fixed sources, reintroduce the old code, `npx tauri build --debug
+  --no-bundle` (a TS unused-local error makes the build fail and wdio silently runs the OLD binary, so
+  check the build EXIT line first), run the spec, restore the backup, rebuild.
+
+## Added in 006 adjustments (screenshots)
+- The debug binary embeds the frontend: run `npx tauri build --debug --no-bundle` before screenshots, or they show the old UI (the wdio run still passes).
+- A throwaway spec works with `--spec <absolute path>` when it lives inside the repo (module resolution for `@wdio/globals`); delete it afterwards.
+- A status can be injected for a mocked state: `window.__TAURI_INTERNALS__.invoke('plugin:event|emit', {event:'session-status', payload})` with a revision newer than the last one. Read the real status with `invoke('get_status')` into `document.body.dataset` and poll (no executeAsync).
+- A running human instance holding `/dev/ttyACM0` makes the SA430 "Device or resource busy" for any other instance; do not open it again.

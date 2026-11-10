@@ -15,6 +15,7 @@ import { browser, expect as wdioExpect } from '@wdio/globals';
 import {
   assertNoOverflow,
   byTestId,
+  chooseMode,
   closeSourceMenu,
   ensureDisconnected,
   entryByName,
@@ -547,7 +548,7 @@ async function assertChromeFits(where: string) {
 
 /**
  * The source name must never look cropped (T19). Names of up to 22 characters are shown in full
- * (`scrollWidth <= clientWidth`); with the SIMULATED badge present at least `minChars` characters
+ * (`scrollWidth <= clientWidth`); with the capture control beside it at least `minChars` characters
  * must be visible; longer names must ellipsise deliberately, with the full name in the tooltip.
  */
 async function assertNameVisible(where: string, name: string, minChars: number) {
@@ -612,6 +613,62 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
     });
   }
 
+  it('the capture control keeps its size in both modes and its menu fits the window', async () => {
+    await resize(1180);
+    await ensureDisconnected();
+    await closeSourceMenu();
+    await selectSource(SIM_ID);
+    await waitForState('Connected');
+    const capture = () =>
+      browser.execute(() => {
+        const r = document.querySelector('.capture')!.getBoundingClientRect();
+        return { w: r.width, h: r.height, right: r.right };
+      });
+    for (const w of FIT_WIDTHS) {
+      const real = await resize(w);
+      await chooseMode('continuous');
+      await browser.pause(300);
+      const continuous = await capture();
+      await assertChromeFits(`continuous capture control at ${real}`);
+      await shot(`capture-continuous-idle-${real}`);
+
+      await chooseMode('single');
+      await browser.pause(300);
+      const single = await capture();
+      expect(
+        Math.abs(single.w - continuous.w) <= TOL,
+        `capture control width changed at ${real}`,
+      ).toBe(true);
+      expect(
+        Math.abs(single.h - continuous.h) <= TOL,
+        `capture control height changed at ${real}`,
+      ).toBe(true);
+      await assertChromeFits(`single capture control at ${real}`);
+      await shot(`capture-single-idle-${real}`);
+
+      await (await byTestId('capture-mode-button')).click();
+      await byTestId('capture-mode-menu').waitForDisplayed();
+      const menu = await browser.execute(() => {
+        const r = document
+          .querySelector('[data-testid="capture-mode-popover"]')!
+          .getBoundingClientRect();
+        return { left: r.left, right: r.right, iw: window.innerWidth };
+      });
+      expect(menu.left, `capture menu starts left of the window at ${real}`).toBeGreaterThanOrEqual(
+        0,
+      );
+      expect(menu.right, `capture menu ends past the window at ${real}`).toBeLessThanOrEqual(
+        menu.iw + 0.5,
+      );
+      await assertNoOverflow('[data-testid="capture-mode-popover"]');
+      await shot(`capture-menu-open-${real}`);
+      await browser.keys(['Escape']);
+      await byTestId('capture-mode-menu').waitForExist({ reverse: true });
+    }
+    await chooseMode('continuous');
+    await ensureDisconnected();
+  });
+
   // Connected and acquiring: the simulator entry renamed to the name under test.
   for (const name of [N22_SIM, longSim]) {
     it(`connected and acquiring with a ${name.length}-char name`, async () => {
@@ -650,7 +707,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
 });
 
 describeHardware('Visual guard with the real SA430', () => {
-  it('shows the real device name in full while connected and acquiring (no badge)', async () => {
+  it('shows the real device name in full while connected and acquiring', async () => {
     await resize(1180);
     await ensureDisconnected();
     await closeSourceMenu();

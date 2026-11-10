@@ -4,20 +4,22 @@
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 use super::pipeline::{FrameContext, Pipeline};
 use super::{SessionError, Shared, error_chain};
 use crate::model::session::now_ms;
 use crate::model::{
-    ActiveSource, NoticeKind, ProcessingSettings, SessionNotice, SessionState, SettingsPatch,
-    SourceConfig, SourceSettings,
+    ActiveSource, CaptureMode, NoticeKind, ProcessingSettings, SessionNotice, SessionState,
+    SettingsPatch, SourceConfig, SourceSettings, SpectrumFrame,
 };
 use crate::sources::{Source, SourceData, SourceDriver, SourceError, validate_patch};
 
 pub(crate) type Reply<T> = Sender<Result<T, SessionError>>;
 
 pub(crate) enum Command {
-    Start(Reply<()>),
+    Start(CaptureMode, Reply<()>),
+    SetMode(CaptureMode, Reply<()>),
     Stop(Reply<()>),
     Apply(SettingsPatch, Reply<SourceSettings>),
     Processing(ProcessingSettings),
@@ -36,6 +38,8 @@ pub(crate) fn spawn(
     driver: Arc<dyn SourceDriver>,
     config: SourceConfig,
     processing: ProcessingSettings,
+    mode: CaptureMode,
+    capture_timeout: Duration,
     shared: Arc<Shared>,
 ) -> Result<(WorkerHandle, Receiver<Result<ActiveSource, SessionError>>), SessionError> {
     let (tx, rx) = mpsc::channel();
@@ -52,9 +56,14 @@ pub(crate) fn spawn(
                 simulated: active.simulated,
                 pipeline: Pipeline::new(processing),
                 shared,
+                rx,
                 acquiring: false,
+                mode,
+                capture_timeout,
+                deadline: None,
+                deferred: None,
             }
-            .run(rx);
+            .run();
         })
         .map_err(|e| SessionError::Internal(format!("Could not start worker thread: {e}")))?;
     Ok((WorkerHandle { tx, thread }, open_rx))
@@ -107,20 +116,30 @@ struct Worker {
     simulated: bool,
     pipeline: Pipeline,
     shared: Arc<Shared>,
+    rx: Receiver<Command>,
     acquiring: bool,
+    /// Mode of the current or next acquisition; changed only while not acquiring.
+    mode: CaptureMode,
+    capture_timeout: Duration,
+    /// Single capture: when to give up if no sweep has been produced yet.
+    deadline: Option<Instant>,
+    /// A command received right after a sweep was read; handled before anything else.
+    deferred: Option<Command>,
 }
 
 impl Worker {
-    fn run(mut self, rx: Receiver<Command>) {
+    fn run(mut self) {
         loop {
-            let command = if self.acquiring {
-                match rx.try_recv() {
+            let command = if let Some(command) = self.deferred.take() {
+                Some(command)
+            } else if self.acquiring {
+                match self.rx.try_recv() {
                     Ok(c) => Some(c),
                     Err(TryRecvError::Empty) => None,
                     Err(TryRecvError::Disconnected) => break,
                 }
             } else {
-                match rx.recv() {
+                match self.rx.recv() {
                     Ok(c) => Some(c),
                     Err(_) => break,
                 }
@@ -142,8 +161,11 @@ impl Worker {
 
     fn handle(&mut self, command: Command) {
         match command {
-            Command::Start(reply) => {
-                let _ = reply.send(self.start());
+            Command::Start(mode, reply) => {
+                let _ = reply.send(self.start(mode));
+            }
+            Command::SetMode(mode, reply) => {
+                let _ = reply.send(self.set_mode(mode));
             }
             Command::Stop(reply) => {
                 let result = self.stop_acquisition();
@@ -159,18 +181,33 @@ impl Worker {
         }
     }
 
-    fn start(&mut self) -> Result<(), SessionError> {
+    fn start(&mut self, mode: CaptureMode) -> Result<(), SessionError> {
         if self.acquiring {
             return Ok(());
         }
         self.source.start()?;
         self.acquiring = true;
+        self.mode = mode;
         self.pipeline.reset();
+        self.deadline =
+            (mode == CaptureMode::Single).then(|| Instant::now() + self.capture_timeout);
         self.set_state(SessionState::Acquiring, None);
         Ok(())
     }
 
+    fn set_mode(&mut self, mode: CaptureMode) -> Result<(), SessionError> {
+        if self.acquiring {
+            return Err(SessionError::Invalid(
+                "Pause or cancel acquisition to change the capture mode.".into(),
+            ));
+        }
+        self.mode = mode;
+        self.shared.update(|s| s.capture_mode = mode);
+        Ok(())
+    }
+
     fn stop_acquisition(&mut self) -> Result<(), SourceError> {
+        self.deadline = None;
         if !std::mem::take(&mut self.acquiring) {
             return Ok(());
         }
@@ -212,21 +249,59 @@ impl Worker {
             }
             Err(e) => {
                 tracing::warn!(device = %self.label, error = %error_chain(&e), "acquisition stopped by read error");
-                let _ = self.stop_acquisition();
-                self.set_state(
-                    SessionState::Connected,
-                    Some((
-                        NoticeKind::AcquisitionFailed,
-                        format!("Acquisition stopped: {e}"),
-                    )),
-                );
+                let message = match self.mode {
+                    CaptureMode::Single => format!("Single capture failed: {e}"),
+                    CaptureMode::Continuous => format!("Acquisition stopped: {e}"),
+                };
+                self.fail_acquisition(message);
                 return true;
             }
         };
-        if let Some(frame) = frame {
-            self.shared.publish_frame(frame);
+        match (frame, self.mode) {
+            (Some(frame), CaptureMode::Single) => self.complete_single(frame),
+            (Some(frame), CaptureMode::Continuous) => self.shared.publish_frame(frame),
+            (None, CaptureMode::Single)
+                if self
+                    .deadline
+                    .is_some_and(|deadline| Instant::now() >= deadline) =>
+            {
+                tracing::warn!(device = %self.label, "single capture produced no sweep in time");
+                self.fail_acquisition(
+                    "Single capture failed: the source produced no sweep in time.".into(),
+                );
+            }
+            (None, _) => {}
         }
         true
+    }
+
+    /// A single capture produced its sweep: publish it and stop. A Stop (or Shutdown) that arrived
+    /// while the sweep was being read cancels it, so the sweep is dropped. The command itself is
+    /// handled on the next loop turn.
+    fn complete_single(&mut self, frame: SpectrumFrame) {
+        self.deferred = self.rx.try_recv().ok();
+        if matches!(self.deferred, Some(Command::Stop(_) | Command::Shutdown)) {
+            return;
+        }
+        self.shared.publish_frame(frame);
+        let result = self.stop_acquisition();
+        self.set_state(
+            SessionState::Connected,
+            result.err().map(|e| {
+                (
+                    NoticeKind::AcquisitionFailed,
+                    format!("Single capture failed: {e}"),
+                )
+            }),
+        );
+    }
+
+    fn fail_acquisition(&mut self, message: String) {
+        let _ = self.stop_acquisition();
+        self.set_state(
+            SessionState::Connected,
+            Some((NoticeKind::AcquisitionFailed, message)),
+        );
     }
 
     fn set_state(&self, state: SessionState, new_notice: Option<(NoticeKind, String)>) {

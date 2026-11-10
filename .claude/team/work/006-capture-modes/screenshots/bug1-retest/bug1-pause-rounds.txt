@@ -1,0 +1,5 @@
+pause round 1: outcome=clicked frame 4 -> 4 liveness=stopped state=Connected
+pause round 2: outcome=clicked frame 5 -> 5 liveness=stopped state=Connected
+pause round 3: outcome=clicked frame 6 -> 6 liveness=stopped state=Connected
+pause round 4: outcome=clicked frame 7 -> 7 liveness=stopped state=Connected
+pause round 5: outcome=clicked frame 8 -> 8 liveness=stopped state=Connected

@@ -1,0 +1,56 @@
+{
+  "badge": "LIVE",
+  "toolbarOverflowPx": 0,
+  "center": {
+    "b": 38.09375,
+    "l": 657.625,
+    "r": 807.625,
+    "t": 9.90625,
+    "w": 150,
+    "h": 28.1875
+  },
+  "capture": {
+    "b": 39,
+    "l": 439.875,
+    "r": 593.875,
+    "t": 9,
+    "w": 154,
+    "h": 30
+  },
+  "main": {
+    "b": 39,
+    "l": 439.875,
+    "r": 567.875,
+    "t": 9,
+    "w": 128,
+    "h": 30
+  },
+  "mainLabel": "Continuous",
+  "winW": 1440,
+  "source": {
+    "b": 39,
+    "l": 151.875,
+    "r": 431.875,
+    "t": 9,
+    "w": 280,
+    "h": 30
+  },
+  "mainAria": "Pause continuous acquisition",
+  "sourceScrollOverflowPx": 0,
+  "chevron": {
+    "b": 39,
+    "l": 567.875,
+    "r": 593.875,
+    "t": 9,
+    "w": 26,
+    "h": 30
+  },
+  "chevronDisabled": false,
+  "mainDisabled": false,
+  "chevronExpanded": "false",
+  "status": "Center 100.00000 MHzSpan 2.048 MHzRBW 750 HzFFT 4096 · HannAvg 1/1Noise floor -85.7 dBFS/binUnit dBFSRate 47.6 fpsFrame #3 · 22:14:24Uncalibrated",
+  "sourceAria": "Source: Very long source name used to check that truncation is clean, Acquiring",
+  "menuOpen": false,
+  "chevronAriaDisabled": "true",
+  "mainAriaDisabled": null
+}

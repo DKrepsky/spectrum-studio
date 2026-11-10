@@ -8,7 +8,7 @@
 | Integration (Rust) | `crates/spectrum-core/tests/` | `cargo test` | Full sessions: lifecycle, switching, settings validation, device loss and reconnect, read errors |
 | Contract | `frame.rs` ↔ `src/ipc/frame.test.ts` | both | Binary frame encoding/decoding with a shared fixture; generated TS types keep IPC shapes in sync |
 | Unit/component (UI) | `src/**/*.test.ts(x)` | Vitest, Testing Library, jsdom | Formatting/parsing, scales, envelopes, colour maps, markers, liveness, stores, toolbar, notices, forms, source button/menu (IPC mocked) |
-| End-to-end | `e2e/specs/` | WebdriverIO + tauri-driver + WebKitWebDriver | The real binary: simulator workflow, settings, markers, failures and recovery, planned drivers hidden, removed drivers' entries hidden, remembered sources, Add/Edit source dialog, persistence across restart, `sources.json` migration (v1 and the duplicated-SA430 store), real-pixel layout guard |
+| End-to-end | `e2e/specs/` | WebdriverIO + tauri-driver + WebKitWebDriver | The real binary: simulator workflow, continuous and single capture (mode menu, one sweep then stop), settings, markers, failures and recovery, planned drivers hidden, removed drivers' entries hidden, remembered sources, Add/Edit source dialog, persistence across restart (including the capture mode), `sources.json` migration (v1 and the duplicated-SA430 store), real-pixel layout guard |
 
 Rules: every bug fix gets a regression test; tests assert user-visible outcomes and numeric
 tolerances, not implementation details; tests never touch the user's real configuration.
@@ -28,6 +28,14 @@ Prerequisites (once):
 ```sh
 sudo apt install webkit2gtk-driver   # provides WebKitWebDriver
 cargo install tauri-driver --locked
+```
+
+Without root, extract the Ubuntu package into a scratch directory and put its binary on `PATH`:
+
+```sh
+mkdir -p "$DIR/deb" "$DIR/root" && cd "$DIR/deb"
+apt-get download webkit2gtk-driver && dpkg-deb -x webkit2gtk-driver_*.deb "$DIR/root"
+PATH="$DIR/root/usr/bin:$PATH" npm run e2e
 ```
 
 Then, in an X11 or Wayland desktop session:
@@ -58,7 +66,8 @@ Failed E2E tests save a screenshot to `e2e/logs/` (git-ignored).
 
 Hardware specs: with a TI SA430 on `/dev/ttyACM0` and `SPECTRUM_E2E_SA430=1`, `sa430.e2e.ts`
 (detected without a scan, Add source… with the real port and *Test connection*, rename through
-Edit leaves one row also after a restart, live dBm sweeps, centre restore), the hardware cases of
+Edit leaves one row also after a restart, live dBm sweeps, centre restore, one Single capture,
+five immediate Cancel presses with no frame shown), the hardware cases of
 `add-source.e2e.ts` and the *Add dialog OK* screenshot of `visual.e2e.ts` run; without the
 variable they are skipped. The *different device on this port* state needs a second analyzer and
 is reported as skipped, never mocked.

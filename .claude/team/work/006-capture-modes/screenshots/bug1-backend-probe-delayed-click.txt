@@ -1,0 +1,114 @@
+1794273770637 status_changed Connecting
+1794273770893 status_changed Connected
+1794273771010 worker handle other
+1794273771010 status_changed Connected
+1794273771091 cmd start_acquisition entry
+1794273771091 worker handle Start
+1794273771091 status_changed Acquiring
+1794273771091 worker read begin
+1794273771202 worker read end
+1794273771203 complete_single deferred=none
+1794273771203 publish_frame seq=1
+1794273771203 status_changed Connected
+1794273772426 cmd start_acquisition entry
+1794273772426 worker handle Start
+1794273772427 status_changed Acquiring
+1794273772427 worker read begin
+1794273772538 worker read end
+1794273772539 complete_single deferred=none
+1794273772539 publish_frame seq=2
+1794273772539 status_changed Connected
+1794273773746 cmd start_acquisition entry
+1794273773746 worker handle Start
+1794273773746 status_changed Acquiring
+1794273773746 worker read begin
+1794273773774 cmd stop_acquisition entry
+1794273773857 worker read end
+1794273773858 complete_single deferred=Stop
+1794273773858 worker handle Stop
+1794273773858 status_changed Connected
+1794273775075 cmd start_acquisition entry
+1794273775075 worker handle Start
+1794273775075 status_changed Acquiring
+1794273775076 worker read begin
+1794273775109 cmd stop_acquisition entry
+1794273775187 worker read end
+1794273775187 complete_single deferred=Stop
+1794273775187 worker handle Stop
+1794273775187 status_changed Connected
+1794273776435 cmd start_acquisition entry
+1794273776435 worker handle Start
+1794273776444 status_changed Acquiring
+1794273776444 worker read begin
+1794273776507 cmd stop_acquisition entry
+1794273776555 worker read end
+1794273776555 complete_single deferred=Stop
+1794273776555 worker handle Stop
+1794273776555 status_changed Connected
+1794273777730 cmd start_acquisition entry
+1794273777731 worker handle Start
+1794273777731 status_changed Acquiring
+1794273777731 worker read begin
+1794273777821 cmd stop_acquisition entry
+1794273777842 worker read end
+1794273777842 complete_single deferred=Stop
+1794273777842 worker handle Stop
+1794273777842 status_changed Connected
+1794273779010 cmd start_acquisition entry
+1794273779010 worker handle Start
+1794273779010 status_changed Acquiring
+1794273779010 worker read begin
+1794273779023 cmd stop_acquisition entry
+1794273779121 worker read end
+1794273779121 complete_single deferred=Stop
+1794273779121 worker handle Stop
+1794273779121 status_changed Connected
+1794273780291 cmd start_acquisition entry
+1794273780291 worker handle Start
+1794273780291 status_changed Acquiring
+1794273780292 worker read begin
+1794273780322 cmd stop_acquisition entry
+1794273780402 worker read end
+1794273780402 complete_single deferred=Stop
+1794273780402 worker handle Stop
+1794273780402 status_changed Connected
+1794273781582 cmd start_acquisition entry
+1794273781582 worker handle Start
+1794273781582 status_changed Acquiring
+1794273781582 worker read begin
+1794273781608 cmd stop_acquisition entry
+1794273781702 worker read end
+1794273781702 complete_single deferred=Stop
+1794273781702 worker handle Stop
+1794273781702 status_changed Connected
+1794273782862 cmd start_acquisition entry
+1794273782862 worker handle Start
+1794273782862 status_changed Acquiring
+1794273782863 worker read begin
+1794273782905 cmd stop_acquisition entry
+1794273782976 worker read end
+1794273782976 complete_single deferred=Stop
+1794273782976 worker handle Stop
+1794273782976 status_changed Connected
+1794273784132 cmd start_acquisition entry
+1794273784132 worker handle Start
+1794273784132 status_changed Acquiring
+1794273784133 worker read begin
+1794273784192 cmd stop_acquisition entry
+1794273784243 worker read end
+1794273784243 complete_single deferred=Stop
+1794273784243 worker handle Stop
+1794273784243 status_changed Connected
+1794273785438 cmd start_acquisition entry
+1794273785438 worker handle Start
+1794273785438 status_changed Acquiring
+1794273785439 worker read begin
+1794273785522 cmd stop_acquisition entry
+1794273785549 worker read end
+1794273785550 complete_single deferred=Stop
+1794273785550 worker handle Stop
+1794273785550 status_changed Connected
+1794273786775 worker handle other
+1794273786775 status_changed Connected
+1794273786974 status_changed Disconnecting
+1794273786976 status_changed Disconnected

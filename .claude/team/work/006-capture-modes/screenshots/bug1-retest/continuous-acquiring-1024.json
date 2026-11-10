@@ -1,0 +1,56 @@
+{
+  "badge": "LIVE",
+  "toolbarOverflowPx": 0,
+  "center": {
+    "b": 38.09375,
+    "l": 633.625,
+    "r": 761.625,
+    "t": 9.90625,
+    "w": 128,
+    "h": 28.1875
+  },
+  "capture": {
+    "b": 39,
+    "l": 424.875,
+    "r": 578.875,
+    "t": 9,
+    "w": 154,
+    "h": 30
+  },
+  "main": {
+    "b": 39,
+    "l": 424.875,
+    "r": 552.875,
+    "t": 9,
+    "w": 128,
+    "h": 30
+  },
+  "mainLabel": "Continuous",
+  "winW": 1024,
+  "source": {
+    "b": 39,
+    "l": 139.875,
+    "r": 419.875,
+    "t": 9,
+    "w": 280,
+    "h": 30
+  },
+  "mainAria": "Pause continuous acquisition",
+  "sourceScrollOverflowPx": 0,
+  "chevron": {
+    "b": 39,
+    "l": 552.875,
+    "r": 578.875,
+    "t": 9,
+    "w": 26,
+    "h": 30
+  },
+  "chevronDisabled": false,
+  "mainDisabled": false,
+  "chevronExpanded": "false",
+  "status": "No data yet — waiting for the first sweep.",
+  "sourceAria": "Source: Very long source name used to check that truncation is clean, Acquiring",
+  "menuOpen": false,
+  "chevronAriaDisabled": "true",
+  "mainAriaDisabled": null
+}
