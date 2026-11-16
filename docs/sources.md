@@ -10,6 +10,8 @@ trait SourceDriver: Send + Sync {          // one per integration type
     fn discover(&self) -> Result<Vec<DeviceDescriptor>, SourceError>;   // optional, enumerates only
     fn supports_watch(&self) -> bool;        // optional, default false
     fn watch(&self, on_event: &mut dyn FnMut(DeviceEvent) -> ControlFlow<()>) -> Result<(), SourceError>;
+    fn supports_stop_watch(&self) -> bool;  // optional, default false
+    fn stop_watch(&self);                    // makes a running or future watch return Ok, from any thread
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError>;
     fn normalize_device_id(&self, id: Option<&str>, label: &str) -> Option<String>; // migration
 }
@@ -44,6 +46,10 @@ enum SourceData { Iq(IqBlock), Trace(TraceBlock) }
   text as `DeviceDescriptor.location`). The event carries no identity: the core resolves it with an
   enumerate-only `discover`. `watch` never opens a device. Returning an error, or `Break` from the
   callback, ends the watch. Auto-connect is the only consumer ([ADR 0014](adr/0014-auto-connect-and-device-watch.md)).
+- **Stopping a watch** (`supports_stop_watch`, `stop_watch`) is optional. At app exit the core calls
+  `stop_watch` on each stoppable watching driver and joins its thread, waiting at most 1 s in total.
+  `stop_watch` may run before `watch` has started, so a driver must remember the request. A driver
+  without it keeps its watcher running until the process ends.
 - **ParamSpec** describes device-specific settings (number with range/unit, choice, bool, text).
   The UI renders forms from them; the core validates submitted values against them
   (`model/params.rs`), so drivers receive only valid, complete parameter maps.
@@ -174,8 +180,8 @@ author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmw
 - **Hot-plug ([ADR 0014](adr/0014-auto-connect-and-device-watch.md)):** the driver watches for USB
   plug and unplug events with the `sa430` monitor (udev netlink on Linux, no extra dependency). An
   event's location is the port name. The app connects a plugged-in analyzer by itself when nothing
-  is connected and drops it with a "was unplugged" notice when it is removed. Limits: the watcher
-  cannot be woken to stop, so its thread is left to end with the process. Plug events are only
+  is connected and drops it with a "was unplugged" notice when it is removed. At exit the watcher is
+  woken through the `sa430` monitor's stop handle (`sa430` 0.2.2) and joined. Plug events are only
   reported on Linux, through udev; without udev the watch logs one warning and only launch-time
   auto-connect works.
 - **Bands:** the instrument measures 300–348, 389–464 and 779–928 MHz; a sweep cannot cross

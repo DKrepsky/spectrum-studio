@@ -106,8 +106,9 @@ pub fn run() {
     };
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
-            // Stop reacting to device events first, so nothing reconnects while the session is
-            // torn down. Then stop acquisition and release the device before the process exits.
+            // Stop reacting to device events and stop the watchers (joined, bounded) first, so
+            // nothing reconnects while the session is torn down. Then stop acquisition and release
+            // the device before the process exits.
             if let Some(state) = handle.try_state::<AppState>() {
                 if let Some(auto_connect) = state.auto_connect.get() {
                     auto_connect.shutdown();

@@ -157,6 +157,18 @@ pub trait SourceDriver: Send + Sync {
         ))
     }
 
+    /// Whether [`SourceDriver::stop_watch`] can end a running [`SourceDriver::watch`]. Drivers that
+    /// cannot are left running at shutdown and end with the process.
+    fn supports_stop_watch(&self) -> bool {
+        false
+    }
+
+    /// Makes [`SourceDriver::watch`] return `Ok` promptly, from any thread. Shutdown may call it
+    /// before `watch` has started, so a stop requested first must still end the next watch. Calling
+    /// it again, or after the watch has ended, does nothing. Only called when
+    /// [`SourceDriver::supports_stop_watch`] is true.
+    fn stop_watch(&self) {}
+
     /// Called only by the store migration with the stored id (if any) and the automatic label.
     /// Returns the new stable id, or `None` to leave the entry as it is. May enumerate devices,
     /// never opens them.

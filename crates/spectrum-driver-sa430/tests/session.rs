@@ -101,7 +101,16 @@ impl Sa430Backend for ScriptedBackend {
         })))
     }
 
-    fn watch(&self, _handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
+    fn monitor(&self) -> Result<Box<dyn sa430::Monitor + Send>, sa430::Error> {
+        Ok(Box::new(Quiet))
+    }
+}
+
+/// A monitor that reports nothing and returns at once.
+struct Quiet;
+
+impl sa430::Monitor for Quiet {
+    fn run(&mut self, _handler: &mut dyn sa430::EventHandler) -> sa430::Result<()> {
         Ok(())
     }
 }

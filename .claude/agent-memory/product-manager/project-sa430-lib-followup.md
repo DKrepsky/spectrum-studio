@@ -1,6 +1,6 @@
 ---
 name: project-sa430-lib-followup
-description: sa430 lib work: 0.2.1 adopted in Spectrum Studio (work 005); open lib PR #74 (macOS release runner); lib repo workflow rules
+description: sa430 lib work: 0.2.2 adopted (008: stoppable Monitor + spin fix); human squash-merges (stacked PRs conflict); lib workflow rules
 metadata:
   type: project
 ---
@@ -15,3 +15,9 @@ at the next release tag. The human decides whether to retag v0.2.1.
 **How to apply:** for lib changes follow its CLAUDE.md: issue from template first, feature branch, PR with `Closes #N`,
 Conventional Commits (`ci:`/`chore:` don't release), never bump versions/tags by hand. Agents must not kill the human's
 running app or move tags without asking.
+
+2026-11-16 (work 008): human asked to make the sa430 Monitor stoppable for Studio's watcher thread → issue #76 / PR #77
+(stop handle, `feat:` → 0.3.0) and pre-existing poll-error spin fix issue #78 / PR #79 (stacked on #77). Merged and
+released as 0.2.2 (release-plz bumped patch for a `feat:` in 0.x); Studio adopted it (008 accepted + committed).
+The human squash-merges: stacked PRs then conflict and need `git rebase --onto origin/main <old-base>` + force-push.
+The human approved issue creation up front when asked once with the API choice — bundle those questions.

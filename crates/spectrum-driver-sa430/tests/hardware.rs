@@ -55,8 +55,8 @@ impl Sa430Backend for Counting {
         SerialBackend.open(port_name, policy, deadline, sweeping)
     }
 
-    fn watch(&self, handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
-        SerialBackend.watch(handler)
+    fn monitor(&self) -> Result<Box<dyn sa430::Monitor + Send>, sa430::Error> {
+        SerialBackend.monitor()
     }
 }
 

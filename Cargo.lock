@@ -2654,9 +2654,9 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "sa430"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60d8b47f11bbb4f00a53894c0b82deb7c0d471385617efb6a8a3c47731c92009"
+checksum = "94f13fad622dfb9855d7bcab80e9c3c59e9dd6d8cf64fc71b502c93e2e027442"
 dependencies = [
  "clap",
  "libc",

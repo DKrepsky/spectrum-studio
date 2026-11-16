@@ -43,6 +43,18 @@ struct Bench {
     discovers: AtomicUsize,
     /// Holds the next `discover` call (if set) until the test releases it.
     discover_gate: Mutex<Option<Gate>>,
+    /// Makes `supports_stop_watch` false: the watcher stays detached at shutdown.
+    unstoppable: AtomicBool,
+    /// Makes `stop_watch` do nothing, as a watch that never wakes would.
+    stop_ignored: AtomicBool,
+    /// `stop_watch` calls so far.
+    stop_requests: AtomicUsize,
+    /// Set by `stop_watch`; a watch returns once it sees it.
+    stop_requested: AtomicBool,
+    /// Set once `watch` is in its event loop.
+    watch_started: AtomicBool,
+    /// Parks `watch` before its event loop until released, so a stop can come first.
+    watch_gate: Mutex<Option<Gate>>,
 }
 
 /// Parks the driver call that takes it: it tells the test it arrived, then waits for release.
@@ -50,6 +62,9 @@ struct Gate {
     entered: Sender<()>,
     release: Receiver<()>,
 }
+
+/// How often a watch checks for a stop request while no event arrives.
+const STOP_POLL: Duration = Duration::from_millis(20);
 
 fn pass_gate(gate: &Mutex<Option<Gate>>) {
     let taken = gate.lock().unwrap().take();
@@ -194,19 +209,41 @@ impl SourceDriver for Hardware {
         on_event: &mut dyn FnMut(DeviceEvent) -> ControlFlow<()>,
     ) -> Result<(), SourceError> {
         let result = (|| {
+            pass_gate(&self.bench.watch_gate);
             if self.bench.watch_fails.load(Ordering::SeqCst) {
                 return Err(SourceError::unavailable("No device events on this system."));
             }
             let rx = self.events.lock().unwrap().take().expect("watched once");
-            for event in rx {
-                if on_event(event).is_break() {
+            self.bench.watch_started.store(true, Ordering::SeqCst);
+            loop {
+                if self.bench.stop_requested.load(Ordering::SeqCst) {
                     break;
+                }
+                match rx.recv_timeout(STOP_POLL) {
+                    Ok(event) => {
+                        if on_event(event).is_break() {
+                            break;
+                        }
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
                 }
             }
             Ok(())
         })();
         self.bench.watch_returned.store(true, Ordering::SeqCst);
         result
+    }
+
+    fn supports_stop_watch(&self) -> bool {
+        !self.bench.unstoppable.load(Ordering::SeqCst)
+    }
+
+    fn stop_watch(&self) {
+        self.bench.stop_requests.fetch_add(1, Ordering::SeqCst);
+        if !self.bench.stop_ignored.load(Ordering::SeqCst) {
+            self.bench.stop_requested.store(true, Ordering::SeqCst);
+        }
     }
 }
 
@@ -717,14 +754,74 @@ fn a_watcher_error_ends_its_thread_and_the_app_carries_on() {
     wait_for("the launch connect", || {
         r.session.status().state == SessionState::Connected
     });
+    // The ended watcher is already gone, so shutdown does not wait for it.
+    let started = Instant::now();
     auto.shutdown();
+    assert!(started.elapsed() < Duration::from_millis(500));
 }
 
 #[test]
-fn shutdown_ends_the_watcher_at_its_next_event_and_ignores_it() {
+fn shutdown_ends_a_blocked_watch_and_joins_its_thread_promptly() {
     let r = hardware_rig(vec![]);
     let auto = AutoConnect::start(r.session.clone(), r.store.clone());
+    wait_for("the watch to start", || {
+        r.bench.watch_started.load(Ordering::SeqCst)
+    });
+
+    let started = Instant::now();
     auto.shutdown();
+    let took = started.elapsed();
+    // Joined, not detached: the watch has already returned when shutdown does.
+    assert!(r.bench.watch_returned.load(Ordering::SeqCst));
+    assert!(took < Duration::from_millis(500), "shutdown took {took:?}");
+    assert_eq!(r.bench.stop_requests.load(Ordering::SeqCst), 1);
+    assert_eq!(r.session.status().state, SessionState::Disconnected);
+}
+
+#[test]
+fn a_stop_requested_before_the_watch_starts_still_ends_it() {
+    let r = hardware_rig(vec![]);
+    let (entered, parked) = mpsc::channel();
+    let (release, released) = mpsc::channel();
+    *r.bench.watch_gate.lock().unwrap() = Some(Gate {
+        entered,
+        release: released,
+    });
+    let auto = AutoConnect::start(r.session.clone(), r.store.clone());
+    parked
+        .recv_timeout(WAIT)
+        .expect("the watch reached its gate, before its loop");
+
+    // Shutdown runs while the watch has not started its loop yet.
+    let shutdown = thread::spawn(move || auto.shutdown());
+    wait_for("the stop request", || {
+        r.bench.stop_requests.load(Ordering::SeqCst) == 1
+    });
+    release.send(()).unwrap();
+    shutdown.join().unwrap();
+
+    assert!(
+        r.bench.watch_returned.load(Ordering::SeqCst),
+        "the watch returned instead of blocking"
+    );
+}
+
+#[test]
+fn an_unstoppable_watcher_stays_detached_and_ignores_events_after_shutdown() {
+    let r = hardware_rig(vec![]);
+    r.bench.unstoppable.store(true, Ordering::SeqCst);
+    let auto = AutoConnect::start(r.session.clone(), r.store.clone());
+    wait_for("the watch to start", || {
+        r.bench.watch_started.load(Ordering::SeqCst)
+    });
+
+    let started = Instant::now();
+    auto.shutdown();
+    assert!(started.elapsed() < Duration::from_millis(500));
+    assert_eq!(r.bench.stop_requests.load(Ordering::SeqCst), 0);
+    assert!(!r.bench.watch_returned.load(Ordering::SeqCst));
+
+    // It still ends at its next event, and that event is ignored.
     *r.bench.devices.lock().unwrap() = vec![device("a", "/dev/a")];
     r.events.send(added("/dev/a")).unwrap();
     wait_for("the watcher to return", || {
@@ -732,6 +829,31 @@ fn shutdown_ends_the_watcher_at_its_next_event_and_ignores_it() {
     });
     assert_eq!(r.session.status().state, SessionState::Disconnected);
     assert_eq!(r.bench.opens.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_watcher_that_ignores_the_stop_is_left_behind_after_a_bounded_wait() {
+    let r = hardware_rig(vec![]);
+    r.bench.stop_ignored.store(true, Ordering::SeqCst);
+    let auto = AutoConnect::start(r.session.clone(), r.store.clone());
+    wait_for("the watch to start", || {
+        r.bench.watch_started.load(Ordering::SeqCst)
+    });
+
+    let started = Instant::now();
+    auto.shutdown();
+    let took = started.elapsed();
+    assert!(
+        took >= Duration::from_millis(900) && took < Duration::from_secs(3),
+        "shutdown waited the bounded time, not {took:?}"
+    );
+    assert!(!r.bench.watch_returned.load(Ordering::SeqCst));
+
+    // Left running until its next event, which it ignores.
+    r.events.send(added("/dev/a")).unwrap();
+    wait_for("the watcher to return", || {
+        r.bench.watch_returned.load(Ordering::SeqCst)
+    });
 }
 
 #[test]

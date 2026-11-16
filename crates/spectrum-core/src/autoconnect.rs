@@ -8,9 +8,11 @@
 
 use std::ops::ControlFlow;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 use crate::model::{DeviceDescriptor, SessionState};
 use crate::remember;
@@ -131,9 +133,23 @@ impl Policy {
     }
 }
 
+/// How long [`AutoConnect::shutdown`] waits for stoppable watchers to end, in total. A watcher that
+/// is still running after this is left detached, as one without a stop; the process end reclaims it.
+const WATCHER_STOP_TIMEOUT: Duration = Duration::from_secs(1);
+
 /// Running auto-connect: the watchers and the coordinator thread.
 pub struct AutoConnect {
     policy: Policy,
+    watchers: Mutex<Vec<Watcher>>,
+}
+
+/// One watcher thread, and what shutdown needs to end it.
+struct Watcher {
+    driver: Arc<dyn SourceDriver>,
+    stoppable: bool,
+    thread: JoinHandle<()>,
+    /// Disconnected once the thread has ended: the thread holds the sender until then.
+    done: Receiver<()>,
 }
 
 impl AutoConnect {
@@ -143,9 +159,11 @@ impl AutoConnect {
     pub fn start(session: Arc<SessionManager>, store: Arc<ConfigStore>) -> Self {
         let policy = Policy::new(session.clone(), store);
         let (tx, rx) = mpsc::channel();
-        for driver in session.watchable_drivers() {
-            spawn_watcher(policy.clone(), driver, tx.clone());
-        }
+        let watchers = session
+            .watchable_drivers()
+            .into_iter()
+            .filter_map(|driver| spawn_watcher(policy.clone(), driver, tx.clone()))
+            .collect();
         drop(tx);
         let coordinator = policy.clone();
         let spawned = std::thread::Builder::new()
@@ -154,13 +172,41 @@ impl AutoConnect {
         if let Err(e) = spawned {
             tracing::warn!(error = %e, "could not start auto-connect; connect a device manually");
         }
-        Self { policy }
+        Self {
+            policy,
+            watchers: Mutex::new(watchers),
+        }
     }
 
-    /// Stops reacting to device events. Does not wait for the threads, which end on their own
-    /// (see ADR 0014).
+    /// Stops reacting to device events, then asks every stoppable watcher to end and waits up to
+    /// [`WATCHER_STOP_TIMEOUT`] in total for them. Watchers that cannot be stopped, or that do not
+    /// end in time, are left detached (see ADR 0014). Calling it again does nothing more.
     pub fn shutdown(&self) {
         self.policy.shutdown();
+        let watchers = std::mem::take(&mut *lock(&self.watchers));
+        for watcher in watchers.iter().filter(|w| w.stoppable) {
+            watcher.driver.stop_watch();
+        }
+        let deadline = Instant::now() + WATCHER_STOP_TIMEOUT;
+        for watcher in watchers.into_iter().filter(|w| w.stoppable) {
+            let driver = watcher.driver.info().id;
+            match watcher
+                .done
+                .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            {
+                Err(RecvTimeoutError::Disconnected) => {
+                    if watcher.thread.join().is_err() {
+                        tracing::warn!(driver = %driver, "device watcher panicked while stopping");
+                    } else {
+                        tracing::debug!(driver = %driver, "device watcher joined at shutdown");
+                    }
+                }
+                _ => tracing::warn!(
+                    driver = %driver,
+                    "device watcher did not stop in time; leaving it running until the app exits"
+                ),
+            }
+        }
     }
 }
 
@@ -174,11 +220,20 @@ fn coordinate(policy: Policy, events: Receiver<(String, DeviceEvent)>) {
     }
 }
 
-fn spawn_watcher(policy: Policy, driver: Arc<dyn SourceDriver>, tx: Sender<(String, DeviceEvent)>) {
+fn spawn_watcher(
+    policy: Policy,
+    driver: Arc<dyn SourceDriver>,
+    tx: Sender<(String, DeviceEvent)>,
+) -> Option<Watcher> {
     let driver_id = driver.info().id;
+    let stoppable = driver.supports_stop_watch();
+    let (done_tx, done) = mpsc::channel();
+    let watched = driver.clone();
     let name = format!("device-watch-{driver_id}");
     let spawned = std::thread::Builder::new().name(name).spawn(move || {
-        let result = driver.watch(&mut |event| {
+        // Dropped when this thread ends, on every path including a panic.
+        let _done = done_tx;
+        let result = watched.watch(&mut |event| {
             if policy.is_stopped() || tx.send((driver_id.clone(), event)).is_err() {
                 ControlFlow::Break(())
             } else {
@@ -194,9 +249,22 @@ fn spawn_watcher(policy: Policy, driver: Arc<dyn SourceDriver>, tx: Sender<(Stri
             ),
         }
     });
-    if let Err(e) = spawned {
-        tracing::warn!(error = %e, "could not start a device watcher");
+    match spawned {
+        Ok(thread) => Some(Watcher {
+            driver,
+            stoppable,
+            thread,
+            done,
+        }),
+        Err(e) => {
+            tracing::warn!(error = %e, "could not start a device watcher");
+            None
+        }
     }
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 /// Runs one step of the policy, containing a panic so it cannot end the application.

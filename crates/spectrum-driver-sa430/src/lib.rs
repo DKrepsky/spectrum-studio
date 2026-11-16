@@ -6,11 +6,12 @@
 
 use std::io::{self, Read, Write};
 use std::ops::ControlFlow;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use sa430::MonitorStopHandle;
 use sa430::channel::SerialPortChannel;
 use sa430::port::Port;
 use sa430::spectrum::{FREQUENCY_RANGES_MHZ, REF_LEVELS_DBM};
@@ -52,9 +53,9 @@ pub trait Sa430Backend: Send + Sync {
         deadline: Instant,
         sweeping: Arc<AtomicBool>,
     ) -> Result<Sa430, sa430::Error>;
-    /// Blocks, passing each hot-plug event to `handler`, until the handler breaks or the watcher
-    /// fails. Opens no device.
-    fn watch(&self, handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error>;
+    /// Creates the hot-plug monitor. The driver runs it, so it can take its stop handle first.
+    /// Opens no device.
+    fn monitor(&self) -> Result<Box<dyn sa430::Monitor + Send>, sa430::Error>;
 }
 
 /// How hard `Sa430Driver::open` tries to identify the analyzer after its port appears.
@@ -124,9 +125,8 @@ impl Sa430Backend for SerialBackend {
         Ok(Sa430::new(Box::new(link)))
     }
 
-    fn watch(&self, handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
-        // udev netlink on Linux; the monitor is not interrupted, so the caller detaches the thread.
-        sa430::create_monitor()?.run(handler)
+    fn monitor(&self) -> Result<Box<dyn sa430::Monitor + Send>, sa430::Error> {
+        sa430::create_monitor()
     }
 }
 
@@ -183,6 +183,16 @@ impl Write for SerialLink {
 pub struct Sa430Driver {
     backend: Arc<dyn Sa430Backend>,
     policy: ConnectPolicy,
+    watch_stop: Mutex<WatchStop>,
+}
+
+/// The stop state of the hot-plug watch, shared by `watch` and `stop_watch`. Both use one lock: a
+/// stop that comes before `watch` has stored its handle is seen when `watch` checks the flag, so
+/// no stop is lost and `watch` never blocks after one.
+#[derive(Default)]
+struct WatchStop {
+    requested: bool,
+    handle: Option<MonitorStopHandle>,
 }
 
 /// A device that answered the calibration read, with the serial number it reported.
@@ -255,7 +265,11 @@ impl Sa430Driver {
     }
 
     pub fn with_backend_and_policy(backend: Arc<dyn Sa430Backend>, policy: ConnectPolicy) -> Self {
-        Self { backend, policy }
+        Self {
+            backend,
+            policy,
+            watch_stop: Mutex::new(WatchStop::default()),
+        }
     }
 
     /// Opens `port` and reads its calibration, which proves that an SA430 answers. A failed
@@ -395,8 +409,28 @@ impl SourceDriver for Sa430Driver {
         &self,
         on_event: &mut dyn FnMut(DeviceEvent) -> ControlFlow<()>,
     ) -> Result<(), SourceError> {
+        let mut monitor = self.backend.monitor().map_err(watch_error)?;
+        {
+            let mut stop = lock(&self.watch_stop);
+            stop.handle = monitor.stop_handle();
+            if stop.requested {
+                return Ok(());
+            }
+        }
         let mut handler = |event: &sa430::Event| on_event(device_event(event));
-        self.backend.watch(&mut handler).map_err(watch_error)
+        monitor.run(&mut handler).map_err(watch_error)
+    }
+
+    fn supports_stop_watch(&self) -> bool {
+        true
+    }
+
+    fn stop_watch(&self) {
+        let mut stop = lock(&self.watch_stop);
+        stop.requested = true;
+        if let Some(handle) = &stop.handle {
+            handle.stop();
+        }
     }
 
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError> {
@@ -583,6 +617,10 @@ fn device_event(event: &sa430::Event) -> DeviceEvent {
             location: Some(port.name().to_string()),
         },
     }
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 fn watch_error(error: sa430::Error) -> SourceError {
@@ -790,7 +828,22 @@ mod tests {
             Err(sa430::Error::Io(io::Error::from(io::ErrorKind::NotFound)))
         }
 
-        fn watch(&self, handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
+        fn monitor(&self) -> Result<Box<dyn sa430::Monitor + Send>, sa430::Error> {
+            Ok(Box::new(Replayed {
+                events: self.events.clone(),
+                fails: self.fails,
+            }))
+        }
+    }
+
+    /// The monitor behind [`Replay`]: passes its events on, then returns, or fails like udev does.
+    struct Replayed {
+        events: Vec<sa430::Event>,
+        fails: bool,
+    }
+
+    impl sa430::Monitor for Replayed {
+        fn run(&mut self, handler: &mut dyn sa430::EventHandler) -> sa430::Result<()> {
             if self.fails {
                 return Err(sa430::Error::Io(io::Error::other("no udev")));
             }
@@ -799,6 +852,15 @@ mod tests {
                     break;
                 }
             }
+            Ok(())
+        }
+    }
+
+    /// A monitor whose `run` returns at once, for fakes that do not exercise the watch.
+    struct Idle;
+
+    impl sa430::Monitor for Idle {
+        fn run(&mut self, _handler: &mut dyn sa430::EventHandler) -> sa430::Result<()> {
             Ok(())
         }
     }
@@ -872,10 +934,161 @@ mod tests {
         assert!(d.supports_watch());
     }
 
+    /// The stop signal of [`Parked`]: `run` waits on it, a handle sets it, and it stays set.
+    #[derive(Default)]
+    struct StopSignal {
+        stopped: Mutex<bool>,
+        wake: Condvar,
+    }
+
+    impl StopSignal {
+        fn set(&self) {
+            *lock(&self.stopped) = true;
+            self.wake.notify_all();
+        }
+    }
+
+    /// Runs the hook once, when the monitor is created: the window between creating the monitor
+    /// and storing its stop handle.
+    type CreationHook = Box<dyn FnOnce() + Send>;
+
+    /// A backend whose monitor blocks in `run` until stopped, as the udev monitor does.
+    #[derive(Default)]
+    struct Parked {
+        signal: Arc<StopSignal>,
+        runs: Arc<AtomicUsize>,
+        on_create: Mutex<Option<CreationHook>>,
+    }
+
+    impl Sa430Backend for Parked {
+        fn scan(&self) -> Result<Vec<Port>, sa430::Error> {
+            Ok(Vec::new())
+        }
+
+        fn open(
+            &self,
+            _port_name: &str,
+            _policy: &ConnectPolicy,
+            _deadline: Instant,
+            _sweeping: Arc<AtomicBool>,
+        ) -> Result<Sa430, sa430::Error> {
+            Err(sa430::Error::Io(io::Error::from(io::ErrorKind::NotFound)))
+        }
+
+        fn monitor(&self) -> Result<Box<dyn sa430::Monitor + Send>, sa430::Error> {
+            if let Some(hook) = lock(&self.on_create).take() {
+                hook();
+            }
+            Ok(Box::new(ParkedMonitor {
+                signal: self.signal.clone(),
+                runs: self.runs.clone(),
+            }))
+        }
+    }
+
+    struct ParkedMonitor {
+        signal: Arc<StopSignal>,
+        runs: Arc<AtomicUsize>,
+    }
+
+    impl sa430::Monitor for ParkedMonitor {
+        fn run(&mut self, _handler: &mut dyn sa430::EventHandler) -> sa430::Result<()> {
+            self.runs.fetch_add(1, Ordering::SeqCst);
+            let mut stopped = lock(&self.signal.stopped);
+            while !*stopped {
+                stopped = self
+                    .signal
+                    .wake
+                    .wait(stopped)
+                    .unwrap_or_else(PoisonError::into_inner);
+            }
+            Ok(())
+        }
+
+        fn stop_handle(&self) -> Option<MonitorStopHandle> {
+            let signal = self.signal.clone();
+            Some(MonitorStopHandle::new(move || signal.set()))
+        }
+    }
+
+    fn wait_until(what: &str, cond: impl Fn() -> bool) {
+        let start = Instant::now();
+        while !cond() {
+            assert!(
+                start.elapsed() < Duration::from_secs(5),
+                "timed out: {what}"
+            );
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn stop_wakes_a_blocked_watch_which_then_returns_ok() {
+        let backend = Arc::new(Parked::default());
+        let driver = Arc::new(Sa430Driver::with_backend(backend.clone()));
+        let (done, returned) = mpsc::channel();
+        let watching = driver.clone();
+        thread::spawn(move || {
+            let result = watching.watch(&mut |_: DeviceEvent| ControlFlow::Continue(()));
+            let _ = done.send(result);
+        });
+        wait_until("the monitor to start", || {
+            backend.runs.load(Ordering::SeqCst) == 1
+        });
+
+        driver.stop_watch();
+        driver.stop_watch(); // harmless when repeated
+        let result = returned
+            .recv_timeout(Duration::from_secs(5))
+            .expect("the watch returns after stop");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn stop_before_the_watch_starts_makes_it_return_without_running() {
+        let backend = Arc::new(Parked::default());
+        let driver = Sa430Driver::with_backend(backend.clone());
+        driver.stop_watch();
+        let result = driver.watch(&mut |_: DeviceEvent| ControlFlow::Continue(()));
+        assert!(result.is_ok());
+        assert_eq!(
+            backend.runs.load(Ordering::SeqCst),
+            0,
+            "the monitor never ran"
+        );
+    }
+
+    #[test]
+    fn stop_during_monitor_creation_is_not_lost() {
+        // The stop lands after the monitor exists but before its handle is stored: the watch must
+        // see the request when it stores the handle and must not block.
+        let backend = Arc::new(Parked::default());
+        let driver = Arc::new(Sa430Driver::with_backend(backend.clone()));
+        let stopping = Arc::downgrade(&driver);
+        *lock(&backend.on_create) = Some(Box::new(move || {
+            if let Some(driver) = stopping.upgrade() {
+                driver.stop_watch();
+            }
+        }));
+        let result = driver.watch(&mut |_: DeviceEvent| ControlFlow::Continue(()));
+        assert!(result.is_ok());
+        assert_eq!(
+            backend.runs.load(Ordering::SeqCst),
+            0,
+            "the monitor never ran"
+        );
+    }
+
+    #[test]
+    fn the_sa430_driver_supports_stopping_its_watch() {
+        let (d, _) = Scripted::driver(vec![]);
+        assert!(d.supports_stop_watch());
+    }
+
     // ---- device identity ----
 
     use sa430::test_utils::{MockChannel, add_calibration_responses, an_error_response};
-    use std::sync::Mutex;
+    use std::sync::{Condvar, mpsc};
 
     /// Scans a fixed port list; every opened port answers like the device with serial
     /// `08FF41E50F8B3A34` (the library's mock calibration) and is recorded.
@@ -921,8 +1134,8 @@ mod tests {
             Ok(Sa430::new(Box::new(channel)))
         }
 
-        fn watch(&self, _handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
-            Ok(())
+        fn monitor(&self) -> Result<Box<dyn sa430::Monitor + Send>, sa430::Error> {
+            Ok(Box::new(Idle))
         }
     }
 
@@ -1209,8 +1422,8 @@ mod tests {
             })
         }
 
-        fn watch(&self, _handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
-            Ok(())
+        fn monitor(&self) -> Result<Box<dyn sa430::Monitor + Send>, sa430::Error> {
+            Ok(Box::new(Idle))
         }
     }
 

@@ -42,7 +42,9 @@ connect, connect on plug-in, disconnect on unplug) and is driven by one coordina
 serialises decisions. Each driver that can watch for hot-plug events gets its own watcher thread,
 which only forwards events. Device specifics stay in the driver's `watch` (see
 [sources](sources.md)). The session guards `connect_if_idle` and `device_removed` make a racing
-manual pick win, and the app shell starts and shuts it down.
+manual pick win, and the app shell starts and shuts it down. On exit, `shutdown` stops every
+watcher whose driver can be stopped and joins it (at most 1 s in total), before the session
+disconnects; a watcher that cannot be stopped is left to end with the process.
 
 ## Data flow during acquisition
 

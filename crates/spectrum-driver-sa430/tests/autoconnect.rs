@@ -54,8 +54,22 @@ impl Sa430Backend for Plugged {
         }
     }
 
-    fn watch(&self, handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
-        let Some(events) = self.events.lock().unwrap().take() else {
+    fn monitor(&self) -> Result<Box<dyn sa430::Monitor + Send>, sa430::Error> {
+        Ok(Box::new(ScriptedMonitor {
+            events: self.events.lock().unwrap().take(),
+        }))
+    }
+}
+
+/// Replays the events the test sends, then returns, as a monitor does once its handler breaks.
+/// Without a receiver it returns at once.
+struct ScriptedMonitor {
+    events: Option<mpsc::Receiver<sa430::Event>>,
+}
+
+impl sa430::Monitor for ScriptedMonitor {
+    fn run(&mut self, handler: &mut dyn sa430::EventHandler) -> sa430::Result<()> {
+        let Some(events) = self.events.take() else {
             return Ok(());
         };
         for event in events {
