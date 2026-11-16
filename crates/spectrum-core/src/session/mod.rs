@@ -94,6 +94,27 @@ impl Drop for ProbeGuard {
     }
 }
 
+/// Runs `connect`; when the source rejects the stored settings (`InvalidSettings`) and the config
+/// had some, retries once with the settings cleared, so a stale remembered setting never makes a
+/// source unconnectable.
+fn retry_with_defaults<T>(
+    config: SourceConfig,
+    connect: impl Fn(SourceConfig) -> Result<T, SessionError>,
+) -> Result<T, SessionError> {
+    match connect(config.clone()) {
+        Err(SessionError::Source(e))
+            if e.kind() == SourceErrorKind::InvalidSettings && !config.settings.is_empty() =>
+        {
+            tracing::warn!("stored settings rejected; retrying with defaults");
+            connect(SourceConfig {
+                settings: SettingsPatch::default(),
+                ..config
+            })
+        }
+        other => other,
+    }
+}
+
 /// The first non-empty text value present in both maps, if any.
 fn shared_text_value<'a>(a: &'a ParamMap, b: &ParamMap) -> Option<&'a str> {
     a.values().find_map(|v| match v {
@@ -201,6 +222,12 @@ impl SessionManager {
 
     pub fn drivers(&self) -> Vec<DriverInfo> {
         self.registry.infos()
+    }
+
+    /// Available drivers that report hot-plug events. Each is watched on its own thread by the
+    /// auto-connect policy; see [`SourceDriver::watch`](crate::sources::SourceDriver::watch).
+    pub fn watchable_drivers(&self) -> Vec<Arc<dyn crate::sources::SourceDriver>> {
+        self.registry.watchable()
     }
 
     pub fn discover(&self, driver_id: &str) -> Result<Vec<DeviceDescriptor>, SessionError> {
@@ -353,25 +380,83 @@ impl SessionManager {
         &self,
         config: SourceConfig,
     ) -> Result<SessionStatus, SessionError> {
-        match self.connect(config.clone()) {
-            Err(SessionError::Source(e))
-                if e.kind() == SourceErrorKind::InvalidSettings && !config.settings.is_empty() =>
-            {
-                tracing::warn!("stored settings rejected; retrying with defaults");
-                self.connect(SourceConfig {
-                    settings: SettingsPatch::default(),
-                    ..config
-                })
-            }
-            other => other,
-        }
+        retry_with_defaults(config, |config| self.connect(config))
+    }
+
+    /// Like [`connect_with_default_fallback`](Self::connect_with_default_fallback), but only when
+    /// no source is connected. Returns `Ok(None)` without touching the session otherwise (see
+    /// [`connect_if_idle`](Self::connect_if_idle)).
+    pub fn connect_if_idle_with_default_fallback(
+        &self,
+        config: SourceConfig,
+    ) -> Result<Option<SessionStatus>, SessionError> {
+        // Each attempt goes through `connect_if_idle`, which re-checks the guard under the worker
+        // lock. The retry with defaults therefore never replaces a source connected in between.
+        retry_with_defaults(config, |config| self.connect_if_idle(config))
     }
 
     /// Disconnects any current source, then opens `config`. Blocks until the source is open.
     pub fn connect(&self, config: SourceConfig) -> Result<SessionStatus, SessionError> {
         let mut worker = lock(&self.worker);
         self.shutdown_worker(&mut worker);
+        self.open_locked(&mut worker, config)
+    }
 
+    /// Opens `config` only when no source is connected or connecting, and returns `Ok(None)`
+    /// otherwise, leaving the current source alone. The check and the open happen under the worker
+    /// lock, so a manual connect can never be replaced by an automatic one racing it.
+    pub fn connect_if_idle(
+        &self,
+        config: SourceConfig,
+    ) -> Result<Option<SessionStatus>, SessionError> {
+        let mut worker = lock(&self.worker);
+        if worker
+            .as_ref()
+            .is_some_and(|handle| !handle.thread.is_finished())
+        {
+            return Ok(None);
+        }
+        // Reaps a worker that ended by itself (device lost); a no-op when there is none.
+        self.shutdown_worker(&mut worker);
+        self.open_locked(&mut worker, config).map(Some)
+    }
+
+    /// Reports that the device at `location` (of driver `driver_id`) is gone. When the active
+    /// source is that device, it is closed and the session reports `DeviceLost`; this covers a
+    /// paused source, which does not read and would otherwise never notice. Returns whether the
+    /// active source was closed.
+    pub fn device_removed(&self, driver_id: &str, location: &str) -> bool {
+        let mut worker = lock(&self.worker);
+        let status = self.status();
+        let Some(active) = status.source.as_ref() else {
+            return false;
+        };
+        let is_it = active.config.driver_id == driver_id
+            && active
+                .config
+                .connection
+                .values()
+                .any(|v| matches!(v, ParamValue::Text(t) if t == location));
+        if !is_it {
+            return false;
+        }
+        let label = active.device_label.clone();
+        self.shutdown_worker(&mut worker);
+        self.shared.update(|s| {
+            s.last_notice = Some(notice(
+                NoticeKind::DeviceLost,
+                format!("{label} was unplugged."),
+            ));
+        });
+        true
+    }
+
+    /// Opens `config` into the (empty) worker slot. Callers hold the worker lock.
+    fn open_locked(
+        &self,
+        worker: &mut Option<WorkerHandle>,
+        config: SourceConfig,
+    ) -> Result<SessionStatus, SessionError> {
         let driver = self.registry.get(&config.driver_id)?;
         let info = driver.info();
         if info.status != DriverStatus::Available {

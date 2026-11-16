@@ -25,9 +25,12 @@ running application.
 | — | Reliable SA430 connect after plug-in: 200 ms settle after opening the port, bounded handshake retry (4 attempts, 6 s deadline), ADR 0012; settle and timeout from `sa430` 0.2.1, no direct `serialport` dependency | Done | Driver unit + session tests (scripted link), ignored hardware tests (10 cycles, reboot-then-connect, sweeps), real-app QA 10/10 + human replug on 2026-11-09 |
 | — | `.deb` and AppImage packages | Done | `npm run tauri build` |
 | 006 | Single-shot and continuous capture modes: one capture control with a mode menu, single capture stops by itself after one sweep, mode remembered, SIMULATED badge removed | Done (accepted 2026-11-10) | Rust session/store tests, Vitest capture control and toolbar tests, E2E `acquisition`, `persistence`, `sa430` (real SA430, 6/6 with `SPECTRUM_E2E_SA430=1`); E2E `visual` and `source-row` have 5 failing checks that fail the same way on HEAD (see Known limitations) |
+| 007 | Auto-connect: connect the first device found at launch and when an SA430 is plugged in while nothing is connected (connect only, paused, never replaces a source, no retry loop; ADR 0014) | Done (accepted 2026-11-16) | Rust core tests (`autoconnect.rs`, session guards), SA430 driver and session tests with scripted watch events, `tests/hardware.rs` reboot cycles; manual on a real SA430 2026-11-16: launch auto-connect (paused, toolbar shows device, screenshot), 3 reboot cycles with relaunch auto-connect; QA re-enumeration while idle, failed launch, manual disconnect, simulator never replaced; human physical unplug/replug (paused and acquiring) 2026-11-16; E2E `sa430` (launch auto-connect, manual disconnect stays down) passed with a real SA430 |
 
 ## Known limitations
 
+- Open (007): e2e no-hardware launch branches written but not yet run without an SA430 attached; two devices at launch untested.
+- Open (007): the detached watcher thread cannot be woken; `sa430::Monitor::run` has no stop handle, so it ends with the process (ADR 0014).
 - The only real hardware integration is the TI SA430; SoapySDR, rtl_tcp, SCPI-over-LAN and tinySA
   are listed as planned.
 - Planned drivers (SoapySDR, rtl_tcp, SCPI-over-LAN, tinySA) are hidden in the UI, not listed as unavailable; they are still tracked here and registered as `Planned`.

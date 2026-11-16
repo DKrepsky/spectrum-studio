@@ -15,10 +15,12 @@ import {
   sourceButtonText,
   textOf,
   waitForAppReady,
+  waitForLaunchSettled,
   waitForState,
 } from './helpers';
 
-// Seeded sources (e2e/fixtures/seed/edit-source/sources.json): two simulator presets.
+// Seeded sources (e2e/fixtures/seed/edit-source/sources.json): two simulator presets. With an
+// analyzer attached, the launch auto-connect (ADR 0014) connects it first; each test starts disconnected.
 const SIM = 'source-entry-edit-sim';
 const SPARE = 'source-entry-edit-spare';
 
@@ -29,6 +31,8 @@ async function saveDialog() {
 
 describe('Edit source', () => {
   it('renames through the pencil button, and the new name survives a restart', async () => {
+    await waitForLaunchSettled();
+    await ensureDisconnected();
     await openEditDialog(SIM);
     await expect($('.source-dialog h2')).toHaveText('Edit source');
     await expect(await byTestId('add-source-name')).toHaveValue('Bench simulator');

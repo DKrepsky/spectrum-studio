@@ -13,15 +13,20 @@ import {
   setInput,
   sourceButtonText,
   statusBarText,
+  waitForLaunchSettled,
   waitForState,
 } from './helpers';
 
 describe('Simulator acquisition workflow', () => {
   it('starts disconnected with no data shown as live', async () => {
+    // An attached analyzer connects by itself at launch (ADR 0014); this spec then releases it.
+    await waitForLaunchSettled();
+    const autoConnected = (await sessionState()) === 'Connected';
+    await ensureDisconnected();
     expect(await sessionState()).toBe('Disconnected');
     expect(await livenessKind()).toBe('noSource');
-    // First run: nothing remembered, so the button invites a choice and Run has nothing to run.
-    expect(await sourceButtonText()).toContain('Choose a source');
+    // First run (no analyzer attached): nothing remembered, so the button invites a choice.
+    if (!autoConnected) expect(await sourceButtonText()).toContain('Choose a source');
     await expect(await byTestId('acquire-button')).toBeDisabled();
     await expect(await byTestId('capture-mode-button')).toBeDisabled();
     await expect(await byTestId('connect-button')).not.toBeExisting();

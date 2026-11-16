@@ -9,3 +9,4 @@
 - [Hardware bugfix flow](feedback-hardware-bugfix.md) — device bugs (004): root cause on real device first, QA simulates, human physical test + accept
 - [sa430 lib work](project-sa430-lib-followup.md) — 0.2.1 adopted (005); lib PR #74 macOS runner open; lib repo workflow rules
 - [Capture modes 006](project-capture-modes.md) — colour semantics teal/purple/red, minimal copy, SIMULATED badge removed
+- [Auto-connect 007](project-auto-connect.md) — connect-only, first device, sa430 udev watcher; e2e must be updated when launch state changes

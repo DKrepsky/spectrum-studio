@@ -5,6 +5,7 @@
 //! span map onto a sweep window that must lie inside one band; see `docs/sources.md`.
 
 use std::io::{self, Read, Write};
+use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -22,7 +23,7 @@ use spectrum_core::model::{
     SourceConfig, SourceKind, SourceSettings, Transport,
 };
 use spectrum_core::sources::{
-    OpenedSource, Source, SourceData, SourceDriver, SourceError, TraceBlock,
+    DeviceEvent, OpenedSource, Source, SourceData, SourceDriver, SourceError, TraceBlock,
 };
 
 pub const DRIVER_ID: &str = "sa430";
@@ -51,6 +52,9 @@ pub trait Sa430Backend: Send + Sync {
         deadline: Instant,
         sweeping: Arc<AtomicBool>,
     ) -> Result<Sa430, sa430::Error>;
+    /// Blocks, passing each hot-plug event to `handler`, until the handler breaks or the watcher
+    /// fails. Opens no device.
+    fn watch(&self, handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error>;
 }
 
 /// How hard `Sa430Driver::open` tries to identify the analyzer after its port appears.
@@ -118,6 +122,11 @@ impl Sa430Backend for SerialBackend {
             sweeping,
         };
         Ok(Sa430::new(Box::new(link)))
+    }
+
+    fn watch(&self, handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
+        // udev netlink on Linux; the monitor is not interrupted, so the caller detaches the thread.
+        sa430::create_monitor()?.run(handler)
     }
 }
 
@@ -378,6 +387,18 @@ impl SourceDriver for Sa430Driver {
             .collect())
     }
 
+    fn supports_watch(&self) -> bool {
+        true
+    }
+
+    fn watch(
+        &self,
+        on_event: &mut dyn FnMut(DeviceEvent) -> ControlFlow<()>,
+    ) -> Result<(), SourceError> {
+        let mut handler = |event: &sa430::Event| on_event(device_event(event));
+        self.backend.watch(&mut handler).map_err(watch_error)
+    }
+
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError> {
         let connection = resolve_params(&connection_params(), &config.connection)
             .map_err(SourceError::invalid_settings)?;
@@ -549,6 +570,27 @@ fn open_error(port: &str, error: sa430::Error) -> SourceError {
     };
     let message = format!("Could not open {port}: {error}.{hint}");
     SourceError::unavailable(message).with_cause(error)
+}
+
+/// Maps a hot-plug event to the generic event. The location is the port name, the same text
+/// discovery reports, so the core can match it to a device.
+fn device_event(event: &sa430::Event) -> DeviceEvent {
+    match event {
+        sa430::Event::DeviceAdded(port) => DeviceEvent::Added {
+            location: Some(port.name().to_string()),
+        },
+        sa430::Event::DeviceRemoved(port) => DeviceEvent::Removed {
+            location: Some(port.name().to_string()),
+        },
+    }
+}
+
+fn watch_error(error: sa430::Error) -> SourceError {
+    SourceError::unavailable(format!(
+        "SA430 analyzers plugged in later will not be connected automatically ({error}). \
+         Connect the analyzer from the source menu instead."
+    ))
+    .with_cause(error)
 }
 
 fn handshake_error(port: &str, error: sa430::Error) -> SourceError {
@@ -725,6 +767,111 @@ mod tests {
         assert!(io_error(bad).kind() == SourceErrorKind::Io);
     }
 
+    // ---- hot-plug watching ----
+
+    /// Replays scripted events to the handler, as the monitor would, then returns (or fails).
+    struct Replay {
+        events: Vec<sa430::Event>,
+        fails: bool,
+    }
+
+    impl Sa430Backend for Replay {
+        fn scan(&self) -> Result<Vec<Port>, sa430::Error> {
+            Ok(Vec::new())
+        }
+
+        fn open(
+            &self,
+            _port_name: &str,
+            _policy: &ConnectPolicy,
+            _deadline: Instant,
+            _sweeping: Arc<AtomicBool>,
+        ) -> Result<Sa430, sa430::Error> {
+            Err(sa430::Error::Io(io::Error::from(io::ErrorKind::NotFound)))
+        }
+
+        fn watch(&self, handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
+            if self.fails {
+                return Err(sa430::Error::Io(io::Error::other("no udev")));
+            }
+            for event in &self.events {
+                if handler.handle(event).is_break() {
+                    break;
+                }
+            }
+            Ok(())
+        }
+    }
+
+    /// Runs the watch, recording what the driver reports; stops after `stop_after` events.
+    fn watch_with(
+        events: Vec<sa430::Event>,
+        fails: bool,
+        stop_after: Option<usize>,
+    ) -> (Result<(), SourceError>, Vec<DeviceEvent>) {
+        let driver = Sa430Driver::with_backend(Arc::new(Replay { events, fails }));
+        let mut seen = Vec::new();
+        let result = driver.watch(&mut |event: DeviceEvent| {
+            seen.push(event);
+            if stop_after == Some(seen.len()) {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        });
+        (result, seen)
+    }
+
+    #[test]
+    fn plug_events_carry_the_port_name_as_location_in_order() {
+        let events = vec![
+            sa430::Event::DeviceAdded(port("/dev/ttyACM0", Some(SN))),
+            sa430::Event::DeviceRemoved(port("/dev/ttyACM1", None)),
+        ];
+        let (result, seen) = watch_with(events, false, None);
+        assert!(result.is_ok());
+        assert_eq!(
+            seen,
+            vec![
+                DeviceEvent::Added {
+                    location: Some("/dev/ttyACM0".into())
+                },
+                DeviceEvent::Removed {
+                    location: Some("/dev/ttyACM1".into())
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn breaking_the_handler_stops_the_watch() {
+        let events = vec![
+            sa430::Event::DeviceAdded(port("/dev/ttyACM0", None)),
+            sa430::Event::DeviceAdded(port("/dev/ttyACM1", None)),
+            sa430::Event::DeviceRemoved(port("/dev/ttyACM1", None)),
+        ];
+        let (result, seen) = watch_with(events, false, Some(1));
+        assert!(result.is_ok());
+        assert_eq!(seen.len(), 1, "no event after Break is delivered");
+    }
+
+    #[test]
+    fn a_failing_watcher_is_unavailable_with_its_cause_and_a_clear_message() {
+        let (result, seen) = watch_with(vec![], true, None);
+        let error = result.unwrap_err();
+        assert_eq!(error.kind(), SourceErrorKind::Unavailable);
+        assert!(error.message().contains("not be connected automatically"));
+        assert!(error.message().contains("source menu"));
+        assert!(std::error::Error::source(&error).is_some());
+        assert!(seen.is_empty());
+    }
+
+    #[test]
+    fn the_sa430_driver_supports_watching() {
+        let (d, _) = Scripted::driver(vec![]);
+        assert!(d.supports_watch());
+    }
+
     // ---- device identity ----
 
     use sa430::test_utils::{MockChannel, add_calibration_responses, an_error_response};
@@ -772,6 +919,10 @@ mod tests {
             let mut channel = MockChannel::new();
             add_calibration_responses(&mut channel);
             Ok(Sa430::new(Box::new(channel)))
+        }
+
+        fn watch(&self, _handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
+            Ok(())
         }
     }
 
@@ -1056,6 +1207,10 @@ mod tests {
                     "no more scripted devices",
                 )))
             })
+        }
+
+        fn watch(&self, _handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
+            Ok(())
         }
     }
 

@@ -4,6 +4,7 @@ import {
   sessionState,
   byTestId,
   closeSourceMenu,
+  ensureDisconnected,
   entryByName,
   fillDialog,
   openAddSourceDialog,
@@ -15,11 +16,14 @@ import {
   sourceRow,
   testResultText,
   textOf,
+  waitForLaunchSettled,
   waitForState,
   failureBanner,
 } from './helpers';
 
-// No seed: this is the first launch (nothing remembered). The untestable port is a path that
+// No seed: this is the first launch (nothing remembered). An attached analyzer is connected and
+// remembered by the launch auto-connect (ADR 0014), so the hardware block below forgets it first.
+// The untestable port is a path that
 // is not a serial device, so the backend's own failure text is shown and nothing is connected.
 const BAD_PORT = '/dev/spectrum-e2e-no-such-port';
 
@@ -27,6 +31,10 @@ const describeHardware = process.env.SPECTRUM_E2E_SA430 === '1' ? describe : des
 
 describe('Add source', () => {
   it('first launch: the menu offers the simulator and Add source, no scan button', async () => {
+    // With an analyzer attached it connected by itself at launch; release it so the menu is checked
+    // in the disconnected state. The state is Disconnected from here on for the rest of the spec.
+    await waitForLaunchSettled();
+    await ensureDisconnected();
     expect(await sessionState()).toBe('Disconnected');
     await openSourceMenu();
     await expect(await byTestId('source-simulator')).toBeDisplayed();
@@ -131,7 +139,17 @@ async function rowId(row: WebdriverIO.Element): Promise<string> {
 
 describeHardware('Add source with the real SA430', () => {
   it('saving the detected port WITHOUT Test still leaves ONE row for the device (R2-1)', async () => {
+    // The launch auto-connect remembered the attached device. Forget that row to get back to the
+    // detected, not yet remembered state this test is about (the device is released first).
+    await ensureDisconnected();
     await openSourceMenu();
+    const remembered = await $('[data-testid^="source-entry-"][data-label*="SA430"]');
+    if (await remembered.isExisting()) {
+      const id = (await remembered.getAttribute('data-testid'))!.replace('source-entry-', '');
+      await revealRowActions(`source-entry-${id}`);
+      await (await sourceRow(id)).$('[data-testid="source-forget"]').click();
+      await expect(await byTestId('source-forgot-toast')).toBeDisplayed();
+    }
     await $('[data-testid^="source-detected-sa430-"]').waitForExist({
       timeoutMsg: 'the SA430 was not detected',
     });

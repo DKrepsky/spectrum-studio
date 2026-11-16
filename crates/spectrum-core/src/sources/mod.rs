@@ -9,6 +9,8 @@ pub mod planned;
 pub mod registry;
 pub mod simulator;
 
+use std::ops::ControlFlow;
+
 use rustfft::num_complex::Complex32;
 use thiserror::Error;
 
@@ -138,12 +140,38 @@ pub trait SourceDriver: Send + Sync {
     /// `info().connection_params` by the caller.
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError>;
 
+    /// Whether [`SourceDriver::watch`] can report devices being plugged in and out.
+    fn supports_watch(&self) -> bool {
+        false
+    }
+
+    /// Blocks and calls `on_event` for each hot-plug event until `on_event` returns `Break` or the
+    /// watcher fails. Only called when [`SourceDriver::supports_watch`] is true. Never opens a
+    /// device.
+    fn watch(
+        &self,
+        _on_event: &mut dyn FnMut(DeviceEvent) -> ControlFlow<()>,
+    ) -> Result<(), SourceError> {
+        Err(SourceError::unsupported(
+            "This source type cannot watch for devices.",
+        ))
+    }
+
     /// Called only by the store migration with the stored id (if any) and the automatic label.
     /// Returns the new stable id, or `None` to leave the entry as it is. May enumerate devices,
     /// never opens them.
     fn normalize_device_id(&self, _device_id: Option<&str>, _label: &str) -> Option<String> {
         None
     }
+}
+
+/// A hot-plug event reported by a driver's watcher. `location` is the same transport address as
+/// [`DeviceDescriptor::location`]; the event itself carries no identity, so the caller resolves it
+/// with [`SourceDriver::discover`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DeviceEvent {
+    Added { location: Option<String> },
+    Removed { location: Option<String> },
 }
 
 pub struct OpenedSource {

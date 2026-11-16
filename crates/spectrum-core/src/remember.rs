@@ -4,8 +4,8 @@
 //! be written (disk full, read-only directory, entry cap); the problem is logged.
 
 use crate::model::{
-    DriverInfo, DriverStatus, ParamMap, ParamValue, SessionState, SessionStatus, SourceConfig,
-    SourceUpdate,
+    DeviceDescriptor, DriverInfo, DriverStatus, ParamMap, ParamValue, SessionState, SessionStatus,
+    SourceConfig, SourceUpdate,
 };
 use crate::session::{SessionError, SessionManager};
 use crate::store::{ConfigStore, SavedSource, same_identity};
@@ -28,6 +28,37 @@ pub fn connect_remembered(
     let status = session.connect_with_default_fallback(config)?;
     remember(session, store, Some(id), &status);
     Ok(status)
+}
+
+/// Connects a device the application found by itself (at launch or when it was plugged in), but
+/// only when no source is connected or connecting; returns `Ok(None)` otherwise.
+///
+/// The config is the remembered entry with the same identity, so its stored settings apply as they
+/// do after a manual pick, or else a fresh config for the device. On success the connection is
+/// remembered exactly as a manual connect is (ADR 0009); a failed attempt remembers nothing.
+pub fn auto_connect(
+    session: &SessionManager,
+    store: &ConfigStore,
+    device: &DeviceDescriptor,
+) -> Result<Option<SessionStatus>, SessionError> {
+    let wanted = SourceConfig {
+        device_id: Some(device.device_id.clone()),
+        ..SourceConfig::new(&device.driver_id)
+    };
+    let remembered = store
+        .sources_all()
+        .into_iter()
+        .filter(|s| same_identity(&s.config, &wanted))
+        .max_by(|a, b| a.last_used_ms.total_cmp(&b.last_used_ms));
+    let (id, config) = match remembered {
+        Some(saved) => (Some(saved.id), saved.config),
+        None => (None, wanted),
+    };
+    let Some(status) = session.connect_if_idle_with_default_fallback(config)? else {
+        return Ok(None);
+    };
+    remember(session, store, id.as_deref(), &status);
+    Ok(Some(status))
 }
 
 /// Connects an ad hoc configuration and, on success only, remembers it (touching the existing

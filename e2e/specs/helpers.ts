@@ -137,17 +137,18 @@ export async function frameSeq(): Promise<number | null> {
  * "Signal simulator" row, so either is accepted.
  */
 export async function runSimulator() {
-  if ((await sessionState()) === 'Disconnected') {
-    await openSourceMenu();
-    const fixed = await byTestId('source-simulator');
-    if (await fixed.isExisting()) {
-      await fixed.click();
-    } else {
-      const own = await $('[data-testid^="source-entry-"][data-label*="imulator"]');
-      await own.click();
-    }
-    await waitForState('Connected');
+  // An attached analyzer may have connected at launch (ADR 0014): release it before picking the
+  // simulator, or Play would acquire from the wrong source.
+  await ensureDisconnected();
+  await openSourceMenu();
+  const fixed = await byTestId('source-simulator');
+  if (await fixed.isExisting()) {
+    await fixed.click();
+  } else {
+    const own = await $('[data-testid^="source-entry-"][data-label*="imulator"]');
+    await own.click();
   }
+  await waitForState('Connected');
   await (await byTestId('acquire-button')).click();
   await waitForState('Acquiring');
   await browser.waitUntil(async () => (await livenessKind()) === 'live', {
@@ -155,8 +156,23 @@ export async function runSimulator() {
   });
 }
 
-/** Returns to a disconnected state, whatever the current state is. */
+/**
+ * Waits until a launch auto-connect (ADR 0014) has finished: with an analyzer attached the app
+ * connects by itself at start, and `Connecting…` must not be acted on.
+ */
+export async function waitForLaunchSettled() {
+  await browser.waitUntil(
+    async () => !['Connecting…', 'Disconnecting…'].includes(await sessionState()),
+    { timeout: 20_000, timeoutMsg: 'the source stayed in a transition state' },
+  );
+}
+
+/**
+ * Returns to a disconnected state, whatever the current state is. With an analyzer attached the
+ * app may have connected it by itself at launch, so this is also how a spec starts from nothing.
+ */
 export async function ensureDisconnected() {
+  await waitForLaunchSettled();
   if ((await sessionState()) !== 'Disconnected') {
     await openSourceMenu();
     await (await byTestId('source-disconnect')).click();
@@ -181,6 +197,7 @@ export async function waitForAppReady() {
     timeoutMsg: 'the application did not finish loading',
   });
   await browser.waitUntil(async () => (await sourceButtonText()).length > 0);
+  await waitForLaunchSettled();
 }
 
 // ---- Add / Edit source dialog -----------------------------------------------------------------

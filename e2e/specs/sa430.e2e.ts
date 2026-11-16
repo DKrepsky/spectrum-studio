@@ -20,6 +20,7 @@ import {
   statusBarText,
   textOf,
   waitForAppReady,
+  waitForLaunchSettled,
   waitForState,
 } from './helpers';
 
@@ -30,25 +31,39 @@ import {
 const describeHardware = process.env.SPECTRUM_E2E_SA430 === '1' ? describe : describe.skip;
 
 describeHardware('TI SA430 (real hardware)', () => {
-  it('detects the analyzer in the open menu without any scan button', async () => {
+  it('connects by itself at launch, paused: Play is not pressed and one row is remembered', async () => {
+    // This spec file starts with nothing remembered, so the launch auto-connect (ADR 0014) takes the
+    // attached analyzer: connected, remembered, paused. No detected entry is left over.
+    await waitForLaunchSettled();
+    await waitForState('Connected', 20_000);
+    expect(await acquireState()).toBe('idle');
+    expect(await livenessKind()).not.toBe('live');
     await openSourceMenu();
-    const device = await $('[data-testid^="source-detected-sa430-"]');
-    await device.waitForExist({ timeoutMsg: 'no SA430 was detected' });
-    expect(await textOf(device)).toMatch(/SA430/);
+    const rows = await $$('[data-testid^="source-entry-"][data-label*="SA430"]');
+    expect(rows).toHaveLength(1);
+    expect(await textOf(rows[0]!)).toMatch(/Connected/);
+    await expect(await $('[data-testid^="source-detected-sa430-"]')).not.toBeExisting();
     expect(await textOf(byTestId('source-menu'))).not.toMatch(/scan\b(?!ning)/i);
     await closeSourceMenu();
   });
 
-  it('adds it through Add source… with the real port: Test connection, then Save', async () => {
+  it('adds it through Add source… with the real port: Test connection, then the second row is refused', async () => {
+    // The launch connected the device, and a connected device cannot be tested: disconnect first.
+    await ensureDisconnected();
     await openAddSourceDialog();
     await fillDialog({ name: 'E2E SA430', port: '/dev/ttyACM0' });
     const text = await runTestConnection();
     expect(text).toContain('Connection OK');
     expect(text).toMatch(/Serial number [0-9A-F]{8,}/);
-    await (await byTestId('add-source-save')).click();
+    // The device is already remembered: the dialog says so and Save is refused.
+    await expect(await $('.source-dialog .dlg-note.warn')).toHaveText(
+      expect.stringContaining('already in Your sources'),
+    );
+    await expect(await byTestId('add-source-save')).toBeDisabled();
+    await (await byTestId('add-source-cancel')).click();
     await byTestId('add-source-dialog').waitForExist({ reverse: true });
-    // Remembered and detected are the same device: one row, no separate detected entry.
-    expect(await $$('[data-testid^="source-entry-"]')).toHaveLength(1);
+    await openSourceMenu();
+    expect(await $$('[data-testid^="source-entry-"][data-label*="SA430"]')).toHaveLength(1);
     await expect(await $('[data-testid^="source-detected-sa430-"]')).not.toBeExisting();
     await closeSourceMenu();
   });
@@ -75,6 +90,8 @@ describeHardware('TI SA430 (real hardware)', () => {
   });
 
   it('connects the remembered row and shows live calibrated dBm sweeps', async () => {
+    // After the restart above the launch auto-connect has the device: release it, then connect by hand.
+    await ensureDisconnected();
     await openSourceMenu();
     const device = await $('[data-testid^="source-entry-"]');
     await device.waitForExist({ timeoutMsg: 'the remembered SA430 row is missing' });
@@ -98,10 +115,7 @@ describeHardware('TI SA430 (real hardware)', () => {
   it('restores the retuned centre frequency after a restart', async () => {
     await browser.reloadSession();
     await waitForAppReady();
-    // The app never connects by itself, and Play is disabled until a source is connected.
-    await openSourceMenu();
-    const id = (await (await $('[data-testid^="source-entry-"]')).getAttribute('data-testid'))!;
-    await selectSource(id);
+    // The launch auto-connect connects the remembered device with its stored settings (paused).
     await waitForState('Connected', 20_000);
     await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring', 20_000);
@@ -110,6 +124,14 @@ describeHardware('TI SA430 (real hardware)', () => {
     });
     await ensureDisconnected();
   });
+
+  it('stays disconnected after a manual disconnect: no auto-reconnect without a plug-in', async () => {
+    await ensureDisconnected();
+    await browser.pause(4000);
+    expect(await sessionState()).toBe('Disconnected');
+    expect(await acquireState()).toBe('idle');
+  });
+
   it('captures one real sweep in Single mode and stops by itself', async () => {
     await openSourceMenu();
     const id = (await (await $('[data-testid^="source-entry-"]')).getAttribute('data-testid'))!;

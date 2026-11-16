@@ -37,6 +37,13 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 | `src-tauri` | Translate IPC ⇄ core API; choose persistence paths. | Contain domain logic. |
 | `src/` (UI) | Present state, collect user intent, draw plots. | Compute spectra or assume backend state. |
 
+**Auto-connect** runs beside the session, not inside it. `autoconnect.rs` holds the rules (launch
+connect, connect on plug-in, disconnect on unplug) and is driven by one coordinator thread that
+serialises decisions. Each driver that can watch for hot-plug events gets its own watcher thread,
+which only forwards events. Device specifics stay in the driver's `watch` (see
+[sources](sources.md)). The session guards `connect_if_idle` and `device_removed` make a racing
+manual pick win, and the app shell starts and shuts it down.
+
 ## Data flow during acquisition
 
 1. The UI calls `connect_remembered(id)` (a source from the menu's *Your sources*) or

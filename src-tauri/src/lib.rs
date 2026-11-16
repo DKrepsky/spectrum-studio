@@ -6,8 +6,9 @@ mod error;
 mod sink;
 mod state;
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
+use spectrum_core::autoconnect::AutoConnect;
 use spectrum_core::store::ConfigStore;
 use spectrum_core::{DriverRegistry, SessionManager};
 use spectrum_driver_sa430::Sa430Driver;
@@ -50,10 +51,22 @@ pub fn run() {
                 preferences.processing,
             )
             .with_capture_mode(preferences.capture_mode);
+            let session = Arc::new(session);
+            let store = Arc::new(store);
             app.manage(AppState {
-                session: Arc::new(session),
-                store: Arc::new(store),
+                session: session.clone(),
+                store: store.clone(),
+                auto_connect: OnceLock::new(),
             });
+            let auto_connect = AutoConnect::start(session, store);
+            if app
+                .state::<AppState>()
+                .auto_connect
+                .set(auto_connect)
+                .is_err()
+            {
+                unreachable!("auto-connect is started once, in setup");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -93,8 +106,12 @@ pub fn run() {
     };
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
-            // Stop acquisition and release the device before the process exits.
+            // Stop reacting to device events first, so nothing reconnects while the session is
+            // torn down. Then stop acquisition and release the device before the process exits.
             if let Some(state) = handle.try_state::<AppState>() {
+                if let Some(auto_connect) = state.auto_connect.get() {
+                    auto_connect.shutdown();
+                }
                 state.session.disconnect();
             }
         }

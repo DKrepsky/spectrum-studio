@@ -65,9 +65,10 @@ to inspect files the app wrote read `SPECTRUM_E2E_APP_CONFIG`. Note that WebKitW
 Failed E2E tests save a screenshot to `e2e/logs/` (git-ignored).
 
 Hardware specs: with a TI SA430 on `/dev/ttyACM0` and `SPECTRUM_E2E_SA430=1`, `sa430.e2e.ts`
-(detected without a scan, Add source… with the real port and *Test connection*, rename through
-Edit leaves one row also after a restart, live dBm sweeps, centre restore, one Single capture,
-five immediate Cancel presses with no frame shown), the hardware cases of
+(the launch auto-connect connects it paused and remembers one row, Add source… with the real port
+and *Test connection* with the second row refused, rename through Edit leaves one row also after a
+restart, live dBm sweeps, centre restore, no auto-reconnect after a manual disconnect, one Single
+capture, five immediate Cancel presses with no frame shown), the hardware cases of
 `add-source.e2e.ts` and the *Add dialog OK* screenshot of `visual.e2e.ts` run; without the
 variable they are skipped. The *different device on this port* state needs a second analyzer and
 is reported as skipped, never mocked.
@@ -96,3 +97,37 @@ It fails if the 64 px column or the button's 280 px maximum is reverted (checked
 guard was written). Screenshots of the key states are written to `e2e/logs/visual/<state>-<width>-<data>.png`
 (or the directory in `SPECTRUM_E2E_SHOTS`). The guard supplements looking at them; open the images
 when the UI changes. One known defect is recorded as a skipped test in that file.
+
+### Auto-connect on real hardware (manual QA)
+
+Auto-connect (ADR 0014) is covered in Rust by the core and driver tests with fake drivers and a
+scripted SA430 link. The steps below need a real TI SA430 and cannot run in CI. Run them in an
+isolated configuration so the user's `sources.json` is not changed:
+
+```sh
+mkdir -p "$DIR/cfg" && XDG_CONFIG_HOME="$DIR/cfg" RUST_LOG=spectrum_core=debug,spectrum_driver_sa430=debug,info npm run tauri dev
+```
+
+Log lines to look for (stderr): `auto-connected`, `source connected`, `source disconnected`,
+`auto-connect failed`, `device watching is unavailable`. Record each result with the time and the
+log excerpt in the work item's `dev-T3.md` (or the QA report).
+
+1. **Launch with the device attached**, nothing selected: the source button shows the SA430 serial,
+   the status is Stopped (paused), and Play is not pressed. No notice.
+2. **Unplug while paused**: a `DeviceLost` notice "SA430 … was unplugged." appears and the source
+   button shows no connection promptly (within a few seconds). No crash, no hang.
+3. **Plug back in while nothing is connected**: the device connects by itself, paused, within a few
+   seconds. The notice stays until dismissed or the next status change, as for any notice.
+4. **Unplug while acquiring** (Play pressed): the trace stops with the same notice; replug connects
+   paused (acquisition is not restarted).
+5. **Re-enumeration**: `Sa430::reboot()` (the `reboot_then_connect_*` tests in
+   `crates/spectrum-driver-sa430/tests/hardware.rs`, run while the app is closed because the app holds
+   the port exclusively) three times; after each, the app launched again connects by itself.
+6. **Simulator connected, then plug-in**: select the simulator, then plug the SA430 in. The
+   simulator stays connected; nothing changes.
+7. **Manual disconnect**: disconnect from the source menu with the device attached. It stays
+   disconnected (no reconnect on its own) until the device is plugged in again or the app restarts.
+8. **Failed attempt** (optional): with the port held by another program, plug in. One
+   `ConnectFailed` notice, no repeated attempts; the next plug-in tries again.
+
+Quit with the window close button: the log must show `source disconnected` and no device error.

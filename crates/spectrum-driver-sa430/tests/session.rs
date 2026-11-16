@@ -100,6 +100,10 @@ impl Sa430Backend for ScriptedBackend {
             unplugged: self.unplugged.clone(),
         })))
     }
+
+    fn watch(&self, _handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
+        Ok(())
+    }
 }
 
 /// A link that answers the calibration and then `sweeps` complete sweeps.

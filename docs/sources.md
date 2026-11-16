@@ -8,6 +8,8 @@ Code: `crates/spectrum-core/src/sources/`. Decision record: [ADR 0004](adr/0004-
 trait SourceDriver: Send + Sync {          // one per integration type
     fn info(&self) -> DriverInfo;           // name, kind, transport, status, connection params
     fn discover(&self) -> Result<Vec<DeviceDescriptor>, SourceError>;   // optional, enumerates only
+    fn supports_watch(&self) -> bool;        // optional, default false
+    fn watch(&self, on_event: &mut dyn FnMut(DeviceEvent) -> ControlFlow<()>) -> Result<(), SourceError>;
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError>;
     fn normalize_device_id(&self, id: Option<&str>, label: &str) -> Option<String>; // migration
 }
@@ -37,6 +39,11 @@ enum SourceData { Iq(IqBlock), Trace(TraceBlock) }
   without opening set `supports_discovery: false`. `discover_all` runs every available driver
   with discovery (not `internal`) one at a time; a failing driver is reported in its
   `error` and does not hide the others.
+- **Watching** (`supports_watch`, `watch`) is optional. A watching driver blocks in `watch` and
+  calls back with `DeviceEvent::Added` or `Removed`, each with the device's `location` (the same
+  text as `DeviceDescriptor.location`). The event carries no identity: the core resolves it with an
+  enumerate-only `discover`. `watch` never opens a device. Returning an error, or `Break` from the
+  callback, ends the watch. Auto-connect is the only consumer ([ADR 0014](adr/0014-auto-connect-and-device-watch.md)).
 - **ParamSpec** describes device-specific settings (number with range/unit, choice, bool, text).
   The UI renders forms from them; the core validates submitted values against them
   (`model/params.rs`), so drivers receive only valid, complete parameter maps.
@@ -117,6 +124,16 @@ Disconnected ──connect──► Connecting ──ok──► Connected ─�
 Connecting always stops and joins the previous worker first. Settings and processing changes are
 queued to the worker and applied between reads.
 
+**Auto-connect** (`autoconnect.rs`, [ADR 0014](adr/0014-auto-connect-and-device-watch.md)). At
+launch the first discovered device is connected, paused, when nothing is connected. A device reported
+by a watching driver is connected when nothing is connected at that moment. The simulator is never
+auto-connected. The session guards that make this safe are `connect_if_idle` (never replaces a
+source, checked under the worker lock) and `device_removed` (closes the active source when its device
+is unplugged, also while paused, and reports `DeviceLost`). Auto-connect never starts acquisition and
+never retries on its own: a failed attempt shows the same `ConnectFailed` notice as a manual connect,
+and the next attempt is the next plug-in or launch. A successful one is remembered as a manual
+connect is.
+
 **Capture modes.** *Continuous* acquires until stopped. *Single* publishes exactly one frame and then
 returns the session to `Connected` without a Stop, so the UI learns the end from `SessionStatus`
 ([ADR 0013](adr/0013-capture-modes.md)). For trace sources a sweep is one `read`: the first sweep
@@ -154,6 +171,13 @@ author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmw
   or port uses the first one found. `discover` only enumerates (it never opens the device), so it
   is safe while the analyzer is acquiring. The port name is reported as the device `location`.
   Needs `libudev` at build/run time and membership of the `dialout` group.
+- **Hot-plug ([ADR 0014](adr/0014-auto-connect-and-device-watch.md)):** the driver watches for USB
+  plug and unplug events with the `sa430` monitor (udev netlink on Linux, no extra dependency). An
+  event's location is the port name. The app connects a plugged-in analyzer by itself when nothing
+  is connected and drops it with a "was unplugged" notice when it is removed. Limits: the watcher
+  cannot be woken to stop, so its thread is left to end with the process. Plug events are only
+  reported on Linux, through udev; without udev the watch logs one warning and only launch-time
+  auto-connect works.
 - **Bands:** the instrument measures 300–348, 389–464 and 779–928 MHz; a sweep cannot cross
   bands. Centre and span select the window; if it sticks out of the band it is **shifted** back
   inside (the reported centre is the one actually swept). A centre between bands or a span wider
@@ -174,7 +198,10 @@ author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmw
   with the "did not answer like an SA430" message.
 - **Errors:** open failures explain `dialout`/unplugged causes; a read timeout is recoverable
   (*Restart*); a broken pipe or serial error disconnects the session.
-- **Tests:** `crates/spectrum-driver-sa430/tests/session.rs` runs the session against the library's mock channel (including
+- **Tests:** `crates/spectrum-driver-sa430/tests/autoconnect.rs` runs auto-connect (plug-in connects
+  paused, unplug disconnects with `DeviceLost`, a failed connect is not retried by itself) against a
+  scripted backend that replays plug events. The lib unit tests cover event mapping and watch errors.
+  `crates/spectrum-driver-sa430/tests/session.rs` runs the session against the library's mock channel (including
   a glitched first connect, a device that never answers, silent device and unplugging). The unit
   tests in `src/lib.rs` script the connect attempts. `tests/hardware.rs` needs a real analyzer:
   `SPECTRUM_E2E_SA430=1 cargo test -p spectrum-driver-sa430 --test hardware -- --ignored

@@ -54,6 +54,10 @@ impl Sa430Backend for Counting {
         self.opens.fetch_add(1, Ordering::SeqCst);
         SerialBackend.open(port_name, policy, deadline, sweeping)
     }
+
+    fn watch(&self, handler: &mut dyn sa430::EventHandler) -> Result<(), sa430::Error> {
+        SerialBackend.watch(handler)
+    }
 }
 
 fn first_port() -> String {

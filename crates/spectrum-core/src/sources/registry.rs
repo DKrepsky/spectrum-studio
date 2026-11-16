@@ -43,6 +43,15 @@ impl DriverRegistry {
             .ok_or_else(|| SourceError::unsupported(format!("Unknown source type \"{id}\".")))
     }
 
+    /// Available drivers that can report hot-plug events, in registration order.
+    pub fn watchable(&self) -> Vec<Arc<dyn SourceDriver>> {
+        self.drivers
+            .iter()
+            .filter(|d| d.info().status == DriverStatus::Available && d.supports_watch())
+            .cloned()
+            .collect()
+    }
+
     pub fn discover(&self, id: &str) -> Result<Vec<DeviceDescriptor>, SourceError> {
         let driver = self.get(id)?;
         let info = driver.info();
