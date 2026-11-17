@@ -103,6 +103,18 @@ describe('NoticeBanner', () => {
     expect(screen.queryByTestId('command-error')).not.toBeInTheDocument();
   });
 
+  it('drops a stale connect error once the backend connects on its own', () => {
+    useSession.setState({
+      commandError: 'Could not open /dev/ttyACM0',
+      commandErrorFrom: 'connecting',
+    });
+    useSession.getState().receiveStatus(status({ revision: 1, state: 'connecting' }));
+    useSession.getState().receiveStatus(status({ revision: 2, state: 'connected' }));
+    render(<NoticeBanner />);
+    expect(screen.queryByTestId('command-error')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('session-notice')).not.toBeInTheDocument();
+  });
+
   it('still shows a failed connect that produced no session notice', () => {
     useSession.setState({ commandError: 'Invalid port.', commandErrorFrom: 'connecting' });
     render(<NoticeBanner />);

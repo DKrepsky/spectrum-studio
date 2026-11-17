@@ -81,6 +81,33 @@ describe('source button', () => {
     expect(screen.getByTestId('source-button')).toHaveAttribute('aria-haspopup', 'dialog');
   });
 
+  it('shows Failed only while the backend is disconnected', () => {
+    setup('Bench');
+    act(() => useSources.setState({ failed: 'source-entry-a' }));
+    expect(screen.getByTestId('source-button-status')).toHaveAttribute('data-status', 'failed');
+    expect(screen.getByTestId('source-button')).toHaveAccessibleName('Source: Bench, Disconnected');
+  });
+
+  it('shows the connected dot and label, not Failed, when the backend is connected', () => {
+    setup('Bench');
+    act(() => useSources.setState({ failed: 'source-entry-a' }));
+    act(() =>
+      useSession.setState({
+        status: status({
+          revision: 2,
+          state: 'connected',
+          source: { ...activeSimulator, config: emptyConfig('simulator') },
+        }),
+      }),
+    );
+    const button = screen.getByTestId('source-button');
+    expect(within(button).getByTestId('source-button-status')).toHaveAttribute(
+      'data-status',
+      'connected',
+    );
+    expect(button).toHaveAccessibleName('Source: Bench, Connected');
+  });
+
   it.each([
     ['connecting', 'connecting'],
     ['disconnecting', 'disconnecting'],

@@ -146,6 +146,17 @@ export const useSession = create<SessionStore>()((set, get) => {
           JSON.stringify(previous.source.config) !== JSON.stringify(status.source.config));
       if (switched) frameStore.clear();
       set({ status });
+      // A connect in progress or a live source supersedes the last failure: a Failed marker and the
+      // error of a failed UI connect are stale. Other command errors are not touched.
+      if (
+        status.state === 'connecting' ||
+        status.state === 'connected' ||
+        status.state === 'acquiring'
+      ) {
+        useSources.getState().setFailed(null);
+        if (get().commandErrorFrom === 'connecting')
+          set({ commandError: null, commandErrorFrom: null });
+      }
       // An external reconnect (or a connection we did not start) changes the connected source:
       // follow it. While we are connecting ourselves the target is already the active entry.
       const source = status.source;

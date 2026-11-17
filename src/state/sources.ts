@@ -28,7 +28,11 @@ export interface SourcesStore {
   /** `null` means "Choose a source". */
   active: ActiveEntry | null;
   discovery: DiscoveryState & { error: string | null };
-  /** Row key of the last failed pick; cleared on the next pick or success. */
+  /**
+   * Row key of the last failed pick. Cleared on the next pick, on success, and when the backend
+   * reports connecting, connected or acquiring (`receiveStatus`). Shown only while the backend is
+   * disconnected (`showsFailed`): the backend state wins.
+   */
   failed: string | null;
   /** Entry forgotten in the last 5 s, for the Undo toast. */
   forgotten: SavedSource | null;
