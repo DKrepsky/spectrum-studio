@@ -9,7 +9,7 @@ assignees: ''
 # Description
 
 <!--
-One or two sentences: what happens, and what you expected instead.
+One or two sentences: what happens.
 Mention the source/device involved (simulator, SA430 …) and how often it happens (always, sometimes, once).
 -->
 
@@ -20,6 +20,10 @@ Mention the source/device involved (simulator, SA430 …) and how often it happe
 1.
 2.
 3.
+
+# Expected behavior
+
+<!-- What should have happened instead. If you are not sure, describe what you think would be right and why. -->
 
 # Evidence
 

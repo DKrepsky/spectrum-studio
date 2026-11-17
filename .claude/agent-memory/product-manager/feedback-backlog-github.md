@@ -8,7 +8,7 @@ metadata:
 Rule: there is no roadmap in the repo (docs/roadmap.md was deleted 2026-11-17). All planned work, backlog and bugs are
 GitHub issues in DKrepsky/spectrum-studio, written with the templates in `.github/ISSUE_TEMPLATE/`:
 - user-story.md: # Story (As a / I want to / So I), # Context, # Resources, # Acceptance Criteria (Given/When/Then checkboxes)
-- bug-report.md: # Description (incl. expected), # Steps to reproduce, # Evidence
+- bug-report.md: # Description, # Steps to reproduce, # Expected behavior, # Evidence
 No extra sections. Docs only link to the issues.
 
 **Why:** after I opened 34 terse issues and kept a roadmap section pointing at them, the human said "that went terribly
