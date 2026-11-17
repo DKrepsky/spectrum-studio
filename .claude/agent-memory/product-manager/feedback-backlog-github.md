@@ -16,3 +16,7 @@ wrong": the roadmap must live in GitHub issues and issues must follow their stor
 issues that won't be implemented — don't reopen or recreate those.
 **How to apply:** at the end of a work item, open follow-ups as properly formatted issues (check `gh issue list --state all`
 first, including closed ones); reference issue numbers in outcome.md; never re-add roadmap/backlog lists to docs.
+
+Update 2026-11-17: every feature request or bug report from the human gets its own GitHub issue *before* work starts,
+and issues must be short and concise (one-sentence story, few lines of context, testable criteria, no implementation
+detail). My earlier issue bodies were too verbose. The GitHub issue is the story; work-folder story.md only links it.

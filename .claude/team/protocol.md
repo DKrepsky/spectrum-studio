@@ -32,7 +32,7 @@ put documents in the work folder.
 
 | File | Owner | Contents |
 | --- | --- | --- |
-| `story.md` | PM | User story, acceptance criteria, scope, out-of-scope, status |
+| `story.md` | PM | Link to the GitHub issue (the user story or bug, source of truth), status, team-only notes |
 | `design.md` | designer | Flows, layout, states (empty/loading/error), copy, a11y, open questions |
 | `prototype/` | designer | `index.html`: functional, self-contained clickable prototype with a scenario switcher. Required for major or workflow-changing features; minor tweaks may skip it but `design.md` must say so |
 | `plan.md` | staff-engineer | Approach, modules touched, task list with owners/dependencies, risks, test plan |
@@ -45,12 +45,9 @@ put documents in the work folder.
 
 ```
 # <id> <title>
+Issue: #<n> (GitHub; the story and acceptance criteria live there)
 Status: draft | approved | designing | planning | building | qa | accepted | rejected
-As a <user>, I want <capability>, so that <benefit>.
-## Acceptance criteria
-- [ ] Given … when … then …
-## Out of scope
-## Notes / constraints (units, hardware honesty, data safety — see CLAUDE.md)
+## Notes (team-only: constraints from CLAUDE.md, decisions not worth an issue edit)
 ```
 
 ### Bug template (message body)

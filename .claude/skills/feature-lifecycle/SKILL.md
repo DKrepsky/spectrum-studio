@@ -9,13 +9,15 @@ Use `.claude/team/bin/msg` for all handoffs (`team-messaging` skill). Skip stage
 don't apply (no UI → no design stage; one-line fix → story can be a few lines), but say so.
 
 ## 0. Intake
-- Pick the next work id: `ls .claude/team/work` → `NNN-slug`. Create `story.md` (template in
-  `.claude/team/protocol.md`), status `draft`.
+- Create or update the GitHub issue first (user story or bug template; short and concise). It is
+  the story. Then pick the next work id: `ls .claude/team/work` → `NNN-slug`; `story.md` holds the
+  issue link and status (template in `.claude/team/protocol.md`).
 - Ask the human only what changes the outcome. Check the open GitHub issues (`gh issue list`) and existing code so the
   story reflects reality.
 
 ## 1. Story gate  — human approves
-- Present the story and acceptance criteria concisely; apply feedback; set status `approved`.
+- Present the issue (link + story + acceptance criteria) concisely; apply feedback to the issue; set
+  status `approved`.
 
 ## 2. Design (UI-visible work)
 - `msg post --to designer --type request`; spawn `designer` with the work id.
