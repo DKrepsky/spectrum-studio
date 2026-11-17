@@ -762,6 +762,27 @@ describe('source button and menu', () => {
       });
     });
 
+    it('a row marked failed shows its connected status while the backend is connected', async () => {
+      scan();
+      setup({ list, drivers, activeId: 'p' });
+      act(() => useSources.setState({ failed: 'source-entry-p' }));
+      act(() =>
+        useSession.setState({
+          status: status({
+            revision: 4,
+            state: 'connected',
+            source: { ...activeSimulator, config: present.config },
+          }),
+        }),
+      );
+      await openMenu();
+      expectStructure('source-entry-p', {
+        status: 'connected',
+        badge: 'USB',
+        line2: 'Connected·/dev/ttyACM0',
+      });
+    });
+
     it('keeps the actions in the DOM and the layout classes the same on hover and focus', async () => {
       scan();
       setup({ list, drivers });

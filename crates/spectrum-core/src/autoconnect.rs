@@ -59,10 +59,12 @@ impl Policy {
 
     /// Reacts to a hot-plug event from driver `driver_id`.
     ///
-    /// `Added` connects the device at the reported location, only when nothing is connected; the
-    /// location is resolved with an enumerate-only scan and an event with no location, or no
-    /// matching device, does nothing. `Removed` closes the active source when it is that device.
-    /// Neither retries: a failed attempt waits for the next event.
+    /// `Added` connects the device at the reported location, unless a source is connected or
+    /// acquiring. A connect in flight (`Connecting`, or a manual one that may yet fail) does not
+    /// stop it: the attempt goes through `connect_if_idle`, which waits for that connect and then
+    /// connects only if it failed. The location is resolved with an enumerate-only scan; an event
+    /// with no location, or no matching device, does nothing. `Removed` closes the active source
+    /// when it is that device. Neither retries: a failed attempt waits for the next event.
     pub fn on_event(&self, driver_id: &str, event: &DeviceEvent) {
         if self.is_stopped() {
             return;
@@ -76,7 +78,7 @@ impl Policy {
                     );
                     return;
                 };
-                if !self.is_idle() {
+                if self.has_active_source() {
                     return;
                 }
                 let devices = match self.session.discover(driver_id) {
@@ -117,6 +119,15 @@ impl Policy {
 
     fn is_idle(&self) -> bool {
         self.session.status().state == SessionState::Disconnected
+    }
+
+    /// A source is open. Only then does a plug-in leave the device alone; a connect in flight is
+    /// not a source yet (see `on_event`).
+    fn has_active_source(&self) -> bool {
+        matches!(
+            self.session.status().state,
+            SessionState::Connected | SessionState::Acquiring
+        )
     }
 
     fn connect(&self, device: &DeviceDescriptor) {

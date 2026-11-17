@@ -11,7 +11,7 @@ const entry = savedSource({ id: 'e1' });
 describe('session store', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useSession.setState({ status: null, busy: null, commandError: null });
+    useSession.setState({ status: null, busy: null, commandError: null, commandErrorFrom: null });
     useSources.setState({
       list: [entry],
       activeId: 'e1',
@@ -68,6 +68,77 @@ describe('session store', () => {
     await useSession.getState().connectTo({ type: 'config', config, title: 'bench' });
     expect(useSources.getState().active).toMatchObject({ id: null, title: 'bench' });
     expect(useSources.getState().failed).toBe('sa430');
+  });
+
+  it('a connect the UI did not start clears the stale Failed marker and connect error', async () => {
+    apiMock.connectRemembered.mockRejectedValue({ message: 'Could not open /dev/ttyACM0' });
+    const { receiveStatus } = useSession.getState();
+    receiveStatus(
+      status({
+        revision: 1,
+        lastNotice: { kind: 'deviceLost', message: 'USB device unplugged.', timestampMs: 0 },
+      }),
+    );
+    expect(await useSession.getState().connectTo({ type: 'remembered', id: 'e1' })).toBe(false);
+    receiveStatus(
+      status({
+        revision: 2,
+        lastNotice: {
+          kind: 'connectFailed',
+          message: 'Could not connect to SA430: Could not open /dev/ttyACM0',
+          timestampMs: 0,
+        },
+      }),
+    );
+    expect(useSources.getState().failed).toBe('source-entry-e1');
+    expect(useSession.getState().commandError).toBe('Could not open /dev/ttyACM0');
+
+    // The plug-in auto-connect: the backend connects without a UI command.
+    receiveStatus(status({ revision: 3, state: 'connecting' }));
+    receiveStatus(status({ revision: 4, state: 'connected', source: activeSimulator }));
+
+    expect(useSources.getState().failed).toBeNull();
+    expect(useSession.getState().commandError).toBeNull();
+    expect(useSession.getState().commandErrorFrom).toBeNull();
+    expect(useSession.getState().status?.state).toBe('connected');
+  });
+
+  it('a failed connect keeps its Failed marker when the real event order is connecting then disconnected', async () => {
+    apiMock.connectRemembered.mockImplementation(() => {
+      const { receiveStatus } = useSession.getState();
+      receiveStatus(status({ revision: 2, state: 'connecting' }));
+      receiveStatus(
+        status({
+          revision: 3,
+          lastNotice: { kind: 'connectFailed', message: 'Could not connect', timestampMs: 0 },
+        }),
+      );
+      return Promise.reject(new Error('Could not open /dev/ttyACM0'));
+    });
+    expect(await useSession.getState().connectTo({ type: 'remembered', id: 'e1' })).toBe(false);
+    expect(useSources.getState().failed).toBe('source-entry-e1');
+    expect(useSession.getState().commandError).toBe('Could not open /dev/ttyACM0');
+    expect(useSession.getState().commandErrorFrom).toBe('connecting');
+  });
+
+  it('keeps a command error that is not from a connect when the status changes', () => {
+    useSession.setState({ commandError: 'Could not start.', commandErrorFrom: 'starting' });
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: activeSimulator }));
+    expect(useSession.getState().commandError).toBe('Could not start.');
+    expect(useSession.getState().commandErrorFrom).toBe('starting');
+  });
+
+  it('an out-of-order status clears nothing', () => {
+    const { receiveStatus } = useSession.getState();
+    receiveStatus(status({ revision: 5, state: 'disconnected' }));
+    useSources.setState({ failed: 'source-entry-e1' });
+    useSession.setState({ commandError: 'Could not open', commandErrorFrom: 'connecting' });
+    receiveStatus(status({ revision: 4, state: 'connected', source: activeSimulator }));
+    expect(useSources.getState().failed).toBe('source-entry-e1');
+    expect(useSession.getState().commandError).toBe('Could not open');
+    expect(useSession.getState().status?.state).toBe('disconnected');
   });
 
   it('ignores an unknown remembered id', async () => {

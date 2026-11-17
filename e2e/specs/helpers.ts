@@ -89,6 +89,14 @@ export async function livenessKind(): Promise<string | null> {
   return (await byTestId('plot-liveness')).getAttribute('data-kind');
 }
 
+/**
+ * Text of the plot's state tag (LIVE, HOLD, CAPTURING…). The tag is a `Badge` whose label ellipsises
+ * inside the pill, and WebKitWebDriver's `getText` is empty for such a label, so read `textContent`.
+ */
+export async function livenessText(): Promise<string> {
+  return textOf(byTestId('plot-liveness'));
+}
+
 export async function statusBarText(): Promise<string> {
   return (await byTestId('status-bar')).getText();
 }
@@ -175,6 +183,29 @@ export async function chooseMode(mode: CaptureModeName) {
 export async function frameSeq(): Promise<number | null> {
   const match = (await statusBarText()).match(/Frame #(\d+)/);
   return match ? Number(match[1]) : null;
+}
+
+/**
+ * The frame number once the status bar has caught up with the backend. The readout is refreshed at
+ * most every 500 ms (`useFrameTick`), so right after a continuous capture stops it can still show a
+ * frame several behind the newest one (30 fps). Waits until the number has not changed for 1.2 s:
+ * no frame arrives while acquisition is stopped, so that value is the newest frame.
+ */
+export async function settledFrameSeq(): Promise<number> {
+  let last: number | null = null;
+  let since = Date.now();
+  await browser.waitUntil(
+    async () => {
+      const now = await frameSeq();
+      if (now !== last) {
+        last = now;
+        since = Date.now();
+      }
+      return now !== null && Date.now() - since >= 1200;
+    },
+    { timeout: 10_000, interval: 100, timeoutMsg: 'the frame number did not settle' },
+  );
+  return last!;
 }
 
 /**

@@ -35,6 +35,8 @@ struct Bench {
     opens: AtomicUsize,
     /// Upcoming opens that fail as a busy port would.
     failing_opens: AtomicUsize,
+    /// Holds the next `open` call (if set) until the test releases it, as a slow port would.
+    open_gate: Mutex<Option<Gate>>,
     /// `watch` returns an error at once (no udev, say).
     watch_fails: AtomicBool,
     /// Set when `watch` has returned, for whatever reason.
@@ -169,6 +171,7 @@ impl SourceDriver for Hardware {
 
     fn open(&self, config: &SourceConfig) -> Result<OpenedSource, SourceError> {
         self.bench.opens.fetch_add(1, Ordering::SeqCst);
+        pass_gate(&self.bench.open_gate);
         if self.bench.failing_opens.load(Ordering::SeqCst) > 0 {
             self.bench.failing_opens.fetch_sub(1, Ordering::SeqCst);
             return Err(SourceError::unavailable("The port is busy."));
@@ -534,6 +537,147 @@ fn added_failure_shows_connect_failed_and_is_not_retried_by_itself() {
     r.policy.on_event(DRIVER, &added("/dev/a"));
     assert_eq!(r.session.status().state, SessionState::Connected);
     assert_eq!(r.bench.opens.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn a_plug_in_after_a_failed_reconnect_connects_and_leaves_no_notice() {
+    // R1: connected, unplugged, a manual reconnect fails while the device is absent, then the
+    // device comes back. The plug-in connects it and nothing from the failed attempt remains.
+    let r = hardware_rig(vec![device("a", "/dev/a")]);
+    r.policy.launch();
+    r.policy.on_event(DRIVER, &removed("/dev/a"));
+    assert_eq!(
+        notice_kind(&r.session.status()),
+        Some(NoticeKind::DeviceLost)
+    );
+
+    r.bench.failing_opens.store(1, Ordering::SeqCst);
+    let failed = r.session.connect(SourceConfig::new(DRIVER));
+    assert!(
+        failed.is_err(),
+        "the reconnect fails while the device is absent"
+    );
+    assert_eq!(
+        notice_kind(&r.session.status()),
+        Some(NoticeKind::ConnectFailed)
+    );
+
+    r.policy.on_event(DRIVER, &added("/dev/a"));
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Connected);
+    assert!(
+        status.last_notice.is_none(),
+        "the failure is not shown after the connect"
+    );
+    assert_eq!(source_device(&status).as_deref(), Some("a"));
+    assert_eq!(
+        r.bench.opens.load(Ordering::SeqCst),
+        3,
+        "launch, the failed reconnect, then one successful open"
+    );
+}
+
+#[test]
+fn a_plug_in_during_a_failing_manual_connect_connects_once_it_fails() {
+    // R2: a manual connect is still opening (state Connecting) when the device is plugged in. The
+    // plug-in must not be dropped: once the manual attempt fails, the device connects.
+    let r = hardware_rig(vec![device("a", "/dev/a")]);
+    let (entered, parked) = mpsc::channel();
+    let (release_open, opening) = mpsc::channel();
+    *r.bench.open_gate.lock().unwrap() = Some(Gate {
+        entered,
+        release: opening,
+    });
+    let (entered_scan, scanning) = mpsc::channel();
+    let (release_scan, scan_released) = mpsc::channel();
+
+    let session = r.session.clone();
+    let manual = thread::spawn(move || session.connect(SourceConfig::new(DRIVER)));
+    parked
+        .recv_timeout(WAIT)
+        .expect("the manual connect reached open");
+    assert_eq!(r.session.status().state, SessionState::Connecting);
+
+    // Only the auto attempt's scan is gated, so reaching it proves it passed the state check.
+    r.bench.failing_opens.store(1, Ordering::SeqCst);
+    *r.bench.discover_gate.lock().unwrap() = Some(Gate {
+        entered: entered_scan,
+        release: scan_released,
+    });
+    let policy = r.policy.clone();
+    let auto = thread::spawn(move || policy.on_event(DRIVER, &added("/dev/a")));
+    scanning
+        .recv_timeout(WAIT)
+        .expect("the plug-in was not dropped: its attempt reached the scan");
+
+    release_open.send(()).unwrap();
+    assert!(manual.join().unwrap().is_err(), "the manual connect fails");
+    release_scan.send(()).unwrap();
+    auto.join().unwrap();
+
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(source_device(&status).as_deref(), Some("a"));
+    assert!(status.last_notice.is_none());
+    assert_eq!(
+        r.bench.opens.load(Ordering::SeqCst),
+        2,
+        "the failed manual open, then the plug-in's open, which succeeds"
+    );
+}
+
+#[test]
+fn a_successful_manual_connect_during_a_plug_in_is_never_replaced() {
+    // R3: as R2, but the manual connect succeeds. The plug-in waits for it and then leaves it.
+    let r = hardware_rig(vec![device("a", "/dev/a"), device("b", "/dev/b")]);
+    let (entered, parked) = mpsc::channel();
+    let (release_open, opening) = mpsc::channel();
+    *r.bench.open_gate.lock().unwrap() = Some(Gate {
+        entered,
+        release: opening,
+    });
+    let (entered_scan, scanning) = mpsc::channel();
+    let (release_scan, scan_released) = mpsc::channel();
+
+    let session = r.session.clone();
+    let manual = thread::spawn(move || {
+        session.connect(SourceConfig {
+            device_id: Some("b".into()),
+            ..SourceConfig::new(DRIVER)
+        })
+    });
+    parked
+        .recv_timeout(WAIT)
+        .expect("the manual connect reached open");
+    assert_eq!(r.session.status().state, SessionState::Connecting);
+
+    *r.bench.discover_gate.lock().unwrap() = Some(Gate {
+        entered: entered_scan,
+        release: scan_released,
+    });
+    let policy = r.policy.clone();
+    let auto = thread::spawn(move || policy.on_event(DRIVER, &added("/dev/a")));
+    scanning
+        .recv_timeout(WAIT)
+        .expect("the plug-in reached its scan while the manual connect was in flight");
+
+    release_open.send(()).unwrap();
+    manual.join().unwrap().unwrap();
+    release_scan.send(()).unwrap();
+    auto.join().unwrap();
+
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(
+        source_device(&status).as_deref(),
+        Some("b"),
+        "the manual source stays"
+    );
+    assert_eq!(
+        r.bench.opens.load(Ordering::SeqCst),
+        1,
+        "only the manual connect opened a device"
+    );
 }
 
 // ---- policy: Removed ----

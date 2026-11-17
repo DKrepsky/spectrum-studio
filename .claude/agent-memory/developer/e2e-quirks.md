@@ -129,3 +129,14 @@ re-run unattended (or ask the PM to ask the human) before chasing them.
 - Use `clickRowAction(entryTestId, 'source-edit' | 'source-forget')` (helpers.ts) for row actions, never
   `revealRowActions(...).$(...).click()`.
 - The trigger inside the full run was not captured (1 red in the last 3 full visual runs; a full visual run passed).
+
+## Added in 011 T3 (acquisition red with the SA430 attached)
+- `npm run e2e:run` reuses target/debug/spectrum-studio. A binary from a plain `cargo build` loads the dev server
+  (localhost:1420): every spec fails at launch with "the application did not finish loading" and the page reads
+  "Could not connect to localhost". Rebuild with `npx tauri build --debug --no-bundle` first, or use `npm run e2e`.
+- The plot state tag (`plot-liveness`) is a `Badge`: its text sits in an ellipsised label span, so `toHaveText`
+  (getText) is empty. Read it with `livenessText()` (textContent).
+- The status bar "Frame #N" is refreshed at most every 500 ms (`useFrameTick(500)`). Right after a continuous
+  capture stops it can trail the backend by 4 to 6 frames, so a `before + 1` check on it is wrong. Use
+  `settledFrameSeq()` for the baseline. The backend publishes exactly one frame per single capture (checked with
+  temporary `tracing` in `session/worker.rs`, reverted).

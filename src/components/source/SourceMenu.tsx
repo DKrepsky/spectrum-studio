@@ -33,7 +33,7 @@ import {
 import { useSources } from '../../state/sources';
 import { SourceDialog, type DialogTarget } from './SourceDialog';
 import { SourceForm } from './SourceForm';
-import { STATUS_TEXT, activeStatus, type EntryStatus } from './status';
+import { STATUS_TEXT, activeStatus, showsFailed, type EntryStatus } from './status';
 
 type View =
   | { kind: 'list' }
@@ -195,13 +195,13 @@ export function SourceMenu({ buttonRef, onClose }: Props) {
     !model.yours.some((y) => y.entry.config.driverId === driver.id && y.presence === 'present');
 
   const entryStatus = (row: YourRow): EntryStatus => {
-    if (failed === row.key) return 'failed';
+    if (showsFailed(state, busy, failed === row.key)) return 'failed';
     if (row.active) return activeStatus(state, busy, false, lost);
     return row.presence === 'absent' ? 'absent' : 'idle';
   };
 
   const detectedStatus = (row: DetectedRow): EntryStatus => {
-    if (failed === row.key) return 'failed';
+    if (showsFailed(state, busy, failed === row.key)) return 'failed';
     if (active?.id == null && active && configKey(active.config) === row.key) {
       const s = activeStatus(state, busy, false, false);
       return s === 'idle' ? 'idle' : s;

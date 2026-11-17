@@ -8,8 +8,10 @@ import {
   ensureDisconnected,
   frameSeq,
   livenessKind,
+  livenessText,
   runSimulator,
   sessionState,
+  settledFrameSeq,
   setInput,
   sourceButtonText,
   statusBarText,
@@ -93,7 +95,7 @@ describe('Simulator acquisition workflow', () => {
       'Start continuous acquisition',
     );
     await browser.waitUntil(async () => (await livenessKind()) === 'stopped');
-    await expect(await byTestId('plot-liveness')).toHaveText(expect.stringContaining('HOLD'));
+    expect(await livenessText()).toContain('HOLD');
   });
 
   it('plays again with the same settings', async () => {
@@ -160,8 +162,9 @@ describe('Simulator acquisition workflow', () => {
   });
 
   it('a single capture takes exactly one sweep and stops by itself', async () => {
-    const before = await frameSeq();
-    expect(before).not.toBeNull();
+    // The baseline must be the newest frame: the status bar may still show one from the stream
+    // that just stopped (see settledFrameSeq).
+    const before = await settledFrameSeq();
     await (await byTestId('acquire-button')).click();
     // The simulator sweep is near-instant: the end is the backend returning to Connected with
     // one new frame, without any Stop press.
@@ -174,11 +177,11 @@ describe('Simulator acquisition workflow', () => {
     await browser.pause(1500);
     expect(await frameSeq()).toBe(before! + 1);
     expect(await sessionState()).toBe('Connected');
-    await expect(await byTestId('plot-liveness')).toHaveText(expect.stringContaining('HOLD'));
+    expect(await livenessText()).toContain('HOLD');
   });
 
   it('a second press takes a new single capture', async () => {
-    const before = await frameSeq();
+    const before = await settledFrameSeq();
     await (await byTestId('acquire-button')).click();
     await browser.waitUntil(
       async () => (await sessionState()) === 'Connected' && (await frameSeq()) === before! + 1,

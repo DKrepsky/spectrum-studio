@@ -15,6 +15,18 @@ export const STATUS_TEXT: Record<EntryStatus, string | null> = {
   idle: null,
 };
 
+/**
+ * Whether a local Failed marker is shown. The backend state wins: a source the backend is
+ * connecting, connected or acquiring is never shown as Failed, whatever the UI last saw.
+ */
+export function showsFailed(
+  state: SessionState,
+  busy: BusyOperation | null,
+  failed: boolean,
+): boolean {
+  return failed && state === 'disconnected' && busy !== 'connecting';
+}
+
 /** Status of the active source from the backend state plus local markers. */
 export function activeStatus(
   state: SessionState,
@@ -22,7 +34,7 @@ export function activeStatus(
   failed: boolean,
   lost: boolean,
 ): EntryStatus {
-  if (failed) return 'failed';
+  if (showsFailed(state, busy, failed)) return 'failed';
   if (state === 'connecting' || busy === 'connecting') return 'connecting';
   if (state === 'disconnecting') return 'disconnecting';
   if (state === 'connected' || state === 'acquiring') return state;
