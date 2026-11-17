@@ -65,7 +65,7 @@ second line; colour is never the only signal.
 | Red cross | *Failed*: the last attempt to use it failed (the reason is in the notice bar) |
 
 Planned integrations that are not implemented yet are not shown in the menu at all; they cannot be
-connected. See [roadmap.md](roadmap.md) for what is planned.
+connected. See the [GitHub issues](https://github.com/DKrepsky/spectrum-studio/issues) for what is planned.
 
 On the next start the last used source is selected again but never connected automatically.
 

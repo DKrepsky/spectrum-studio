@@ -7,8 +7,8 @@ metadata:
 
 Work 009 (accepted and pushed 2026-11-17): /DESIGN.md (1.0-draft.4) is the authoritative UI spec; src/ui/ holds
 presentational components (ADR 0015); src/styles/tokens.css is the single source (guards for colour, px sizes,
-Appendix A equality, contrast, CSS imports, boundary). Backlog of deferred items is in docs/roadmap.md
-"Backlog (from work 009)" — P12 stale readouts is prioritised (measurement honesty).
+Appendix A equality, contrast, CSS imports, boundary). Backlog of deferred items is in GitHub issues (some closed as not planned);
+P12 stale readouts (#2) is prioritised (measurement honesty).
 
 **Why:** the human wanted the growing app organised; DESIGN.md is written for AI agents to implement without UX guesswork.
 **How to apply:** new UI work starts from DESIGN.md + src/ui; any visible change must be listed as an F-item/decision.

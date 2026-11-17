@@ -32,7 +32,7 @@ enum SourceData { Iq(IqBlock), Trace(TraceBlock) }
 - **DriverInfo.transport:** `Usb`, `Serial`, `Network`, `Internal` — shown as a badge.
 - **DriverInfo.status:** `Available` or `Planned` (cannot be opened). `list_drivers` still returns
   planned drivers, but the UI does not show them anywhere (menu, forms): nothing that cannot work is
-  offered. They stay in `docs/roadmap.md` and in the registry so the plan remains tracked.
+  offered. They stay in the registry and in GitHub issues so the plan remains tracked.
 - **Capabilities** declare only what the source really supports. `tuning: None` hides tuning;
   an empty `span_options_hz` means a fixed span; `amplitude_unit` is the truth about calibration.
 - **Discovery** (`discover`) only *enumerates*: it lists devices from the OS (udev, serial ports)
@@ -231,7 +231,7 @@ loss after N s* (runtime setting). Parameters are listed in the [user guide](use
 3. Test: protocol/format unit tests plus a session test in `tests/` that connects, acquires and
    disconnects, including one failure path. `tests/session.rs` contains a scripted trace source
    that shows the pattern.
-4. Document it here and in the roadmap.
+4. Document it here and close or update its GitHub issue.
 
 No UI changes are needed for typical drivers. Example: a SCPI analyzer driver would declare
 `DataKind::Trace`, `amplitude_unit: Dbm`, tuning from the instrument's limits, connection params

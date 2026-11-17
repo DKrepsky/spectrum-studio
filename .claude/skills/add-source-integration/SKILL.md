@@ -24,5 +24,5 @@ Read `docs/sources.md` first; it defines the `SourceDriver` / `Source` contracts
 4. If the driver needs new user-visible types, run `npm run bindings`. The UI renders driver
    parameters generically from `ParamSpec`; avoid driver-specific UI code.
 5. Document the integration in `docs/sources.md` (supported models, settings, limitations) and
-   update `docs/roadmap.md`.
+   update its GitHub issue.
 6. Run the `verify` skill.

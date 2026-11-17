@@ -24,7 +24,7 @@ switching is atomic there.
 - **Forget / Undo / Rename** are backend commands; Undo re-inserts the removed record.
 - **Planned and unknown drivers are not user-visible.** `list_sources` omits entries whose driver is
   not registered or not `Available`; they stay on disk untouched and reappear if the driver does.
-  `list_drivers` still reports Planned drivers (registry and docs/roadmap keep them); the UI filters.
+  `list_drivers` still reports Planned drivers (the registry keeps them); the UI filters.
 - **Detected devices come from one `discover_all` command** (all available discovery-capable
   drivers, per-driver errors in the result), polled by the UI only while the source menu is open.
   `discover` implementations must only enumerate, never open or probe a device.

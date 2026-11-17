@@ -11,7 +11,7 @@ don't apply (no UI → no design stage; one-line fix → story can be a few line
 ## 0. Intake
 - Pick the next work id: `ls .claude/team/work` → `NNN-slug`. Create `story.md` (template in
   `.claude/team/protocol.md`), status `draft`.
-- Ask the human only what changes the outcome. Check `docs/roadmap.md` and existing code so the
+- Ask the human only what changes the outcome. Check the open GitHub issues (`gh issue list`) and existing code so the
   story reflects reality.
 
 ## 1. Story gate  — human approves
@@ -42,7 +42,7 @@ don't apply (no UI → no design stage; one-line fix → story can be a few line
 
 ## 6. Acceptance gate — human signs off
 - Verify every criterion against QA evidence (open the key screenshots yourself before showing the human); confirm `npm run check` is green (`verify` skill),
-  docs/roadmap/bindings updated.
+  docs/bindings updated, deferred work opened as GitHub issues.
 - Write `outcome.md`. Report to the human: what shipped, evidence, known limitations, what you
   need from them. Set story status `accepted` or `rejected`.
 - Update your memory with feedback and lessons. Archive finished messages.

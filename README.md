@@ -63,7 +63,7 @@ npm run tauri build
 | Development setup, commands, packaging | [docs/development.md](docs/development.md) |
 | Testing strategy and running tests | [docs/testing.md](docs/testing.md) |
 | Engineering guidelines | [docs/guidelines.md](docs/guidelines.md) |
-| Status and roadmap | [docs/roadmap.md](docs/roadmap.md) |
+| Roadmap, backlog and bugs | [GitHub issues](https://github.com/DKrepsky/spectrum-studio/issues) |
 | Architecture decision records | [docs/adr/](docs/adr/) |
 
 ## License

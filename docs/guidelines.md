@@ -65,7 +65,7 @@ These apply to humans and AI agents alike.
 1. Works in the running app (verified, not assumed).
 2. Tests cover the behaviour, including failure paths.
 3. `npm run check` passes.
-4. Docs and `docs/roadmap.md` updated; ADR added for significant decisions.
+4. Docs updated; follow-up work opened as GitHub issues; ADR added for significant decisions.
 
 ## Commits
 

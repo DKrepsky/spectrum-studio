@@ -74,7 +74,7 @@ Suspected area:
   the changed UI in realistic and worst-case states, looked at them, and recorded findings in
   `qa.md`. A UI criterion never passes on tests alone.
 - **Done**: every acceptance criterion verified by QA with evidence (UI criteria: visually verified, screenshots attached); `npm run check` green; docs
-  and `docs/roadmap.md` updated; regenerated bindings committed; PM has reported to the human and
+  updated, follow-up work opened as GitHub issues; regenerated bindings committed; PM has reported to the human and
   the human has accepted. Features are never "done" because UI exists (see `CLAUDE.md`).
 
 ## Git

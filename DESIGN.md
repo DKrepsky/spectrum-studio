@@ -1180,7 +1180,7 @@ Rules:
 | Home, End | Capture mode menu; popover (implemented, B1) | First or last item or row |
 | Letters | Capture mode menu | Type-ahead (Implemented). In the popover: removed (implemented, Q-18). |
 | Escape | Menu, popover, dialog | Close; focus returns to the trigger or opener (dialog: not while saving) |
-| Arrow Left, Right | Popover row | Between the row's select button and its actions (Implemented, B1; its E2E check is red on main, a pre-existing failure in the roadmap backlog) |
+| Arrow Left, Right | Popover row | Between the row's select button and its actions (Implemented, B1; its E2E check is red on main, a pre-existing failure tracked in GitHub issues) |
 | F2 | Popover row (focused) | Edit the source (Implemented) |
 | Delete | Popover row (focused) | Forget the source; Undo for 5 seconds (Implemented) |
 | Enter | Number or frequency field | Commit |
@@ -1961,7 +1961,7 @@ Status values are defined in 0.3. "Where" gives the section of this file or the 
 
 ### 12.2 Questions and decisions (product decisions)
 
-The designer's recommendation is kept for the record. The last column is the PM's decision for work 009 (`decisions.md`, 2026-11-16), as delegated by the human. Items marked Backlog are in `docs/roadmap.md`.
+The designer's recommendation is kept for the record. The last column is the PM's decision for work 009 (`decisions.md`, 2026-11-16), as delegated by the human. Items marked Backlog are tracked in GitHub issues; some were closed there as not planned.
 
 | ID | Question | Designer's recommendation | Who decides | Decision (PM, work 009) |
 | --- | --- | --- | --- | --- |
@@ -2016,7 +2016,7 @@ Status after 009: E1 to E7 are implemented. E1 is the token file and its tests, 
 ### 13.0 Draft 4 (2026-11-16): reconciliation with the shipped work 009
 
 - **Status.** Implemented in 009; final QA pending (T13). Version 1.0-draft.4 (was 1.0-draft.3). Checked against `src/` on 2026-11-16: `src/styles/tokens.test.ts` passes (12 tests; Appendix A equals `tokens.css`).
-- **Priorities.** P11, P12 and P13 are Deferred (backlog in `docs/roadmap.md`). P12 is prioritised (6.8, 12.1, 14).
+- **Priorities.** P11, P12 and P13 are Deferred (backlog in GitHub issues). P12 is prioritised (6.8, 12.1, 14).
 - **Corrected to the shipped code.** Stacked field labels are secondary in the dialog and in the connect form (4.4, D1). A busy control is not unavailable: busy Save, busy buttons and the busy capture main keep full strength (rule U1; 2.15, 4.1, 4.3, 4.12). The capture chevron is still dimmed while a command runs; that is open as Q-23. The native-disabled peak controls are recorded as an accepted deviation (A10).
 - **Keyboard.** Popover Up and Down stop at the ends, with no wrap (T5 accepted; 4.11, 5.1, I19).
 - **Tokens.** The off-scale list (2.9) and the geometry table (2.10) now name the `--source-test-*` and `--toolbar-*` tokens. Appendix A's content is unchanged. Its comments and those of `tokens.css` still say "Proposed (F9)", "Proposed (F15)" and "Proposed (B6)", which are stale. The token test compares comments too, so they can be fixed only by one comment-only change to both files, which is a `src/` change (open item for the PM).
@@ -2031,7 +2031,7 @@ Status after 009: E1 to E7 are implemented. E1 is the token file and its tests, 
 - **Applied.** Q-1 and Q-4 (F0, status bar removal order), Q-2 (copy), Q-3 (F9, 0.6), Q-15 (authority), Q-16 (token read in the canvas), Q-17 (live regions), Q-18 (no type-ahead in the source popover), Q-19 (peak table kept hidden), Q-13 (answered from ADR 0010, no change). Q-5 and Q-7 are recorded with no behaviour change.
 - **Added fixes.** F16 (checkbox accent teal) and F17 (Center and Span value text primary), both accepted by the PM (4.4, 4.6).
 - **Corrections.** 3.8 and 4.12: the dialog offset and inline padding are `--dialog-offset-top` and `--dialog-padding-inline`, not literals. 4.12: Save busy, the dialog's polite region, warnings as `role="status"`. 4.4: stacked labels are secondary. 4.11 and 5.1: Up, Down, Home and End in the source popover. 2.9: the known off-scale token values. 0.1: Q-15 decided.
-- **Backlog (roadmap).** B3, B4, B5, B6 (Q-20), B8, Q-22 (option B), Q-7 (split), Q-8, Q-9, Q-10, Q-11 (with the `sweepIntervalMs` design), Q-12, Q-5 (zoom support), Q-21, custom tooltip, and the status bar and e2e items recorded in `docs/roadmap.md`.
+- **Backlog (GitHub issues).** B3, B4, B5, B6 (Q-20), B8, Q-22 (option B), Q-7 (split), Q-8, Q-9, Q-10, Q-11 (with the `sweepIntervalMs` design), Q-12, Q-5 (zoom support), Q-21, custom tooltip, and the e2e items, tracked in GitHub issues.
 - **Legacy residue.** Draft 3 said there was none and that the three pre-009 stylesheets were gone. Both were partly wrong (the names of what remains, and the test file names). Corrected in draft 4 (see below).
 
 ### 13.1 Draft 2 (2026-11-16): human review r1

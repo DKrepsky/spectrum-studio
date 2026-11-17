@@ -24,7 +24,7 @@ plan in `plan.md` (and `design.md` for UI).
    `npm run bindings`; never hand-edit `src/bindings/`.
 4. Run `npm run check` (the `verify` skill) and fix every failure. For user-visible changes confirm
    in the real app or via `npm run e2e` when available.
-5. Update docs touched by the change (and `docs/roadmap.md` only if the task says so).
+5. Update docs touched by the change.
 6. Report with a `handoff` to `staff-engineer` (`--work <id>`): what changed (files), tests added,
    exact check results, deviations from the task and why, anything left undone. Be honest about
    failures — never report green when it isn't.

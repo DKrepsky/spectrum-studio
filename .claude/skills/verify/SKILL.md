@@ -18,5 +18,5 @@ description: Run the full Spectrum Studio quality gate (format, lint, type check
    For UI changes also look at the result: screenshot (`npm run docs:screenshot`, or a WebDriver
    screenshot) with realistic data, long names and a narrow window, open it with the Read tool, and
    check overflow/cropping/alignment. Passing tests do not prove the UI looks right.
-4. Update `docs/roadmap.md` status and any affected docs. Only mark a feature done when it works
+4. Update any affected docs and the related GitHub issue. Only mark a feature done when it works
    end to end and has tests.

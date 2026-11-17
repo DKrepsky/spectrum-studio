@@ -12,3 +12,4 @@
 - [Auto-connect 007](project-auto-connect.md) — connect-only, first device, sa430 udev watcher; e2e must be updated when launch state changes
 - [Design spec review](feedback-design-spec-review.md) — human reviews spec docs in depth first; save review verbatim as designer brief
 - [Design system 009](project-design-system.md) — DESIGN.md + src/ui + tokens accepted 2026-11-17; crops catch drift; evidence gitignored
+- [Roadmap = GitHub issues](feedback-backlog-github.md) — no roadmap file; issues follow story/bug templates; respect closed issues
