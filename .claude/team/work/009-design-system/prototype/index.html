@@ -1,0 +1,1905 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spectrum Studio - design system prototype (work 009)</title>
+<style>
+/* ===== 1. Real application CSS (src/styles/*.css, generated into this file; html/body/.app rules removed) ===== */
+/* --- src/styles/app.css --- */
+:root {
+  --bg: #0b1018;
+  --surface: #121a26;
+  --surface-2: #182233;
+  --surface-3: #1f2b3f;
+  --border: #26344a;
+  --text: #dbe4f0;
+  --text-muted: #8a9ab1;
+  --accent: #3ee0b5;
+  --accent-strong: #2bc79e;
+  --warn: #ffb547;
+  --warn-strong: #f0a22e;
+  --danger: #ff6b6b;
+  /* Stop fill of the capture control while acquiring (capture.css). Ink on --danger is 6.9:1,
+     on --danger-strong 5.2:1 (WCAG AA for label and icon). */
+  --danger-strong: #f04848;
+  --danger-ink: #120a24;
+  --info: #5aa9ff;
+  /* Single capture (mode colour, see design.md 3.2). Ink on the fill: --single-ink. */
+  --single: #a47cff;
+  --single-strong: #9166f5;
+  --single-ink: #120a24;
+  --radius: 6px;
+  --font: 'Inter', 'Cantarell', 'Ubuntu', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+button:hover:not(:disabled) {
+  border-color: #3a4d6b;
+  background: #25344c;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #062018;
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--accent-strong);
+}
+button.small {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+button.icon {
+  padding: 0 6px;
+  background: transparent;
+  border-color: transparent;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+input[type='text'],
+input[type='number'],
+select,
+.freq-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 7px;
+  min-width: 0;
+}
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 1px;
+}
+input.invalid,
+.freq-input.invalid {
+  border-color: var(--danger);
+}
+input:disabled,
+select:disabled {
+  opacity: 0.5;
+}
+.freq-input {
+  font-family: var(--mono);
+  width: 150px;
+  text-align: right;
+}
+
+
+/* Toolbar */
+.toolbar {
+  --control-height: 30px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 7px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  flex: none;
+  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.brand-mark {
+  color: var(--accent);
+}
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+/* The only group that may shrink: the source name column gives way (down to the source button's
+   150px minimum) so a long name never pushes the other controls or the side panel off screen.
+   `min-width: 0` is needed because its min-content contains the whole, unwrapped name. */
+.toolbar-source {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.toolbar-source > :not(.source-control) {
+  flex: none;
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+.badge {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+/* Narrow windows (the minimum is 1024px): reclaim toolbar space instead of squeezing the source
+   name, so a 22-character device name such as "SA430 08FF41E50F8B3A34" stays fully visible. */
+@media (max-width: 1180px) {
+  .toolbar {
+    gap: 10px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .toolbar-group,
+  .field {
+    gap: 5px;
+  }
+  .toolbar .freq-input {
+    width: 128px;
+  }
+  .toolbar .badge {
+    padding: 1px 5px;
+  }
+}
+
+/* Notices */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 181, 71, 0.1);
+}
+.notice-message {
+  flex: 1;
+}
+.notice-deviceLost,
+.notice-connectFailed,
+.notice-internal,
+.notice-command {
+  background: rgba(255, 107, 107, 0.12);
+}
+
+/* Workspace */
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 330px;
+  min-height: 0;
+}
+.plots {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+.plot {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+.plot canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+}
+.spectrum-plot {
+  flex: 1 1 0;
+}
+.plots.with-waterfall .spectrum-plot {
+  flex: 3 1 0;
+}
+.waterfall {
+  flex: 2 1 0;
+  display: flex;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.waterfall-plot {
+  flex: 1;
+}
+.waterfall-axis {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.waterfall-axis {
+  position: relative;
+}
+.waterfall-axis-title {
+  position: absolute;
+  right: 8px;
+  top: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.waterfall-tick {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.waterfall-tick::after {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 1px;
+  margin-left: 3px;
+  vertical-align: middle;
+  background: var(--text-muted);
+}
+.plot-badge {
+  position: absolute;
+  top: 14px;
+  right: 22px;
+  padding: 2px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  background: rgba(8, 12, 18, 0.8);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.liveness-live {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.liveness-stale,
+.liveness-waiting {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+/* A single capture in progress: the mode colour, never the amber of waiting or stale. */
+.liveness-capturing {
+  color: var(--single);
+  border-color: var(--single);
+}
+.plot-zoom-reset {
+  position: absolute;
+  top: 14px;
+  left: 76px;
+  font-size: 11px;
+  padding: 2px 8px;
+  background: rgba(8, 12, 18, 0.8);
+}
+
+/* Side panel */
+.side-panel {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+  user-select: text;
+}
+.panel {
+  border-bottom: 1px solid var(--border);
+}
+.panel summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.panel-body {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.form-row > label {
+  color: var(--text-muted);
+}
+.form-row select,
+.form-row input[type='number'] {
+  width: 130px;
+}
+.form-row.checks {
+  justify-content: flex-start;
+  gap: 14px;
+}
+.form-row.checks label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.with-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.with-unit input[type='number'] {
+  width: 90px;
+}
+.unit {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+.swatch.max-hold {
+  background: #ff9f43;
+}
+.swatch.min-hold {
+  background: #5aa9ff;
+}
+.button-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.button-row.end {
+  justify-content: flex-end;
+}
+.hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0;
+}
+.error {
+  color: var(--danger);
+}
+
+.readout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.readout-table th {
+  text-align: left;
+  font-family: var(--font);
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 2px 4px;
+}
+.readout-table td {
+  padding: 3px 4px;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+}
+.readout-table tbody tr {
+  cursor: pointer;
+}
+.readout-table tbody tr:hover {
+  background: var(--surface-2);
+}
+.readout-table tr.active {
+  background: var(--surface-3);
+}
+.marker-id {
+  color: #ff6bcb;
+  font-weight: 700;
+}
+.peak-id {
+  color: #ffd166;
+  font-weight: 700;
+}
+.delta {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.row-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Parameter forms */
+.param-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.param-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 8px 8px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.param-group legend {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 0 4px;
+}
+.param-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.param-field label {
+  color: var(--text-muted);
+}
+.param-field .freq-input {
+  width: 140px;
+}
+.required {
+  color: var(--danger);
+}
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  gap: 16px;
+  padding: 4px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.status-label {
+  color: var(--text-muted);
+  font-family: var(--font);
+}
+.uncalibrated {
+  color: var(--warn);
+  margin-left: auto;
+}
+
+.plot-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 15px;
+  pointer-events: none;
+  text-align: center;
+  padding: 0 40px;
+}
+
+/* --- src/styles/capture.css --- */
+/* Capture control: a split button (mode label + action icon, chevron opens the mode menu).
+   The mode sets the fill colour; the icon, the accessible name and the plot badge carry the action.
+   Geometry is fixed (128px main, 26px chevron) so no mode or state moves the toolbar (design.md 3.1). */
+.capture {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  height: var(--control-height);
+}
+.capture-main,
+.capture-chevron {
+  height: 100%;
+  border-width: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.capture-main {
+  width: 128px;
+  gap: 7px;
+  padding: 0 10px;
+  border-radius: var(--radius) 0 0 var(--radius);
+  border-right-width: 0;
+  font-weight: 600;
+}
+.capture-chevron {
+  width: 26px;
+  padding: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.capture-main svg,
+.capture-chevron svg {
+  flex: none;
+}
+
+.capture[data-mode='continuous'] .capture-main,
+.capture[data-mode='continuous'] .capture-chevron {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #062018;
+}
+.capture[data-mode='single'] .capture-main,
+.capture[data-mode='single'] .capture-chevron {
+  background: var(--single);
+  border-color: var(--single);
+  color: var(--single-ink);
+}
+.capture[data-mode='continuous'] .capture-chevron {
+  border-left: 1px solid rgba(6, 32, 24, 0.35);
+}
+.capture[data-mode='single'] .capture-chevron {
+  border-left: 1px solid rgba(18, 10, 36, 0.35);
+}
+.capture[data-mode='continuous'] .capture-main:hover:not(:disabled):not([aria-disabled='true']),
+.capture[data-mode='continuous'] .capture-chevron:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+.capture[data-mode='single'] .capture-main:hover:not(:disabled):not([aria-disabled='true']),
+.capture[data-mode='single'] .capture-chevron:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--single-strong);
+  border-color: var(--single-strong);
+}
+.capture button:disabled {
+  opacity: 0.45;
+}
+
+/* One focus ring around the whole split control, drawn on the toolbar surface. A per-segment ring
+   would sit on the neighbouring purple or teal fill at about 1.3:1 and disappear. */
+.capture .capture-main:focus-visible,
+.capture .capture-chevron:focus-visible,
+.capture .mode-item:focus-visible {
+  outline: none;
+}
+.capture:has(.capture-main:focus-visible, .capture-chevron:focus-visible) {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Acquiring: the main button is a Stop (Pause or cancel), so both segments turn red. Same geometry
+   and the same ink contrast as the mode fills; the chevron stays locked (see below). Placed after the
+   mode and hover rules so it wins at equal specificity. */
+.capture[data-state='acquiring'] .capture-main,
+.capture[data-state='acquiring'] .capture-chevron {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-ink);
+}
+.capture[data-state='acquiring'] .capture-chevron {
+  border-left: 1px solid rgba(18, 10, 36, 0.35);
+}
+.capture[data-state='acquiring'] .capture-main:hover:not(:disabled):not([aria-disabled='true']),
+.capture[data-state='acquiring'] .capture-chevron:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--danger-strong);
+  border-color: var(--danger-strong);
+}
+
+/* Busy (a command in flight): focusable and not dimmed, so keyboard focus and the tooltip stay. */
+.capture-main[aria-disabled='true'] {
+  cursor: progress;
+}
+/* Locked while acquiring or busy: keeps focus and the tooltip, reads as unavailable. */
+.capture-chevron[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: default;
+}
+.capture-chevron[aria-expanded='true'] {
+  filter: brightness(0.92);
+}
+
+/* Mode menu: the same surface, border and radius as .source-popover. */
+.mode-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  width: 280px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+.mode-heading {
+  margin: 6px 8px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.mode-popover .mode-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 16px;
+  column-gap: 10px;
+  align-items: start;
+  width: 100%;
+  padding: 7px 8px;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 6px;
+  text-align: left;
+  white-space: normal;
+}
+.mode-popover .mode-item:hover,
+.mode-popover .mode-item:focus-visible {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.mode-popover .mode-item:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: -2px;
+}
+.mode-ico {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+.mode-ico.continuous {
+  color: var(--accent);
+}
+.mode-ico.single {
+  color: var(--single);
+}
+.mode-name {
+  display: block;
+  font-weight: 600;
+}
+.mode-desc {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.mode-check {
+  margin-top: 2px;
+  color: var(--text);
+  visibility: hidden;
+}
+.mode-item[aria-checked='true'] .mode-check {
+  visibility: visible;
+}
+
+/* Announcements for screen readers only (the capture live region). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- src/styles/source.css --- */
+/* Source button and menu. Fixed column widths are a contract (see source.css.test.ts):
+   the name column of a row never depends on its badge, status text or hover actions. */
+.source-control {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 150px;
+  max-width: 280px;
+}
+.source-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 150px;
+  max-width: 280px;
+  height: var(--control-height);
+}
+.source-button.attention {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.source-button.attention:focus-visible {
+  outline-color: var(--info);
+}
+.src-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* Status glyph: one 10px circle (a bold cross for failed) centred in an 18px cell. */
+.src-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+  flex: none;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.src-dot[data-status]::before {
+  content: '';
+  display: block;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.src-dot[data-status='connected']::before,
+.src-dot[data-status='acquiring']::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(62, 224, 181, 0.28);
+}
+.src-dot[data-status='absent']::before {
+  border: 2px solid var(--text-muted);
+  background: transparent;
+}
+.src-dot[data-status='connecting']::before,
+.src-dot[data-status='disconnecting']::before {
+  background: var(--info);
+  animation: src-pulse 1s ease-in-out infinite;
+}
+.src-dot[data-status='failed'] {
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 13px;
+}
+.src-dot[data-status='failed']::before {
+  content: '✕';
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+}
+@keyframes src-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .src-dot[data-status='connecting']::before,
+  .src-dot[data-status='disconnecting']::before {
+    animation: none;
+    box-shadow: 0 0 0 2px rgba(90, 169, 255, 0.35);
+  }
+}
+.spinner {
+  display: inline-block;
+}
+.spinner::before {
+  content: '⟳';
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner::before {
+    content: '…';
+    animation: none;
+  }
+}
+
+.source-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: 360px;
+  min-width: 280px;
+  max-width: calc(100vw - 16px);
+  max-height: 70vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+.source-menu:focus {
+  outline: none;
+}
+.source-heading {
+  margin: 8px 6px 2px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.source-heading:first-child {
+  margin-top: 2px;
+}
+.source-yours {
+  /* 6 two-line rows, then the list scrolls inside the section */
+  max-height: calc(6 * 48px);
+  overflow-y: auto;
+}
+.source-fixed {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+/* A row: line 1 = glyph | name (ellipsis) | badge (fixed 64px); line 2 = status text + detail. */
+.source-row {
+  position: relative;
+}
+.source-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 64px;
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 5px 8px;
+  background: transparent;
+  border-color: transparent;
+  text-align: left;
+}
+.source-item.single {
+  min-height: 30px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.source-item:hover:not([aria-disabled='true']),
+.source-item:focus-visible {
+  background: var(--surface-3);
+}
+.source-item[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+}
+.source-item[aria-checked='true'] {
+  border-color: var(--border);
+}
+.source-item.dimmed .src-name {
+  color: var(--text-muted);
+}
+/* Spans both lines of a row so it is centred vertically; fades out while the row's actions show. */
+.src-badge {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 64px;
+  justify-self: stretch;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  transition: opacity 150ms ease-out;
+}
+.source-row:hover .src-badge,
+.source-row:has(.source-actions:focus-within) .src-badge {
+  opacity: 0;
+}
+.row-sub {
+  grid-column: 2 / 3;
+  min-height: 17px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.row-sub .st {
+  flex: none;
+  white-space: nowrap;
+}
+.row-sub .st.ok {
+  color: var(--accent);
+}
+.row-sub .st.bad {
+  color: var(--danger);
+}
+.row-sub .st.busy {
+  color: var(--info);
+}
+.row-sub .sep {
+  flex: none;
+}
+.row-sub .detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+/* Over the badge column, centred vertically in the row (top/bottom 0 + auto margins, so the
+   slide transform is free). Hidden until the row is hovered or one of its buttons has focus.
+   Hidden buttons stay focusable (no visibility:hidden, so ArrowLeft/Right reach them) but are
+   transparent and non-interactive (pointer-events: none), so clicks reach the row beneath. */
+.source-actions {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* 1px item border + 8px item padding: lands exactly on the badge column's right edge. */
+  right: 9px;
+  margin: auto 0;
+  width: 64px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  opacity: 0;
+  transform: translateX(-6px);
+  pointer-events: none;
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out;
+}
+.source-row:hover .source-actions,
+.source-actions:focus-within {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-actions,
+  .src-badge {
+    transition: none;
+  }
+  .source-actions {
+    transform: none;
+  }
+}
+.source-actions button.icon {
+  min-width: 26px;
+  min-height: 20px;
+  height: 20px;
+  padding: 0 5px;
+  line-height: 1;
+  background: var(--surface-3);
+}
+.source-actions button.icon:hover {
+  border-color: var(--border);
+}
+.source-item[data-highlight] {
+  animation: src-fresh 3s ease-out;
+}
+@keyframes src-fresh {
+  0%,
+  70% {
+    background: rgba(62, 224, 181, 0.16);
+    border-color: var(--accent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-item[data-highlight] {
+    animation: none;
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+}
+.source-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--text-muted);
+}
+.source-toast button {
+  min-height: 26px;
+  color: var(--info);
+}
+.source-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.source-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px;
+}
+.source-form-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.source-form .error {
+  margin: 0;
+}
+
+/* --- src/styles/sourceDialog.css --- */
+/* Add / Edit source dialog (design 4). Uses existing tokens only. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(5, 8, 14, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 90px 12px 12px;
+  overflow: auto;
+}
+.source-dialog {
+  width: 440px;
+  max-width: calc(100% - 24px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto;
+}
+.source-dialog h2 {
+  margin: 0;
+  font-size: 15px;
+}
+.source-dialog .form-row,
+.source-dialog .dialog-params {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.source-dialog .form-row label {
+  align-self: flex-start;
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.source-dialog .help {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.source-dialog .err {
+  font-size: 12px;
+  color: var(--danger);
+}
+.source-dialog input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.source-dialog .form-row input,
+.source-dialog .form-row select,
+.source-dialog .param-field input[type='text'],
+.source-dialog .param-field select {
+  width: 100%;
+}
+/* ParamForm lays fields out in a row for the side panel; the dialog stacks label over field. */
+.source-dialog .param-field {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 4px;
+}
+.source-dialog .param-field label {
+  font-size: 12px;
+}
+.source-dialog .param-group {
+  border: 0;
+  padding: 0;
+}
+.source-dialog input.locked,
+.source-dialog select.locked,
+.source-dialog .dialog-params.locked input,
+.source-dialog .dialog-params.locked select {
+  opacity: 0.75;
+}
+.source-dialog .test-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.source-dialog .test-row > button {
+  flex: none;
+}
+.source-dialog .test-result {
+  flex: 1;
+  min-width: 0;
+  /* Reserved: idle (3 lines) and ok (2 lines + wrap) must not make the dialog jump. */
+  min-height: 62px;
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.source-dialog .test-result.ok {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(62, 224, 181, 0.08);
+}
+.source-dialog .test-result.fail {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(255, 107, 107, 0.08);
+}
+.source-dialog .test-result.run {
+  border-color: var(--info);
+  color: var(--info);
+}
+.source-dialog .test-result.idle {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+.source-dialog .test-result .sub {
+  display: block;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.source-dialog .button-row {
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.source-dialog .button-row .spacer {
+  margin-right: auto;
+}
+.source-dialog button.forget {
+  color: var(--danger);
+  border-color: rgba(255, 107, 107, 0.45);
+  background: transparent;
+}
+.source-dialog .dlg-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.source-dialog .dlg-note.warn {
+  color: var(--warn);
+}
+.source-dialog .dlg-note.info {
+  color: var(--info);
+}
+.source-dialog .dlg-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+
+/* ===== 2. Prototype page chrome (not app code) ===== */
+html, body { height: auto; min-height: 100%; overflow: auto; background: #0b1018; color: #dbe4f0; font: 13px/1.4 var(--font); user-select: text; }
+body { margin: 0; }
+.pg-top { position: sticky; top: 0; z-index: 100; background: #121a26; border-bottom: 1px solid #26344a; padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.pg-top h1 { font-size: 13px; margin: 0; font-weight: 700; letter-spacing: .02em; }
+.pg-top .grp { display: flex; gap: 6px; align-items: center; color: #8a9ab1; }
+.pg-top .grp span.lbl { margin-right: 4px; font-size: 12px; }
+.pg-top button[aria-pressed='true'] { border-color: #5aa9ff; background: #25344c; }
+.pg-top .note { color: #8a9ab1; font-size: 12px; }
+main { padding: 14px 18px 60px; max-width: 1480px; margin: 0 auto; }
+main h2 { font-size: 15px; margin: 26px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #26344a; }
+main h2:first-child { margin-top: 4px; }
+main h3 { font-size: 13px; margin: 0 0 4px; }
+main p.intro { color: #8a9ab1; margin: 0 0 10px; max-width: 980px; font-size: 12px; }
+.cell-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.cell { background: #121a26; border: 1px solid #26344a; border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cell .cap { font-size: 11px; color: #8a9ab1; letter-spacing: .03em; }
+.cell .cap code { color: #dbe4f0; font-family: var(--mono); font-size: 11px; }
+.cell .ex { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tbl th, .tbl td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #26344a; vertical-align: top; }
+.tbl th { color: #8a9ab1; font-weight: 500; }
+.tbl code { font-family: var(--mono); font-size: 11px; }
+.tag-ok { color: #3ee0b5; } .tag-no { color: #ff6b6b; } .muted { color: #8a9ab1; }
+.sw { display: flex; flex-direction: column; gap: 4px; }
+.sw .chip { height: 44px; border-radius: 6px; border: 1px solid #26344a; }
+.sw code { font-family: var(--mono); font-size: 11px; color: #dbe4f0; overflow-wrap: anywhere; }
+.sw .u { font-size: 11px; color: #8a9ab1; }
+.scale-bar { height: 12px; background: #3ee0b5; border-radius: 2px; }
+.radius-s { width: 90px; height: 44px; background: #1f2b3f; border: 1px solid #26344a; }
+.elev-s { width: 170px; height: 70px; background: #182233; border: 1px solid #26344a; display: grid; place-items: center; font-size: 12px; color: #8a9ab1; }
+
+/* Before/after cards for the small fixes */
+.fix { background: #121a26; border: 1px solid #26344a; border-radius: 8px; padding: 12px 14px; margin: 0 0 14px; }
+.fix h3 { font-size: 14px; }
+.fix .meta { font-size: 12px; color: #8a9ab1; margin: 2px 0 8px; }
+.fix .why { font-size: 12px; margin: 6px 0 10px; max-width: 1000px; }
+.ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ba.stack { grid-template-columns: 1fr; }
+.pane { border: 1px dashed #26344a; border-radius: 6px; padding: 8px; background: #0b1018; min-width: 0; }
+.pane .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #8a9ab1; margin-bottom: 6px; }
+.pane.new .tag { color: #3ee0b5; }
+.pane .out { font-family: var(--mono); font-size: 11px; color: #8a9ab1; margin-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pane .out b { color: #dbe4f0; font-weight: 600; }
+.pane .body { min-width: 0; overflow: hidden; }
+
+/* Screens */
+.frame-wrap { margin: 0 0 18px; }
+.frame-wrap .tag { font-size: 12px; color: #8a9ab1; margin-bottom: 4px; }
+.frame-wrap .tag b { color: #dbe4f0; }
+.frame { position: relative; width: var(--fw, 1024px); height: 600px; overflow: hidden; border: 1px solid #26344a; border-radius: 6px; background: #0b1018; }
+.frame-app { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; height: 100%; }
+.frame .workspace { display: grid; grid-template-columns: 1fr 330px; min-height: 0; }
+.frame .dialog-backdrop { position: absolute; }
+.frame .source-control, .frame .capture { position: relative; }
+.plot-mock { position: relative; background: var(--plot-bg, #0e1520); min-height: 0; overflow: hidden; }
+.plot-mock svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.plots-mock { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #0b1018; }
+.hint-line { color: #8a9ab1; font-size: 12px; padding: 8px 12px; }
+.frame .status-bar { overflow: hidden; }
+
+/* Screens: narrow-window media query mirrored for a frame of any width (the viewport is not the frame) */
+.frame.is-narrow .toolbar { gap: 10px; padding-left: 8px; padding-right: 8px; }
+.frame.is-narrow .toolbar-group, .frame.is-narrow .field { gap: 5px; }
+.frame.is-narrow .toolbar .freq-input { width: 128px; }
+.frame.is-narrow .toolbar .badge { padding: 1px 5px; }
+
+/* Mirrors of :hover / :focus-visible / open states, so the gallery can show them without input */
+.st-hover:not(:disabled):not([aria-disabled='true']) { border-color: #3a4d6b; background: #25344c; }
+button.st-hover.primary:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); }
+.st-focus { outline: 2px solid var(--info); outline-offset: 1px; }
+.source-item.st-focus, .source-item.st-hover { background: var(--surface-3); }
+.source-item.st-focus { outline: 2px solid var(--info); outline-offset: 1px; }
+.mode-popover .mode-item.st-focus { background: var(--surface-3); outline: 2px solid var(--info); outline-offset: -2px; }
+.mode-popover .mode-item.st-hover { background: var(--surface-3); }
+.capture-main.st-hover:not([aria-disabled='true']), .capture-chevron.st-hover:not([aria-disabled='true']) { background: var(--accent-strong); border-color: var(--accent-strong); }
+.capture.st-ring { outline: 2px solid var(--info); outline-offset: 2px; border-radius: var(--radius); }
+.force-actions .source-actions { opacity: 1; transform: none; pointer-events: auto; }
+.force-actions .src-badge { opacity: 0; }
+.st-dim .src-name { color: var(--text-muted); }
+
+/* ===== 3. PROPOSED small fixes (DESIGN.md / design.md section 7 mapping). Scoped to .v-new so both can sit side by side. ===== */
+/* F1 toolbar fields share the 30px control height */
+.v-new .toolbar .freq-input, .v-new .toolbar select { height: var(--control-height); }
+/* F2 small and icon buttons reach a 24px target height */
+.v-new button.small { min-height: 24px; padding: 2px 8px; }
+.v-new button.icon { min-height: 24px; min-width: 24px; }
+.v-new .source-actions { height: 24px; }
+.v-new .source-actions button.icon { height: 24px; min-height: 24px; }
+/* F3 menu group headings start on the glyph column (1px border + 6px popover padding + 1px item border + 8px item padding) */
+.v-new .source-heading { margin-left: 9px; }
+.v-new .mode-heading { margin-left: 9px; }
+/* F4 mode-menu focus ring is drawn outside the item, like every other control */
+.v-new .mode-popover .mode-item.st-focus, .v-new .mode-popover .mode-item:focus-visible { outline-offset: 1px; }
+/* F5 status bar text on the 11px step of the type scale */
+.v-new .status-bar { font-size: 11px; }
+/* F6 dialog help text on the 12px hint step */
+.v-new .source-dialog .help { font-size: 12px; }
+/* F7 dialog field labels on the 13px label step (toolbar, side panel and inline form already use 13px) */
+.v-new .source-dialog .form-row label, .v-new .source-dialog .param-field label { font-size: 13px; }
+/* F8 inline error text on the 12px step, same as the dialog's error text */
+.v-new .source-form .error { font-size: 12px; }
+/* F9 one unavailable value (0.6) for buttons, fields, rows and the locked chevron; read-only stays 0.75 */
+.v-new button:disabled, .v-new input:disabled, .v-new select:disabled, .v-new .capture button:disabled,
+.v-new .source-item[aria-disabled='true'], .v-new .capture-chevron[aria-disabled='true'] { opacity: 0.6; }
+/* F13 zoom reset button reaches the 24px target height */
+.v-new .plot-zoom-reset { min-height: 24px; display: inline-flex; align-items: center; }
+/* F14 checkbox label is the target: at least 24px tall */
+.v-new .form-row.checks label { min-height: 24px; }
+/* F15 text fields, number fields and selects get a 3:1 boundary (#5b6f8f, 3.43:1 on the panel) */
+.v-new input[type='number'], .v-new input[type='text'], .v-new select, .v-new .freq-input { border-color: #5b6f8f; }
+/* F11 amber banner tint on the same 12% as the red banner tint */
+.v-new .notice { background: rgba(255, 181, 71, 0.12); }
+.v-new .notice-deviceLost, .v-new .notice-connectFailed, .v-new .notice-internal, .v-new .notice-command { background: rgba(255, 107, 107, 0.12); }
+/* F0 (proposal, not a small fix): Rate and Frame are removed whole when they do not fit; Uncalibrated stays right aligned and is never removed.
+   Thresholds measured with the fallback fonts: Frame needs 1258px, Rate needs 1078px (after Frame is gone). */
+.v-new .frame-narrow-hide [data-low], .v-new.frame-narrow-hide [data-low] { display: none; }
+/* F11 dialog group legend aligned with the field labels (legend padding was 0 4px) */
+.v-new .source-dialog .param-group legend { padding: 0; }
+</style>
+</head>
+<body>
+<header class="pg-top" role="banner">
+  <h1>Spectrum Studio · design system prototype</h1>
+  <div class="grp" role="tablist" aria-label="View">
+    <span class="lbl">View</span>
+    <button type="button" role="tab" data-view="tokens">Tokens</button>
+    <button type="button" role="tab" data-view="components">Components</button>
+    <button type="button" role="tab" data-view="fixes">Small fixes</button>
+    <button type="button" role="tab" data-view="screens">Screens</button>
+  </div>
+  <div class="grp" role="group" aria-label="Scenario">
+    <span class="lbl">Scenario</span>
+    <button type="button" data-sc="empty">Empty</button>
+    <button type="button" data-sc="typical">Typical</button>
+    <button type="button" data-sc="long">Long text</button>
+    <button type="button" data-sc="error">Error</button>
+  </div>
+  <div class="grp" id="widthGrp" role="group" aria-label="Window width">
+    <span class="lbl">Width</span>
+    <button type="button" data-w="1440">1440</button>
+    <button type="button" data-w="1180">1180</button>
+    <button type="button" data-w="1024">1024 (minimum)</button>
+  </div>
+  <span class="note" id="scNote"></span>
+</header>
+<main id="app"></main>
+<script>
+/* ---------- scenario data (sample content only; no real device data) ---------- */
+const DEV = 'SA430 08FF41E50F8B3A34';
+const LONG = 'Bench analyser, 2.4 GHz survey, rig A, SA430 near the window';
+const SCEN = {
+  empty: {
+    label: 'Empty: nothing connected', conn: 'disconnected', mode: 'continuous', frame: false, notice: null,
+    src: null,
+    rows: [],
+    detected: [{ title: DEV, badge: 'USB', detail: '/dev/ttyACM0', status: 'idle' }],
+    dialogName: '', testText: 'idle', fail: null,
+  },
+  typical: {
+    label: 'Typical: SA430 acquiring', conn: 'acquiring', mode: 'continuous', frame: true, notice: null,
+    src: { title: 'Bench SA430', badge: 'USB', detail: '/dev/ttyACM0', status: 'acquiring' },
+    rows: [{ title: 'Bench SA430', badge: 'USB', detail: '/dev/ttyACM0', status: 'acquiring', checked: true }],
+    detected: [{ title: DEV, badge: 'USB', detail: '/dev/ttyACM1', status: 'idle', isNew: true }],
+    dialogName: 'Bench SA430', testText: 'ok', fail: null,
+  },
+  long: {
+    label: 'Long text: 60-character name, long port', conn: 'acquiring', mode: 'single', frame: true, notice: null,
+    src: { title: LONG, badge: 'USB', detail: '/dev/serial/by-id/usb-SA430_' + DEV + '-if00', status: 'acquiring' },
+    rows: [
+      { title: LONG, badge: 'USB', detail: '/dev/serial/by-id/usb-SA430_' + DEV + '-if00', status: 'acquiring', checked: true },
+      { title: 'Lab bench SA430 by the north window, run 07', badge: 'USB', detail: '/dev/serial/by-id/usb-SA430_' + DEV + '-if00', status: 'absent' },
+    ],
+    detected: [{ title: DEV, badge: 'USB', detail: '/dev/ttyACM1', status: 'idle', isNew: true }],
+    dialogName: LONG, testText: 'ok', fail: null,
+  },
+  error: {
+    label: 'Error: connect failed', conn: 'disconnected', mode: 'continuous', frame: false,
+    notice: { kind: 'connectFailed', msg: 'Connection failed: could not open /dev/ttyACM0 (permission denied). Add your user to the dialout group, then reconnect.' },
+    src: { title: 'Bench SA430', badge: 'USB', detail: '/dev/ttyACM0', status: 'failed' },
+    rows: [{ title: 'Bench SA430', badge: 'USB', detail: '/dev/ttyACM0', status: 'failed', checked: true }],
+    detected: [],
+    dialogName: 'Bench SA430', testText: 'fail', fail: 'no response from the device on /dev/ttyACM0 after 3 s. Check the cable and that no other program has the port open.',
+  },
+};
+let sc = 'typical', view = 'tokens', fw = 1024, openMenu = null;
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const S = () => SCEN[sc];
+const STATUS_TEXT = { connected: 'Connected', acquiring: 'Acquiring', connecting: 'Connecting…', disconnecting: 'Disconnecting…', failed: 'Failed', absent: 'Not detected', idle: '' };
+const TONE = { connected: 'ok', acquiring: 'ok', failed: 'bad', connecting: 'busy', disconnecting: 'busy' };
+
+/* ---------- component renderers (markup follows src/components; class names are the app's) ---------- */
+function dot(status) { return `<span class="src-dot" data-status="${status}" aria-hidden="true"></span>`; }
+function freq(val, disabled, invalid) {
+  return `<label class="field"><span>Center</span><input class="freq-input${invalid ? ' invalid' : ''}" aria-label="Center frequency" value="${esc(val)}"${disabled ? ' disabled' : ''} aria-invalid="${!!invalid}"></label>`;
+}
+function span(disabled) {
+  return `<label class="field"><span>Span</span><select aria-label="Span"${disabled ? ' disabled' : ''}><option>2.048 MHz</option><option>10 MHz</option></select></label>`;
+}
+function sourceButton(s, opts = {}) {
+  const src = opts.src !== undefined ? opts.src : s.src;
+  const name = src ? src.title : 'Choose a source';
+  const st = src ? (opts.status || src.status) : null;
+  return `<div class="source-control"><button type="button" class="source-button${src ? '' : ' attention'}${opts.focus ? ' st-focus' : ''}" aria-haspopup="menu" aria-expanded="${!!opts.open}" title="${esc(name)}&#10;Choose source (Ctrl+K)">${st ? dot(st) : ''}<span class="src-name">${esc(name)}</span><span aria-hidden="true">▾</span></button></div>`;
+}
+function capture(s, opts = {}) {
+  const acq = s.conn === 'acquiring';
+  const mode = s.mode;
+  const disabled = s.conn === 'disconnected' || s.conn === 'connecting' || s.conn === 'disconnecting';
+  const icon = acq ? (mode === 'single' ? STOP : PAUSE) : PLAY;
+  const label = mode === 'single' ? 'Single' : 'Continuous';
+  const mainAria = acq ? (mode === 'single' ? 'Cancel single capture' : 'Pause continuous acquisition') : (mode === 'single' ? 'Start single capture' : 'Start continuous acquisition');
+  const st = acq ? 'acquiring' : 'idle';
+  return `<div class="capture${opts.ring ? ' st-ring' : ''}" role="group" aria-label="Capture" data-mode="${mode}" data-state="${st}">` +
+    `<button type="button" class="capture-main${opts.hoverMain ? ' st-hover' : ''}" aria-label="${mainAria}" data-mode="${mode}" data-state="${st}"${disabled ? ' disabled' : ''}>${icon}<span class="capture-label">${label}</span></button>` +
+    `<button type="button" class="capture-chevron${opts.hoverChev ? ' st-hover' : ''}" aria-haspopup="menu" aria-expanded="${!!opts.menu}" aria-label="Capture mode: ${label}" aria-disabled="${acq ? 'true' : 'false'}"${disabled ? ' disabled' : ''}>${CHEV}</button>` +
+    `</div>`;
+}
+const PLAY = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg>';
+const PAUSE = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><rect x="2.5" y="1.5" width="2.5" height="9" fill="currentColor"/><rect x="7" y="1.5" width="2.5" height="9" fill="currentColor"/></svg>';
+const STOP = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor"/></svg>';
+const CHEV = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CHECK = '<svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M2.5 7.5l3 2.8 6-6.3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const WAVE_C = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M1.5 12.5h2l1.5-6 1.5 6 1.5-6 1.5 6 1.5-6 1.5 6 1.5-6 1.5 6h2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+const WAVE_S = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M1.5 12.5h5l2-8 2 8h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+
+function modeMenu(s, opts = {}) {
+  const item = (mode, name, desc, ico) => {
+    const checked = s.mode === mode;
+    return `<button type="button" role="menuitemradio" aria-checked="${checked}" class="mode-item${opts.focus === mode ? ' st-focus' : ''}"><span class="mode-ico ${mode}" aria-hidden="true">${ico}</span><span><span class="mode-name">${name}</span><span class="mode-desc">${desc}</span></span><span class="mode-check" aria-hidden="true" style="visibility:${checked ? 'visible' : 'hidden'}">${CHECK}</span></button>`;
+  };
+  return `<div class="mode-popover" role="presentation"><div class="mode-heading" aria-hidden="true">Capture mode</div><div role="menu" aria-label="Capture mode">${item('continuous', 'Continuous', 'Keeps acquiring until you pause.', WAVE_C)}${item('single', 'Single', 'Captures one sweep, then stops.', WAVE_S)}</div></div>`;
+}
+
+function row(r, opts = {}) {
+  const text = STATUS_TEXT[r.status] ?? '';
+  const tone = TONE[r.status] || '';
+  const sub = [text ? `<span class="st ${tone}">${esc(text)}</span>` : (opts.isNew ? '<span class="st">New</span>' : ''), r.detail ? `<span class="sep" aria-hidden="true">${text || opts.isNew ? '·' : ''}</span><span class="detail" title="${esc(r.detail)}">${esc(r.detail)}</span>` : ''].join('');
+  return `<div class="source-row" role="none"><button type="button" role="${opts.radio ? 'menuitemradio' : 'menuitem'}" ${opts.radio ? `aria-checked="${!!r.checked}"` : ''} class="source-item${r.status === 'absent' ? ' dimmed' : ''}${opts.focus ? ' st-focus' : ''}${opts.hover ? ' st-hover' : ''}" title="${esc(r.title)}">${dot(r.status)}<span class="src-name">${esc(r.title)}</span><span class="badge src-badge">${esc(r.badge)}</span><span class="row-sub">${sub}</span></button>` +
+    `<span class="source-actions" role="none"><button type="button" class="icon" aria-label="Edit ${esc(r.title)}" title="Edit (F2)">✎</button>${opts.noForget ? '' : `<button type="button" class="icon" aria-label="Forget ${esc(r.title)}" title="Forget (Delete)">×</button>`}</span></div>`;
+}
+function fixedItem(label, status, opts = {}) {
+  return `<button type="button" role="menuitem" class="source-item single${opts.focus ? ' st-focus' : ''}" aria-disabled="${!!opts.disabled}">${status ? dot(status) : '<span class="src-dot" aria-hidden="true"></span>'}<span class="src-name">${esc(label)}</span>${opts.badge ? `<span class="badge src-badge">${opts.badge}</span>` : ''}</button>`;
+}
+function sourceMenu(s, opts = {}) {
+  const rows = s.rows.map((r, i) => row(r, { radio: true, focus: opts.focusFirst && i === 0, hover: opts.hoverFirst && i === 0 })).join('');
+  const det = s.detected.map((r) => row(r, { isNew: true, noForget: true })).join('');
+  const notes = s.conn === 'disconnected' && s.detected.length === 0 ? '<div class="source-note" role="presentation">No new devices found. Plug one in; this list updates automatically.</div>' : '';
+  const fail = s.fail ? `` : '';
+  return `<div class="source-popover" data-testid="source-menu"><div class="source-menu" role="menu" aria-label="Sources">` +
+    (s.rows.length ? `<div role="group" aria-label="Your sources"><div class="source-heading" role="presentation">Your sources</div><div class="source-yours" role="none">${rows}</div></div>` : '') +
+    `<div role="group" aria-label="Detected devices"><div class="source-heading" role="presentation">Detected devices</div>${det}${notes}</div>` +
+    `<div role="group" aria-label="Add a source" class="source-fixed">${fixedItem('Signal simulator', 'idle')}${fixedItem('Add source…', null)}</div>` +
+    (s.conn !== 'disconnected' ? `<div role="group" aria-label="Connection" class="source-fixed">${fixedItem('Disconnect', null, { disabled: false })}</div>` : '') +
+    `</div></div>`;
+}
+function notice(s) {
+  if (!s.notice) return '';
+  const kind = s.notice.kind;
+  return `<div class="notice notice-${kind}" role="alert"><span class="notice-message">${esc(s.notice.msg)}</span><button type="button">Reconnect</button><button type="button" class="icon" aria-label="Dismiss">×</button></div>`;
+}
+function statusItems(s) {
+  if (!s.frame) return `<span class="status-item">${s.src ? 'No data yet — press Continuous to start acquisition.' : 'No source connected.'}</span>`;
+  const items = [['Center', '100.00000 MHz'], ['Span', '2.048 MHz'], ['RBW', '750 Hz'], ['FFT', '4096 · Hann'], ['Avg', '4/4'], ['Noise floor', '-84.5 dBFS/bin'], ['Unit', 'dBFS'], ['Rate', '29.9 fps', 'low'], ['Frame', '#282 · 13:44:46', 'low']];
+  return items.map(([l, v, low]) => `<span class="status-item"${low ? ' data-low' : ''}><span class="status-label">${l}</span> ${v}</span>`).join('') + '<span class="status-item uncalibrated">Uncalibrated</span>';
+}
+function statusBar(s) { return `<footer class="status-bar" data-testid="status-bar">${statusItems(s)}</footer>`; }
+function toolbar(s, o = {}) {
+  const disabledCtl = s.conn === 'disconnected';
+  return `<header class="toolbar" role="toolbar" aria-label="Main toolbar"><div class="brand"><span class="brand-mark" aria-hidden="true">▲</span>Spectrum Studio</div>` +
+    `<div class="toolbar-group toolbar-source">${sourceButton(s, { focus: o.focusSource, open: o.openSource })}${capture(s, { ring: o.ringCapture, hoverMain: o.hoverMain, hoverChev: o.hoverChev, menu: o.menu })}</div>` +
+    `<div class="toolbar-group">${freq('100.000000 MHz', disabledCtl)}${span(disabledCtl)}</div></header>`;
+}
+function sidePanel(s) {
+  return `<aside class="side-panel" aria-label="Analysis controls">` +
+    `<details class="panel" open><summary>Measurement</summary><div class="panel-body"><div class="form-row"><label>FFT size</label><select><option>4096</option></select></div><div class="form-row"><label>Averaging</label><span class="with-unit"><input type="number" value="4"><span class="unit">traces</span></span></div><div class="form-row checks"><label><input type="checkbox" checked> <span class="swatch max-hold"></span> Max hold</label><button class="small">Reset</button></div></div></details>` +
+    `<details class="panel" open><summary>Markers</summary><div class="panel-body"><div class="button-row"><button class="small">Peak search</button><button class="small">+ Marker</button></div><p class="hint">Click the spectrum to place a marker (Shift+click adds another).</p></div></details>` +
+    `<details class="panel" open><summary>Display</summary><div class="panel-body"><div class="form-row"><label>Reference level</label><input type="number" value="0"></div><div class="form-row"><label>Range</label><span class="with-unit"><input type="number" value="120"><span class="unit">dB</span></span></div></div></details>` +
+    `<details class="panel"><summary>Source settings</summary><div class="panel-body"><p class="hint">This source has no additional settings.</p></div></details>` +
+    `</aside>`;
+}
+function plotMock(s) {
+  const badge = s.conn === 'acquiring' && s.frame ? (s.mode === 'single' ? '<span class="plot-badge liveness-capturing">CAPTURING</span>' : '<span class="plot-badge liveness-live">LIVE</span>') : (s.src ? '<span class="plot-badge liveness-stale">HOLD · last data 13:44:46</span>' : '');
+  const hint = !s.frame ? `<p class="plot-hint">${s.src ? 'No trace yet. Press Continuous to start acquisition.' : 'Choose a source to start.'}</p>` : '';
+  return `<div class="plot plot-mock spectrum-plot"><svg viewBox="0 0 600 300" preserveAspectRatio="none" aria-hidden="true"><g stroke="rgba(120,150,190,.14)"><path d="M0 60H600M0 120H600M0 180H600M0 240H600M100 0V300M200 0V300M300 0V300M400 0V300M500 0V300"/></g>${s.frame ? '<path d="M0 230 L40 226 L80 232 L120 228 L160 233 L200 230 L240 150 L250 60 L260 230 L320 228 L360 232 L400 226 L440 90 L450 230 L520 229 L600 231" fill="none" stroke="#3ee0b5" stroke-width="1.5" vector-effect="non-scaling-stroke"/>' : ''}</svg>${badge}${hint}</div>`;
+}
+function appFrame(s, o = {}) {
+  return `<div class="frame-app"><div class="app-toolbar">${toolbar(s, o)}</div><div class="notices">${notice(s)}</div><div class="workspace"><section class="plots-mock">${plotMock(s)}</section>${sidePanel(s)}</div>${statusBar(s)}</div>`;
+}
+function dialog(s, o = {}) {
+  const testBlock = s.testText === 'idle'
+    ? '<div class="test-result idle" role="status">Not tested. Test connection opens the port briefly and asks the device for its identity; your current source is not affected.</div>'
+    : s.testText === 'ok'
+      ? `<div class="test-result ok" role="status">✓ Found SA430 on /dev/ttyACM0<span class="sub">Serial number ${DEV} (matches this source)</span></div>`
+      : `<div class="test-result fail" role="alert">✕ Test failed: ${esc(s.fail)}</div>`;
+  const nameErr = o.nameErr ? `<span class="err" id="ne">Enter a name.</span>` : '';
+  return `<div class="dialog-backdrop" style="${o.static ? 'position:relative;padding:14px 0;background:none' : ''}"><form class="source-dialog" role="dialog" aria-labelledby="dt" onsubmit="return false"><h2 id="dt">Edit source</h2>` +
+    `<div class="form-row"><label for="n">Name</label><input id="n" type="text" value="${esc(s.dialogName)}"${o.nameErr ? ' aria-invalid="true"' : ''}>${nameErr}</div>` +
+    `<div class="form-row"><label for="d">Driver</label><select id="d" class="locked" disabled><option>SA430 (USB serial)</option></select><span class="help">The driver cannot be changed. To use another, forget this source and add a new one.</span></div>` +
+    `<div class="dialog-params"><div class="param-form"><fieldset class="param-group"><legend>Connection</legend><div class="param-field"><label for="p">Serial port<span class="required"> *</span></label><input id="p" type="text" value="/dev/ttyACM0"></div></fieldset></div><span class="help">In use by the active connection. Disconnect to change the port.</span></div>` +
+    `<div class="test-row"><button type="button">Test connection</button>${testBlock}</div>` +
+    (s.dialogName.length > 40 ? '<div class="dlg-note info">This source is connected. The name changes now; connection settings are locked until you disconnect.</div>' : '') +
+    `<div class="button-row"><button type="button" class="forget">Forget</button><span class="spacer"></span><button type="button">Cancel</button><button type="submit" class="primary">Save</button></div></form></div>`;
+}
+
+/* ---------- measurement helpers (read the rendered CSS; no hand-typed numbers) ---------- */
+const px = (n) => (Math.round(n * 10) / 10) + 'px';
+function measureSet(root, items) {
+  return items.map(([label, sel, fn]) => {
+    const el = root.querySelector(sel);
+    if (!el) return `${label}: n/a`;
+    return `${label}: ${fn(el)}`;
+  }).join('\n');
+}
+const H = (el) => px(el.getBoundingClientRect().height);
+const FS = (el) => getComputedStyle(el).fontSize;
+const OP = (el) => getComputedStyle(el).opacity;
+const BG = (el) => getComputedStyle(el).backgroundColor;
+const OFF = (el) => getComputedStyle(el).outlineOffset;
+const LEFT = (el, base) => px(el.getBoundingClientRect().left - base.getBoundingClientRect().left);
+const SW = (el) => getComputedStyle(el).outlineStyle + ' ' + getComputedStyle(el).outlineWidth;
+
+/* ---------- contrast table (WCAG 2.x relative luminance, computed in the page) ---------- */
+function lum(hex) {
+  const n = hex.replace('#', '');
+  const c = [0, 2, 4].map((i) => parseInt(n.substr(i, 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function ratio(a, b) { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); }
+const CSSV = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+/* ---------- views ---------- */
+const SWATCHES = [
+  ['--bg', '#0b1018', 'app background, input background'],
+  ['--plot-bg (canvas only)', '#0e1520', 'plot background (canvas, PLOT_THEME.plotBackground)'],
+  ['--surface', '#121a26', 'toolbar, side panel, status bar'],
+  ['--surface-2', '#182233', 'popover and dialog surface'],
+  ['--surface-3', '#1f2b3f', 'control fill, row hover, badge'],
+  ['--border', '#26344a', 'all dividers and control borders'],
+  ['--text', '#dbe4f0', 'primary text'],
+  ['--text-muted', '#8a9ab1', 'secondary text, labels, hints'],
+  ['--accent', '#3ee0b5', 'connected, continuous capture, primary action'],
+  ['--accent-strong', '#2bc79e', 'hover of accent fills'],
+  ['--single', '#a47cff', 'single capture fill and mode icon'],
+  ['--single-strong', '#9166f5', 'hover of the single fill'],
+  ['--danger', '#ff6b6b', 'errors, acquiring-stop fill'],
+  ['--danger-strong', '#f04848', 'hover of the stop fill'],
+  ['--warn', '#ffb547', 'warnings: waiting, stale, uncalibrated'],
+  ['--info', '#5aa9ff', 'focus ring, connecting, minimum-hold trace'],
+];
+const INKS = [['--danger-ink / --single-ink', '#120a24', 'text on violet and red fills'], ['(accent ink, hard-coded #062018)', '#062018', 'text on teal fills']];
+const DATA = [['max hold trace', '#ff9f43'], ['min hold trace', '#5aa9ff'], ['marker id', '#ff6bcb'], ['peak id', '#ffd166'], ['marker active', '#ffffff'], ['stale trace', '#7a8799']];
+
+function renderTokens() {
+  const contrastRows = [
+    ['Primary text on --surface', '--text', '--surface', 4.5],
+    ['Muted text on --surface', '--text-muted', '--surface', 4.5],
+    ['Muted text on --surface-2 (menus, dialogs)', '--text-muted', '--surface-2', 4.5],
+    ['Muted text on --surface-3 (badge, row hover)', '--text-muted', '--surface-3', 4.5],
+    ['Accent (connected, live) on --surface', '--accent', '--surface', 4.5],
+    ['Warn (waiting, uncalibrated) on --surface', '--warn', '--surface', 4.5],
+    ['Danger (failed, errors) on --surface-2', '--danger', '--surface-2', 4.5],
+    ['Info (focus ring, connecting) on --surface', '--info', '--surface', 3],
+    ['Single violet (mode icon) on --surface-2', '--single', '--surface-2', 3],
+    ['Ink on accent fill (primary, continuous)', '#062018', '--accent', 4.5],
+    ['Ink on violet fill (single)', '#120a24', '--single', 4.5],
+    ['Ink on red fill (acquiring stop)', '#120a24', '--danger', 4.5],
+    ['Ink on violet hover fill', '#120a24', '--single-strong', 4.5],
+    ['Ink on red hover fill', '#120a24', '--danger-strong', 4.5],
+    ['Ink on accent hover fill', '#062018', '--accent-strong', 4.5],
+  ];
+  const resolve = (v) => (v.startsWith('--') ? CSSV(v) || v : v);
+  const contrastHtml = contrastRows.map(([label, a, b, min]) => {
+    const fg = resolve(a), bg = resolve(b);
+    const r = ratio(fg, bg);
+    return `<tr><td>${label}</td><td><code>${a}</code> ${fg}</td><td><code>${b}</code> ${bg}</td><td>${r.toFixed(2)}:1</td><td class="${r >= min ? 'tag-ok' : 'tag-no'}">${r >= min ? 'pass' : 'fail'} (${min}:1)</td></tr>`;
+  }).join('');
+  return `
+  <h2>Colour primitives (values as in src/styles/app.css today)</h2>
+  <p class="intro">Each swatch is the current CSS custom property, read from the page. The target names in DESIGN.md (for example <code>--color-surface-raised</code>) map onto these values one-to-one; see design.md section 7.</p>
+  <div class="cell-grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">
+    ${SWATCHES.map(([n, v, u]) => `<div class="sw"><div class="chip" style="background:${v}"></div><code>${esc(n)}</code><code>${v}</code><span class="u">${esc(u)}</span></div>`).join('')}
+    ${INKS.map(([n, v, u]) => `<div class="sw"><div class="chip" style="background:${v}"></div><code>${esc(n)}</code><code>${v}</code><span class="u">${esc(u)}</span></div>`).join('')}
+  </div>
+  <h2>Data colours (canvas and their DOM twins)</h2>
+  <div class="cell-grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">
+    ${DATA.map(([n, v]) => `<div class="sw"><div class="chip" style="background:${v}"></div><code>${esc(n)}</code><code>${v}</code></div>`).join('')}
+  </div>
+  <h2>Semantic roles and capture states</h2>
+  <p class="intro">Capture colour is the mode: teal Continuous, violet Single. A red fill means the control is stopping an acquisition (Pause or Cancel). Running is shown by the icon and the LIVE or CAPTURING badge, never by amber. Amber is reserved for warnings.</p>
+  <div class="cell-grid">
+    <div class="cell"><div class="ex"><span class="src-dot" data-status="idle"></span><span>Idle or remembered</span></div><span class="cap"><code>--text-muted</code> grey ring or dot</span></div>
+    <div class="cell"><div class="ex"><span class="src-dot" data-status="connected"></span><span>Connected, acquiring</span></div><span class="cap"><code>--accent</code> teal dot with halo</span></div>
+    <div class="cell"><div class="ex"><span class="src-dot" data-status="connecting"></span><span>Connecting, disconnecting</span></div><span class="cap"><code>--info</code> pulsing (static when reduced motion)</span></div>
+    <div class="cell"><div class="ex"><span class="src-dot" data-status="failed"></span><span>Failed</span></div><span class="cap"><code>--danger</code> cross (shape, not only colour)</span></div>
+    <div class="cell"><div class="ex"><span class="src-dot" data-status="absent"></span><span>Not detected</span></div><span class="cap"><code>--text-muted</code> empty ring</span></div>
+    <div class="cell"><div class="ex"><span class="capture"><button class="capture-main" data-mode="continuous" data-state="idle" type="button"><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg>Continuous</button><button class="capture-chevron" type="button" aria-label="sample">${CHEV}</button></span></div><span class="cap">Continuous idle: <code>--accent</code> fill</span></div>
+    <div class="cell"><div class="ex"><span class="capture"><button class="capture-main" data-mode="single" data-state="idle" type="button"><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg>Single</button><button class="capture-chevron" type="button" aria-label="sample">${CHEV}</button></span></div><span class="cap">Single idle: <code>--single</code> fill</span></div>
+    <div class="cell"><div class="ex"><span class="capture"><button class="capture-main" data-mode="continuous" data-state="acquiring" type="button"><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><rect x="2.5" y="1.5" width="2.5" height="9" fill="currentColor"/><rect x="7" y="1.5" width="2.5" height="9" fill="currentColor"/></svg>Continuous</button><button class="capture-chevron" type="button" aria-label="sample" aria-disabled="true">${CHEV}</button></span></div><span class="cap">Acquiring (either mode): <code>--danger</code> fill, Pause or Stop icon</span></div>
+    <div class="cell"><div class="ex"><span class="plot-badge liveness-live">LIVE</span><span class="plot-badge liveness-stale">No data for 4 s</span><span class="plot-badge liveness-capturing">CAPTURING</span></div><span class="cap">Plot chips: teal live, amber waiting or stale, violet capturing</span></div>
+  </div>
+  <h2>Contrast (computed in the page from the values above)</h2>
+  <table class="tbl"><thead><tr><th>Pair</th><th>Foreground</th><th>Background</th><th>Ratio</th><th>Requirement</th></tr></thead><tbody>${contrastHtml}</tbody></table>
+  <p class="intro">Disabled and locked controls are exempt from contrast rules (WCAG 1.4.3); they keep their label and tooltip. Focus ring <code>--info</code> on <code>--bg</code> is 7.77:1; on the violet or teal fills the ring is not drawn (the group ring is used instead).</p>
+  <h2>Typography</h2>
+  <table class="tbl"><thead><tr><th>Role</th><th>Sample</th><th>Spec (current)</th><th>Target token</th></tr></thead><tbody>
+    <tr><td>Base: controls, labels, body</td><td style="font-size:13px">Center &nbsp; 100.000000 MHz</td><td>13px / 1.4 Inter stack, weight 400</td><td><code>--font-size-md</code></td></tr>
+    <tr><td>Hint, note, help, sub-line</td><td style="font-size:12px">Click the spectrum to place a marker.</td><td>12px, muted</td><td><code>--font-size-sm</code></td></tr>
+    <tr><td>Chip, badge, plot tag, axis, status bar</td><td style="font-size:11px">LIVE · Uncalibrated</td><td>11px, weight 600 on plot tags, 400 on badges</td><td><code>--font-size-xs</code></td></tr>
+    <tr><td>Group caps label (menus)</td><td style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8a9ab1">Your sources</td><td>11px, caps, 0.06em, muted</td><td><code>--font-size-xs</code> + <code>--letter-spacing-caps</code></td></tr>
+    <tr><td>Section title (side panel)</td><td style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8a9ab1">Measurement</td><td>12px, 600, caps, 0.06em</td><td><code>--font-size-sm</code> + <code>--font-weight-semibold</code></td></tr>
+    <tr><td>Dialog title</td><td style="font-size:15px">Edit source</td><td>15px (bold by UA default)</td><td><code>--font-size-lg</code></td></tr>
+    <tr><td>Readout (numbers, tables)</td><td style="font-family:var(--mono);font-size:12px">100.25000 MHz &nbsp; -20.00 dBFS</td><td>mono 12px; tabular by nature</td><td><code>--font-family-mono</code>, <code>--font-size-sm</code></td></tr>
+    <tr><td>Status bar readout</td><td style="font-family:var(--mono);font-size:11.5px">Span 2.048 MHz</td><td>mono 11.5px (orphan size)</td><td><code>--font-size-xs</code> (fix F5)</td></tr>
+  </tbody></table>
+  <p class="intro">Numbers in sans text (for example a count in a label) use <code>font-variant-numeric: tabular-nums</code> so that updating values do not shift the line. Readouts that update at frame rate are always mono.</p>
+  <h2>Spacing, radius, elevation, motion, z-index</h2>
+  <div class="cell-grid">
+    <div class="cell"><span class="cap">Spacing scale (px): <code>--space-1</code> 2, <code>--space-2</code> 4, <code>--space-3</code> 6, <code>--space-4</code> 8, <code>--space-5</code> 12, <code>--space-6</code> 16, <code>--space-7</code> 24</span>
+      ${[2, 4, 6, 8, 12, 16, 24].map((n) => `<div style="display:flex;align-items:center;gap:8px"><span class="scale-bar" style="width:${n * 6}px"></span><code>${n}px</code></div>`).join('')}</div>
+    <div class="cell"><span class="cap">Radius: <code>--radius-sm</code> 4px chips · <code>--radius-md</code> 6px controls, rows · <code>--radius-lg</code> 8px popovers, dialogs</span>
+      <div class="ex"><div class="radius-s" style="border-radius:4px"></div><div class="radius-s" style="border-radius:6px"></div><div class="radius-s" style="border-radius:8px"></div></div></div>
+    <div class="cell"><span class="cap">Elevation: <code>--elevation-popover</code> (menus), <code>--elevation-modal</code> (dialog)</span>
+      <div class="ex"><div class="elev-s" style="box-shadow:0 12px 36px rgba(0,0,0,.5)">popover 12 / 36</div><div class="elev-s" style="box-shadow:0 16px 48px rgba(0,0,0,.6)">modal 16 / 48</div></div></div>
+    <div class="cell"><span class="cap">Motion: <code>--duration-fast</code> 150ms ease-out (row action reveal) · <code>--duration-pulse</code> 1s ease-in-out (connecting) · <code>--duration-spin</code> 1s linear · <code>--duration-highlight</code> 3s ease-out (new row). Reduced motion: pulse and spinner are static, row reveal has no slide, highlight becomes a 2px outline.</span></div>
+    <div class="cell"><span class="cap">Z-index layers: <code>--z-base</code> 0 · <code>--z-overlay</code> 10 (plot chips over canvas) · <code>--z-popover</code> 20 (source and mode menus) · <code>--z-modal</code> 40 (dialog backdrop)</span></div>
+  </div>`;
+}
+
+function renderComponents() {
+  const s = S();
+  const cell = (cap, html) => `<div class="cell"><div class="ex">${html}</div><span class="cap">${cap}</span></div>`;
+  return `
+  <h2>Button (<code>src/ui/Button</code>)</h2>
+  <p class="intro">One control height (30px in the toolbar; 24px minimum for small buttons). Default, primary (accent) and destructive (text in danger, border muted red) are the only variants in use. Loading keeps the label and adds a spinner; it never changes the width.</p>
+  <div class="cell-grid">
+    ${cell('default, rest <code>--surface-3</code>', '<button type="button">Test connection</button>')}
+    ${cell('default, hover (mirror of :hover)', '<button type="button" class="st-hover">Test connection</button>')}
+    ${cell('default, focus-visible: 2px <code>--info</code>, offset 1px', '<button type="button" class="st-focus">Cancel</button>')}
+    ${cell('disabled: opacity 0.45 today, 0.6 proposed (F9)', '<button type="button" disabled>Cancel</button>')}
+    ${cell('primary, rest <code>--accent</code>, ink <code>#062018</code>', '<button type="button" class="primary">Save</button>')}
+    ${cell('primary, hover <code>--accent-strong</code>', '<button type="button" class="primary st-hover">Save</button>')}
+    ${cell('primary, disabled', '<button type="button" class="primary" disabled>Save</button>')}
+    ${cell('destructive (text only in danger)', '<button type="button" class="forget">Forget</button>')}
+    ${cell('loading: label kept, spinner added, <code>aria-busy</code>', '<button type="button" class="primary" aria-busy="true"><span class="spinner" aria-hidden="true"></span> Connecting…</button>')}
+    ${cell('small (min target 24px, fix F2)', '<button type="button" class="small">Peak search</button><button type="button" class="small">+ Marker</button>')}
+    ${cell('icon-only (needs aria-label), 20px today, 24px proposed', '<button type="button" class="icon" aria-label="Dismiss">×</button><button type="button" class="icon" aria-label="Remove marker">×</button>')}
+  </div>
+  <h2>Split button: capture control (<code>src/ui/SplitButton</code>)</h2>
+  <p class="intro">Main action plus a chevron that opens a menu. Fixed geometry (128px main, 26px chevron) so no state moves the toolbar. Tone comes from the mode; the state comes from the icon and the label's accessible name.</p>
+  <div class="cell-grid">
+    ${cell('continuous idle (teal)', capture({ ...s, conn: 'connected', mode: 'continuous' }))}
+    ${cell('single idle (violet)', capture({ ...s, conn: 'connected', mode: 'single' }))}
+    ${cell('acquiring, continuous (red Pause)', capture({ ...s, conn: 'acquiring', mode: 'continuous' }))}
+    ${cell('acquiring, single (red Stop)', capture({ ...s, conn: 'acquiring', mode: 'single' }))}
+    ${cell('chevron locked while acquiring (0.55 today, 0.6 proposed, F9)', capture({ ...s, conn: 'acquiring', mode: 'continuous' }))}
+    ${cell('disabled: no source connected (0.45 today, 0.6 proposed)', capture({ ...s, conn: 'disconnected', mode: 'continuous' }))}
+    ${cell('focus: one ring around the whole control', capture({ ...s, conn: 'connected', mode: 'single' }, { ring: true }))}
+  </div>
+  <h2>Field: text, number with unit, frequency (<code>src/ui/Field</code>, <code>NumberField</code>, <code>FrequencyField</code>)</h2>
+  <p class="intro">Label, control and an optional hint or error below. Labels sit beside the control in the side panel and above it in dialogs. Invalid values stay visible with <code>aria-invalid</code>; the message says the allowed range. Frequencies use mono, right-aligned, SI suffixes accepted.</p>
+  <div class="cell-grid">
+    ${cell('frequency, toolbar, 30px (fix F1 applies)', '<label class="field"><span>Center</span><input class="freq-input" aria-label="Center frequency" value="100.000000 MHz"></label>')}
+    ${cell('frequency, invalid: border <code>--danger</code> + message (not colour only)', '<label class="field"><span>Center</span><input class="freq-input invalid" aria-invalid="true" value="6.1 GHz"></label>')}
+    ${cell('number with unit (side panel row)', '<span class="with-unit"><input type="number" value="120" style="width:90px"><span class="unit">dB</span></span>')}
+    ${cell('select (side panel)', '<select style="width:130px"><option>Blackman-Harris</option></select>')}
+    ${cell('disabled field: opacity 0.5 today, 0.6 proposed (F9)', '<input type="number" value="1024" disabled style="width:90px">')}
+    ${cell('checkbox with swatch', '<label style="display:flex;gap:5px;align-items:center"><input type="checkbox" checked><span class="swatch max-hold"></span> Max hold</label>')}
+  </div>
+  <h2>Badge, plot tag and status glyph (<code>src/ui/Badge</code>, <code>StatusDot</code>)</h2>
+  <p class="intro">A badge is always text. The glyph is a shape with the same meaning written next to it, so colour is never the only signal.</p>
+  <div class="cell-grid">
+    ${cell('transport badge (source rows), fixed 64px column', '<span class="badge">USB</span><span class="badge">Serial</span><span class="badge">Built-in</span>')}
+    ${cell('plot tags (over canvas): live, waiting, capturing, hold', '<span class="plot-badge liveness-live">LIVE</span><span class="plot-badge liveness-stale">No data for 4 s</span><span class="plot-badge liveness-capturing">CAPTURING</span><span class="plot-badge">HOLD · last data 13:44:46</span>')}
+    ${cell('status glyphs (always paired with text in menus)', ['connected', 'acquiring', 'connecting', 'failed', 'absent', 'idle'].map((st) => `<span style="display:inline-flex;align-items:center;gap:4px">${dot(st)}<span class="muted" style="font-size:11px">${st}</span></span>`).join(''))}
+    ${cell('uncalibrated marker in status bar (warn text)', '<span class="status-bar" style="background:none;padding:0;font-family:var(--mono);font-size:11.5px"><span class="uncalibrated">Uncalibrated</span></span>')}
+  </div>
+  <h2>Banner and inline messages (<code>src/ui/Banner</code>, <code>InlineMessage</code>)</h2>
+  <p class="intro">Banners carry text, an optional action and a dismiss button, and use <code>role="alert"</code> for failures. Inline messages are the hint, note, help and error text used in panels and dialogs.</p>
+  <div class="cell-grid" style="grid-template-columns:1fr">
+    <div class="cell"><div class="notice notice-acquisitionFailed" role="alert"><span class="notice-message">Acquisition failed: the device stopped sending data. Restart to try again.</span><button type="button">Restart</button><button type="button" class="icon" aria-label="Dismiss">×</button></div><span class="cap">warning banner (amber tint, 12% after F11)</span></div>
+    <div class="cell"><div class="notice notice-connectFailed" role="alert"><span class="notice-message">${esc(SCEN.error.notice.msg)}</span><button type="button">Reconnect</button><button type="button" class="icon" aria-label="Dismiss">×</button></div><span class="cap">error banner (red tint); long text wraps, never truncated</span></div>
+    <div class="cell" style="flex-direction:column;align-items:flex-start;gap:4px"><p class="hint">Click the spectrum to place a marker (Shift+click adds another).</p><div class="dlg-note info">This source is connected. The name changes now; connection settings are locked until you disconnect.</div><div class="dlg-note warn">⚠ This device is already in Your sources as &quot;Bench SA430&quot;.</div><p class="error" role="alert">Connection failed: permission denied on /dev/ttyACM0</p><span class="cap">hint (12px muted), info note, warn note with glyph, error (danger)</span></div>
+  </div>
+  <h2>Menu rows and popover (<code>src/ui/Menu</code>, <code>MenuItem</code>, <code>Popover</code>)</h2>
+  <p class="intro">Rows are a two-line grid: glyph 18px, name (ellipsis), badge 64px. The name is never shortened by a badge or a status. Hover and focus use <code>--surface-3</code>; the focus ring is drawn outside the row.</p>
+  <div class="cell-grid" style="grid-template-columns:repeat(auto-fill,minmax(360px,1fr))">
+    <div class="cell">${sourceMenu({ ...s, rows: [{ title: 'Bench SA430', badge: 'USB', detail: '/dev/ttyACM0', status: 'connected', checked: true }] }, { focusFirst: false }).replace('class="source-popover"', 'class="source-popover" style="position:relative;top:0;width:100%"')}<span class="cap">current, checked row (connected), a detected row, fixed rows</span></div>
+    <div class="cell">${sourceMenu({ ...s, rows: [{ title: LONG, badge: 'USB', detail: '/dev/serial/by-id/usb-SA430_' + DEV + '-if00', status: 'idle', checked: false }] }, { focusFirst: true }).replace('class="source-popover"', 'class="source-popover" style="position:relative;top:0;width:100%"')}<span class="cap">long name: ellipsis on line 1; the full name is in the tooltip; focus ring on the first row</span></div>
+    <div class="cell force-actions">${sourceMenu({ ...s, rows: [{ title: 'Lab bench SA430 by the north window, run 07', badge: 'USB', detail: '/dev/ttyACM0', status: 'absent', checked: false }] }, { hoverFirst: true }).replace('class="source-popover"', 'class="source-popover" style="position:relative;top:0;width:100%"')}<span class="cap">hover row (surface-3) with the edit and forget actions revealed; status "Not detected" dims the name</span></div>
+    <div class="cell">${modeMenu({ mode: 'single' }, { focus: 'continuous' }).replace('class="mode-popover"', 'class="mode-popover" style="position:relative;right:auto;top:0"')}<span class="cap">capture mode menu, focus on the checked item (Continuous focused here to show the ring)</span></div>
+  </div>
+  <h2>Dialog (<code>src/ui/Dialog</code>), section header, readout row</h2>
+  <div class="cell-grid" style="grid-template-columns:repeat(auto-fill,minmax(440px,1fr))">
+    <div class="cell" style="padding:0;border:0;background:none">${dialog({ ...s, testText: 'idle', dialogName: 'Bench SA430' }, { static: true })}<span class="cap">dialog, test not run yet (idle state reserves 62px so nothing jumps)</span></div>
+    <div class="cell" style="padding:0;border:0;background:none">${dialog({ ...s, testText: 'fail', fail: SCEN.error.fail, dialogName: 'Bench SA430' }, { static: true })}<span class="cap">dialog, test failed: long message wraps inside the box</span></div>
+  </div>
+  <div class="cell-grid" style="margin-top:10px">
+    <div class="cell"><details class="panel" open style="border:0"><summary style="padding:0;cursor:default">Measurement</summary><div class="panel-body" style="padding:6px 0 0"><p class="hint">Section title: 12px, caps, semibold, muted. Used once per side-panel section.</p></div></details><span class="cap">section title (panel)</span></div>
+    <div class="cell"><table class="readout-table" style="width:100%"><thead><tr><th></th><th>Frequency</th><th>Level</th></tr></thead><tbody><tr class="active"><td class="marker-id">M1</td><td>100.25000 MHz</td><td>-20.00 dBFS</td></tr><tr><td class="peak-id">P1</td><td>100.45000 MHz</td><td>-36.3 dBFS</td></tr></tbody></table><span class="cap">readout table: mono values, active row <code>--surface-3</code></span></div>
+  </div>`;
+}
+
+const FIXES = [
+  { id: 'F1', title: 'Toolbar fields match the 30px control height', why: 'The Center field and the Span select are 28px, the source button, the capture control and the field row are 30px. The 2px step shows as a misaligned bottom edge in the toolbar.', screens: 'Toolbar, all states, 1440 and 1024', stack: true, scen: 'typical', measure: (r) => measureSet(r, [['freq input height', '.freq-input', H], ['span select height', 'select', H], ['source button height', '.source-button', H], ['capture main height', '.capture-main', H]]), render: (v) => `<div class="toolbar" style="width:100%">${toolbar(SCEN.typical, {})}</div>` },
+  { id: 'F2', title: 'Small and icon buttons reach a 24px target height', why: 'button.small is 23px and the icon buttons are 20px (marker remove and jump, source row Edit and Forget, notice dismiss). WCAG 2.2 AA (2.5.8) asks for 24 by 24 CSS px. The row action stays inside the 44px source row.', screens: 'Side panel (markers, measurement, source form), marker table, notices, source menu row actions', scen: 'typical', measure: (r) => measureSet(r, [['button.small height', 'button.small', H], ['button.icon height', 'button.icon', H]]), render: (v) => `<div class="button-row"><button type="button" class="small">Peak search</button><button type="button" class="small">+ Marker</button></div><table class="readout-table" style="margin-top:8px"><tbody><tr><td class="marker-id">M1</td><td>100.25000 MHz</td><td><button type="button" class="icon" aria-label="Set center frequency to this marker">⇥</button><button type="button" class="icon" aria-label="Remove marker">×</button></td></tr></tbody></table><div class="notice notice-acquisitionFailed" role="alert" style="margin-top:8px"><span class="notice-message">Acquisition failed.</span><button type="button" class="icon" aria-label="Dismiss">×</button></div>` },
+  { id: 'F3', title: 'Menu headings line up with the glyph column', why: 'The source menu heading starts 3px left of the status glyph below it; the capture menu heading is 1px left. Both use the same class idea written twice (.source-heading and .mode-heading). Proposal: one heading style with a 9px inset (1px border + 6px padding + 1px item border + 8px item padding = 16px for the glyph).', screens: 'Source menu, capture mode menu', scen: 'typical', measure: (r) => { const pop = r.querySelector('.source-popover'); const h = r.querySelector('.source-heading'); const g = r.querySelector('.source-row .src-dot'); return pop && h && g ? `heading text x: ${LEFT(h, pop)}\nglyph x: ${LEFT(g, pop)}\nmismatch: ${px(g.getBoundingClientRect().left - h.getBoundingClientRect().left)}` : 'n/a'; }, render: () => sourceMenu({ ...SCEN.typical, detected: [] }, {}) + '' },
+  { id: 'F4', title: 'Mode menu focus ring drawn outside, like every other control', why: 'Every button draws its focus ring outside the box (2px, 1px offset). The capture mode items draw it inside (offset -2px), so the same keyboard focus looks different in the two menus. Outside fits: the popover padding is 6px.', screens: 'Capture mode menu, keyboard focus', scen: 'typical', measure: (r) => measureSet(r, [['focused item outline-offset', '.mode-item.st-focus', OFF], ['outline', '.mode-item.st-focus', SW]]), render: () => modeMenu({ mode: 'continuous' }, { focus: 'single' }) },
+  { id: 'F5', title: 'Status bar text on the 11px step', why: 'The status bar is the only text at 11.5px, a step between the scale’s 11px and 12px. The mono readout stays legible at 11px; the bar gets narrower, so the clipping risk in F0 is not made worse.', screens: 'Status bar, all states', stack: true, scen: 'typical', measure: (r) => measureSet(r, [['status bar font-size', '.status-bar', FS]]), render: (v) => statusBar(SCEN.typical) },
+  { id: 'F6', title: 'Dialog help text on the 12px hint step', why: 'Help text in the Add/Edit dialog is 11px. Hints in the side panel and the dialog notes are 12px. Long sessions read the dialog’s help text, so it moves to the same step as its neighbours.', screens: 'Add / Edit source dialog', scen: 'typical', measure: (r) => measureSet(r, [['help font-size', '.help', FS]]), render: () => dialog({ ...SCEN.typical, testText: 'idle' }, { static: true }) },
+  { id: 'F7', title: 'Dialog field labels on the 13px label step', why: 'Field labels are 13px in the toolbar, the side panel and the inline connect form, but 12px in the dialog. One label size everywhere.', screens: 'Add / Edit source dialog', scen: 'typical', measure: (r) => measureSet(r, [['dialog label font-size', '.form-row label', FS]]), render: () => dialog({ ...SCEN.typical, testText: 'idle' }, { static: true }) },
+  { id: 'F8', title: 'Inline error text on one size (12px)', why: 'The connect form error is 13px (.error), the dialog error and name error are 12px. One inline-error style at 12px, with role="alert", in every form.', screens: 'Inline connect form, Add / Edit dialog', scen: 'error', measure: (r) => measureSet(r, [['form error font-size', '.error', FS]]), render: () => `<div class="source-form" style="padding:0"><p class="error" role="alert">Connection failed: permission denied on /dev/ttyACM0.</p></div>` },
+  { id: 'F9', title: 'One unavailable opacity: 0.6, not 0.45, 0.5 or 0.55', why: 'Disabled buttons and rows are 0.45, disabled inputs and selects 0.5, the locked chevron 0.55. At 0.45 the primary label on the control fill is 3.48:1, and the teal primary button drops to 3.08:1. Proposal: 0.6 for every unavailable control (label 5.00:1 on the control fill, 4.48:1 on the teal button). Read-only fields keep 0.75 (6.93:1). Decision Q-3 in DESIGN.md.', screens: 'Toolbar (no source), side panel, dialog, capture chevron while acquiring, popover rows', scen: 'empty', measure: (r) => measureSet(r, [['disabled button opacity', 'button:disabled', OP], ['disabled input opacity', 'input:disabled', OP]]), render: () => `<div class="form-row" style="max-width:300px"><label>Range</label><span class="with-unit"><input type="number" value="120" disabled style="width:90px"><span class="unit">dB</span></span></div><div class="button-row" style="margin-top:6px"><button type="button" class="small" disabled>Reset</button><button type="button" class="primary" disabled>Save</button></div>` },
+  { id: 'F10', title: 'Amber and red banners use the same tint strength', why: 'Red banners are tinted at 12% (rgba 255,107,107,.12), amber banners at 10% (rgba 255,181,71,.10). One tint step, 12%, for both banner tones.', screens: 'Notice banners, all tones', scen: 'error', measure: (r) => measureSet(r, [['banner background', '.notice', BG]]), render: () => `<div class="notice notice-acquisitionFailed" role="alert" style="margin:0"><span class="notice-message">Acquisition failed: the device stopped sending data.</span><button type="button">Restart</button><button type="button" class="icon" aria-label="Dismiss">×</button></div>` },
+  { id: 'F11', title: 'Dialog group legend aligned with the field labels', why: 'In the Add/Edit dialog the group legend ("Connection") is indented 4px from the field labels below it, because legend keeps its 4px side padding after the dialog removed the group border. Zero padding in the dialog only; the bordered groups in the side panel keep theirs.', screens: 'Add / Edit source dialog (driver parameters)', scen: 'typical', measure: (r) => { const lg = r.querySelector('legend'); const lb = r.querySelector('.param-field label'); if (!lg || !lb) return 'n/a'; const rg = document.createRange(); rg.selectNodeContents(lg); const tx = rg.getBoundingClientRect().left; return `legend text x minus label text x: ${px(tx - lb.getBoundingClientRect().left)}`; }, render: () => dialog({ ...SCEN.typical, testText: 'idle' }, { static: true }) },
+  { id: 'F12', title: 'Remove the unused --warn-strong token', why: 'app.css defines --warn-strong (#f0a22e) and nothing uses it. Dead tokens invite drift. No visual change. Tracked here so the token list in DESIGN.md is the complete list.', screens: 'None (no visual change)', scen: 'typical', measure: () => `usages in src/styles: 0 (grep)`, render: () => `<p class="muted" style="margin:0">No sample: no visible change.</p>` },
+  { id: 'F13', title: 'Zoom reset button reaches a 24px target height', why: 'The "Zoom: <span> · reset" button over the plot is 21.4px tall (measured in the browser). WCAG 2.2 AA (2.5.8) asks for 24 by 24 CSS px. Proposal: min-height 24px; the position over the plot does not change.', screens: 'Spectrum plot while zoomed', scen: 'typical', measure: (r) => measureSet(r, [['zoom reset height', '.plot-zoom-reset', H]]), render: () => `<div class="plot" style="position:relative;height:70px;width:320px;background:var(--surface-2)"><button type="button" class="plot-zoom-reset" style="position:absolute;top:12px;left:12px">Zoom: 2.0 MHz · reset</button></div>` },
+  { id: 'F14', title: 'Checkbox labels reach a 24px target height', why: 'A checkbox and its label are a single target, but the label is 19px tall (its line height). Proposal: label min-height 24px, text centred. The native checkbox keeps its size. The measurement is the label's height.', screens: 'Side panel (Display: Waterfall; Measurement: Max hold, Min hold), dialog', scen: 'typical', measure: (r) => measureSet(r, [['checkbox label height', '.form-row.checks label', H]]), render: () => `<div class="form-row checks" style="max-width:300px"><label><input type="checkbox" checked> Waterfall</label><label><input type="checkbox"> Max hold</label></div>` },
+  { id: 'F15', title: 'Text field and select boundaries reach 3:1', why: 'WCAG 1.4.11 needs a 3:1 boundary to identify a text field, number field or select. Today the field border is #26344a: 1.39:1 on the side panel and 1.27:1 on the dialog surface. Proposal: --color-border-input #5b6f8f (slate-600): 3.43:1 on the panel, 3.13:1 on raised surfaces. Buttons keep their border; their label identifies them.', screens: 'Toolbar fields, side panel, dialog fields, connect form', scen: 'typical', measure: (r) => measureSet(r, [['number input border', 'input[type=number]', (el) => getComputedStyle(el).borderTopColor], ['select border', 'select', (el) => getComputedStyle(el).borderTopColor]]), render: () => `<div class="form-row" style="max-width:300px"><label>Averaging</label><span class="with-unit"><input type="number" value="10" style="width:90px"><span class="unit">traces</span></span></div><div class="form-row" style="max-width:300px"><label>Window</label><select style="width:130px"><option>Hann</option></select></div>` },
+];
+
+function renderFixes() {
+  return `<h2>Proposed small fixes: current vs proposed</h2>
+  <p class="intro">Each card renders the same element twice: left as it is in src/styles today, right with the proposed change applied (scoped to <code>.v-new</code>, the rules are in this file's section 3). The numbers under each pane are measured by the browser from the rendered CSS, not typed in. Nothing here is a redesign; each fix is a token or a single rule. The list is the one in design.md section 3 (F1 to F15); F0 is a separate finding that needs a decision.</p>
+  ${FIXES.map((f) => `<section class="fix" id="${f.id}" data-fix="${f.id}">
+    <h3>${f.id} · ${esc(f.title)}</h3>
+    <div class="meta">Affected: ${esc(f.screens)}</div>
+    <p class="why">${esc(f.why)}</p>
+    <div class="ba${f.stack ? ' stack' : ''}">
+      <div class="pane"><div class="tag">Current</div><div class="body v-cur" data-cur="${f.id}"></div><div class="out" data-out-cur="${f.id}"></div></div>
+      <div class="pane new"><div class="tag">Proposed</div><div class="body v-new" data-new="${f.id}"></div><div class="out" data-out-new="${f.id}"></div></div>
+    </div>
+  </section>`).join('')}
+  <section class="fix" id="F0" data-fix="F0"><h3>F0 · Not a small fix: the status bar cuts "Uncalibrated" from 1024 to 1257px (measured)</h3>
+    <div class="meta">Affected: status bar with a live frame, every window width from 1024 to 1257px. Needs a human decision (Q-1); a bug candidate.</div>
+    <p class="why">The status bar is one line and it clips at its right edge. "Uncalibrated" sits at the right end (margin-left: auto), so when the items overflow it is pushed outside the bar: the calibration state is not shown at all. Measured with the real CSS and the fallback fonts: all 10 items need 1258px of window width, so from 1024 to 1257px the calibration state is hidden (1180px included). CLAUDE.md says uncalibrated data must never look calibrated. Proposal on the right: Rate and Frame are removed whole when they do not fit (Frame first, then Rate), Uncalibrated and Unit are never removed, and no item is cut. Without Frame, Uncalibrated is visible from 1078px; without Frame and Rate it is visible at 1024px (both measured). The order is Q-4 in DESIGN.md.</p>
+    <div class="ba stack">
+      <div class="pane"><div class="tag">Current, 1024px</div><div class="body" style="width:1000px" data-cur="F0"></div><div class="out" data-out-cur="F0"></div></div>
+      <div class="pane new"><div class="tag">Proposed, 1024px</div><div class="body v-new frame-narrow-hide" style="width:1000px" data-new="F0"></div><div class="out" data-out-new="F0"></div></div>
+    </div>
+  </section>`;
+}
+function renderFixSamples() {
+  for (const f of FIXES) {
+    const s = SCEN[f.scen];
+    for (const side of ['cur', 'new']) {
+      const host = document.querySelector(`[data-${side}="${f.id}"]`);
+      if (!host) continue;
+      host.innerHTML = f.render(side);
+    }
+  }
+  // F0: the full status bar, with and without the proposed order
+  for (const side of ['cur', 'new']) {
+    const host = document.querySelector(`[data-${side}="F0"]`);
+    if (host) host.innerHTML = `<div style="width:1000px">${statusBar(SCEN.typical)}</div>`;
+  }
+  // F3 needs a popover that is not absolutely positioned inside a pane
+  for (const side of ['cur', 'new']) {
+    const host = document.querySelector(`[data-${side}="F3"]`);
+    if (host) host.innerHTML = `<div style="position:relative;top:0;width:340px">${sourceMenu({ ...SCEN.typical, detected: [] }, {}).replace('class="source-popover"', 'class="source-popover" style="position:relative;top:0;width:340px"')}</div>`;
+  }
+  for (const side of ['cur', 'new']) {
+    const host = document.querySelector(`[data-${side}="F4"]`);
+    if (host) host.innerHTML = modeMenu({ mode: 'continuous' }, { focus: 'single' }).replace('class="mode-popover"', 'class="mode-popover" style="position:relative;right:auto;top:0;width:280px"');
+  }
+  for (const side of ['cur', 'new']) {
+    const host = document.querySelector(`[data-${side}="F5"]`);
+    if (host) host.innerHTML = `<div style="width:100%">${statusBar(SCEN.typical)}</div>`;
+  }
+  for (const side of ['cur', 'new']) {
+    const host = document.querySelector(`[data-${side}="F6"]`);
+    if (host) host.innerHTML = dialog({ ...SCEN.typical, testText: 'idle' }, { static: true });
+    const h2 = document.querySelector(`[data-${side}="F7"]`);
+    if (h2) h2.innerHTML = dialog({ ...SCEN.typical, testText: 'idle' }, { static: true });
+  }
+  // measurements: after layout, read the rendered styles
+  for (const f of FIXES) {
+    for (const side of ['cur', 'new']) {
+      const host = document.querySelector(`[data-${side}="${f.id}"]`);
+      const out = document.querySelector(`[data-out-${side}="${f.id}"]`);
+      if (!host || !out) continue;
+      try {
+        out.textContent = f.measure ? f.measure(host) : '';
+      } catch (e) {
+        out.textContent = 'measure error: ' + e.message;
+      }
+    }
+  }
+  const f0 = (side) => {
+    const bar = document.querySelector(`[data-${side}="F0"] .status-bar`);
+    const unc = document.querySelector(`[data-${side}="F0"] .uncalibrated`);
+    const out = document.querySelector(`[data-out-${side}="F0"]`);
+    if (!bar || !unc || !out) return;
+    const b = bar.getBoundingClientRect(), u = unc.getBoundingClientRect();
+    const visible = u.left < b.right && u.right > b.left;
+    const barRight = b.right;
+    const lastVisible = [...bar.querySelectorAll('.status-item')].filter((el) => {
+      const r = el.getBoundingClientRect(); return r.right <= barRight + 0.5 && r.width > 0;
+    }).length;
+    const total = bar.querySelectorAll('.status-item').length;
+    const shown = [...bar.querySelectorAll('.status-item')].filter((el) => el.getBoundingClientRect().width > 0).length;
+    out.textContent = `bar width: ${px(b.width)}\n"Uncalibrated" visible in the bar: ${visible ? 'yes' : 'NO (clipped)'}\nitems in the bar: ${shown} of ${total} (whole items only)\nitems cut by the edge: ${shown - lastVisible}`;
+  };
+  f0('cur');
+  f0('new');
+}
+
+function renderScreens() {
+  const s = S();
+  const fwVar = `--fw:${fw}px`;
+  const narrow = fw <= 1180 ? ' is-narrow' : '';
+  const menu = openMenu;
+  const dlgOpen = openMenu === 'dialog';
+  const sourceOpen = openMenu === 'source';
+  const modeOpen = openMenu === 'mode';
+  const frame = (variant) => {
+    const cls = variant === 'new' ? 'v-new' : 'v-cur';
+    let inner = appFrame(s, { openSource: sourceOpen, menu: modeOpen });
+    if (sourceOpen) inner += `<div style="position:absolute;left:12px;top:42px;z-index:20">${sourceMenu(s)}</div>`;
+    if (modeOpen) inner += `<div style="position:absolute;right:${fw - 395}px;top:42px;z-index:20">${modeMenu(s)}</div>`;
+    if (dlgOpen) inner += `<div class="dialog-backdrop" style="position:absolute;inset:0;z-index:40;background:rgba(5,8,14,.6);padding:90px 12px 12px">${dialog(s).replace('<div class="dialog-backdrop" style="">', '')}</div>`;
+    return `<div class="frame${narrow}" style="${fwVar}"><div class="${cls}" style="height:100%">${inner}</div></div>`;
+  };
+  return `<h2>Screens at the chosen width</h2>
+  <p class="intro">The whole app shell with the current CSS (left) and with the small fixes applied (right), at the width chosen above. Use the menu switches to open the source menu, the capture mode menu or the dialog. The viewport width does not drive the frame width, so the narrow-window rules are mirrored onto frames narrower than 1180px.</p>
+  <div class="cell-grid" style="grid-template-columns:1fr;gap:6px">
+    <div class="ex" style="gap:6px"><span class="muted" style="font-size:12px">Overlay:</span>
+      <button type="button" data-ov="none" aria-pressed="${!menu}">None</button>
+      <button type="button" data-ov="source" aria-pressed="${sourceOpen}">Source menu</button>
+      <button type="button" data-ov="mode" aria-pressed="${modeOpen}">Capture mode menu</button>
+      <button type="button" data-ov="dialog" aria-pressed="${dlgOpen}">Edit source dialog</button>
+    </div>
+  </div>
+  <div class="frame-wrap"><div class="tag"><b>Current</b> (src/styles as they are)</div>${frame('cur')}</div>
+  <div class="frame-wrap"><div class="tag"><b>Proposed</b> (small fixes F1 to F15 applied; F0 is a decision, not applied here)</div>${frame('new')}</div>`;
+}
+
+/* ---------- switcher ---------- */
+function setHash() {
+  history.replaceState(null, '', `#view=${view}&s=${sc}&w=${fw}&ov=${openMenu || 'none'}`);
+}
+function readHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.get('view')) view = p.get('view');
+  if (p.get('s') && SCEN[p.get('s')]) sc = p.get('s');
+  if (p.get('w')) fw = Number(p.get('w')) || fw;
+  if (p.get('ov')) openMenu = p.get('ov') === 'none' ? null : p.get('ov');
+}
+function render() {
+  readHash();
+  document.querySelectorAll('[role=tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
+  document.querySelectorAll('[data-sc]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sc === sc)));
+  document.querySelectorAll('[data-w]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.w) === fw)));
+  document.getElementById('widthGrp').style.display = view === 'screens' ? '' : 'none';
+  document.getElementById('scNote').textContent = S().label + (view === 'screens' ? ` · ${fw}px` : '');
+  const app = document.getElementById('app');
+  if (view === 'tokens') app.innerHTML = renderTokens();
+  else if (view === 'components') app.innerHTML = renderComponents();
+  else if (view === 'fixes') { app.innerHTML = renderFixes(); renderFixSamples(); }
+  else app.innerHTML = renderScreens();
+  setHash();
+}
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button');
+  if (!t) return;
+  if (t.dataset.view) { view = t.dataset.view; render(); }
+  else if (t.dataset.sc) { sc = t.dataset.sc; render(); }
+  else if (t.dataset.w) { fw = Number(t.dataset.w); render(); }
+  else if (t.dataset.ov) { openMenu = t.dataset.ov === 'none' ? null : t.dataset.ov; render(); }
+});
+window.addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>

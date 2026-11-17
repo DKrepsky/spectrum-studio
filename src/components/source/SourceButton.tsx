@@ -6,7 +6,9 @@ import { configKey } from '../../state/sourceEntries';
 import { useSources } from '../../state/sources';
 import { SourceMenu } from './SourceMenu';
 import { useSourceMenu } from './menuState';
-import { StatusGlyph, activeStatus } from './status';
+import { StatusDot } from '../../ui/StatusDot';
+import { activeStatus } from './status';
+import './source.css';
 
 const STATE_LABEL: Record<SessionState, string> = {
   disconnected: 'Disconnected',
@@ -59,7 +61,7 @@ export function SourceButton() {
         ref={button}
         type="button"
         className={`source-button${active ? '' : ' attention'}`}
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={active ? `Source: ${name}, ${stateLabel}` : 'Source: Choose a source'}
         title={active ? `${name}\nChoose source (Ctrl+K)` : 'Choose source (Ctrl+K)'}
@@ -67,8 +69,10 @@ export function SourceButton() {
         onClick={() => setOpen(!open)}
         onKeyDown={onKeyDown}
       >
-        {active && <StatusGlyph status={status} />}
-        <span className="src-name">{name}</span>
+        {active && <StatusDot status={status} data-testid="source-button-status" />}
+        <span className="source-button-name" data-testid="source-button-name">
+          {name}
+        </span>
         <span aria-hidden>▾</span>
       </button>
       {open && <SourceMenu buttonRef={button} onClose={close} />}

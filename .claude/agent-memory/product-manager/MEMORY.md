@@ -10,3 +10,5 @@
 - [sa430 lib work](project-sa430-lib-followup.md) — 0.2.2 adopted (008); squash-merge breaks stacked PRs; lib workflow rules
 - [Capture modes 006](project-capture-modes.md) — colour semantics teal/purple/red, minimal copy, SIMULATED badge removed
 - [Auto-connect 007](project-auto-connect.md) — connect-only, first device, sa430 udev watcher; e2e must be updated when launch state changes
+- [Design spec review](feedback-design-spec-review.md) — human reviews spec docs in depth first; save review verbatim as designer brief
+- [Design system 009](project-design-system.md) — DESIGN.md + src/ui + tokens accepted 2026-11-17; crops catch drift; evidence gitignored

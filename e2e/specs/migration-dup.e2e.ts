@@ -4,14 +4,15 @@ import { join } from 'node:path';
 import { $$, browser, expect } from '@wdio/globals';
 
 import {
+  byTestId,
   closeSourceMenu,
   fillDialog,
   openEditDialog,
   openSourceMenu,
-  byTestId,
   shot,
   textOf,
   waitForAppReady,
+  waitForGone,
 } from './helpers';
 
 // Seeded with the two duplicated SA430 records the user's real sources.json contained (one with
@@ -54,7 +55,7 @@ describe('Upgrading a store with duplicate SA430 records', () => {
     await openEditDialog(id);
     await fillDialog({ name: 'Bench SA430' });
     await (await byTestId('add-source-save')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
     await closeSourceMenu();
 
     await browser.reloadSession();

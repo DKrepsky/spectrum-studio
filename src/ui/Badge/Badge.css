@@ -1,0 +1,36 @@
+/* DESIGN.md 4.7. Tokens only; the caller positions a tag over the canvas. Text keeps its case: the
+   state word is typed in capitals where it is meant to be (LIVE, CAPTURING, HOLD), not by CSS. */
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+.ui-badge[data-variant='chip'] {
+  background: var(--color-surface-control);
+  border-radius: var(--radius-sm);
+  letter-spacing: var(--letter-spacing-chip);
+}
+.ui-badge[data-variant='tag'] {
+  background: var(--color-scrim-chip);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-chip);
+  pointer-events: none;
+}
+.ui-badge[data-tone='live'] {
+  color: var(--color-accent);
+}
+.ui-badge[data-tone='waiting'],
+.ui-badge[data-tone='warn'] {
+  color: var(--color-warn);
+}
+.ui-badge[data-tone='capturing'] {
+  color: var(--color-capture-single);
+}

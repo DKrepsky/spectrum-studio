@@ -1,0 +1,88 @@
+# Contrast check for 009 (designer). Lists the pairs used in DESIGN.md 9.3 and 9.4 and prints the ratio.
+# Run from this folder: python3 contrast_pairs.py   (needs contrast_lib.py beside it)
+import sys, os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from contrast_lib import hx, ratio, over
+T = {
+ 'app':'0b1018','panel':'121a26','raised':'182233','control':'1f2b3f','ctrlhover':'25344c','plot':'0e1520',
+ 'border':'26344a','inputborder':'5b6f8f','hoverborder':'3a4d6b',
+ 'primary':'dbe4f0','secondary':'8a9ab1','axis':'8ea0b8','readout':'e6edf6',
+ 'teal':'3ee0b5','tealhover':'2bc79e','inkteal':'062018','warn':'ffb547','danger':'ff6b6b','dangerhover':'f04848',
+ 'info':'5aa9ff','violet':'a47cff','violethover':'9166f5','inkdark':'120a24','orange':'ff9f43','magenta':'ff6bcb',
+ 'yellow':'ffd166','white':'ffffff','slate':'7a8799',
+}
+C={k:hx(v) for k,v in T.items()}
+def row(name, fg, bg, need, kind):
+    r=ratio(fg,bg); ok = r>=need
+    print(f"| {name} | {r:.2f}:1 | {kind} {need}:1 | {'pass' if ok else 'FAIL'} |")
+def fa(c,a,bg): return over(c,a,bg)
+P=C['plot']
+chip=over(hx('080c12'),0.8,P); readout=over(hx('080c12'),0.88,P)
+print('TEXT (4.5)')
+row('primary on panel', C['primary'], C['panel'],4.5,'text')
+row('primary on raised', C['primary'], C['raised'],4.5,'text')
+row('primary on control (button)', C['primary'], C['control'],4.5,'text')
+row('primary on control-hover', C['primary'], C['ctrlhover'],4.5,'text')
+row('secondary on panel', C['secondary'], C['panel'],4.5,'text')
+row('secondary on raised', C['secondary'], C['raised'],4.5,'text')
+row('secondary on control (badge, row sub-line)', C['secondary'], C['control'],4.5,'text')
+row('secondary on app', C['secondary'], C['app'],4.5,'text')
+row('accent on panel', C['teal'], C['panel'],4.5,'text')
+row('warn on panel', C['warn'], C['panel'],4.5,'text')
+row('danger on raised', C['danger'], C['raised'],4.5,'text')
+row('info on panel', C['info'], C['panel'],4.5,'text')
+row('violet (single icon) on raised', C['violet'], C['raised'],3,'non-text')
+row('text on accent (ink teal on teal)', C['inkteal'], C['teal'],4.5,'text')
+row('text on accent hover (ink on teal-500)', C['inkteal'], C['tealhover'],4.5,'text')
+row('text on violet fill', C['inkdark'], C['violet'],4.5,'text')
+row('text on violet hover fill', C['inkdark'], C['violethover'],4.5,'text')
+row('text on danger (stop) fill', C['inkdark'], C['danger'],4.5,'text')
+row('text on danger hover fill', C['inkdark'], C['dangerhover'],4.5,'text')
+row('ok text on tint-ok (teal 8% over raised)', C['teal'], over(C['teal'],0.08,C['raised']),4.5,'text')
+row('fail text on tint-error-subtle (red 8% over raised)', C['danger'], over(C['danger'],0.08,C['raised']),4.5,'text')
+row('warn text on tint-warn (amber 12% over panel)', C['warn'], over(C['warn'],0.12,C['panel']),4.5,'text')
+row('danger text on tint-error (red 12% over panel)', C['danger'], over(C['danger'],0.12,C['panel']),4.5,'text')
+row('primary text on tint-warn (amber 12% over panel)', C['primary'], over(C['warn'],0.12,C['panel']),4.5,'text')
+print('CANVAS TEXT (4.5)')
+row('axis tick text on plot', C['axis'], P,4.5,'text')
+row('secondary (hint) on plot', C['secondary'], P,4.5,'text')
+row('plot tag LIVE (teal) on chip scrim', C['teal'], chip,4.5,'text')
+row('plot tag waiting/stale (warn) on chip scrim', C['warn'], chip,4.5,'text')
+row('plot tag CAPTURING (violet) on chip scrim', C['violet'], chip,4.5,'text')
+row('plot tag HOLD (secondary) on chip scrim', C['secondary'], chip,4.5,'text')
+row('readout text on readout scrim', C['readout'], readout,4.5,'text')
+row('zoom reset label (primary) on chip scrim', C['primary'], chip,4.5,'text')
+print('CANVAS GRAPHICS (3.0)')
+row('live trace (teal) on plot', C['teal'], P,3,'non-text')
+row('max hold (orange) on plot', C['orange'], P,3,'non-text')
+row('min hold (blue) on plot', C['info'], P,3,'non-text')
+row('held/stale trace (slate-500) on plot', C['slate'], P,3,'non-text')
+row('marker (magenta) on plot', C['magenta'], P,3,'non-text')
+row('peak (yellow) on plot', C['yellow'], P,3,'non-text')
+row('active marker/peak (white) on plot', C['white'], P,3,'non-text')
+row('crosshair (45% light) on plot', over(hx('dce6f5'),0.45,P), P,3,'non-text')
+row('grid 14% (decorative, exempt)', over(hx('789abe'),0.14,P), P,3,'non-text (decorative)')
+row('grid strong 28% (decorative, exempt)', over(hx('789abe'),0.28,P), P,3,'non-text (decorative)')
+print('TRACE-TO-TRACE (distinguishability aid, not a WCAG test)')
+row('live teal vs max-hold orange', C['teal'], C['orange'],1,'info')
+row('live teal vs min-hold blue', C['teal'], C['info'],1,'info')
+row('max-hold orange vs min-hold blue', C['orange'], C['info'],1,'info')
+print('NON-TEXT UI (3.0)')
+row('focus ring blue on app', C['info'], C['app'],3,'non-text')
+row('focus ring blue on panel', C['info'], C['panel'],3,'non-text')
+row('focus ring blue on raised', C['info'], C['raised'],3,'non-text')
+row('focus ring blue on plot', C['info'], P,3,'non-text')
+row('input boundary CURRENT #26344a on panel', C['border'], C['panel'],3,'non-text')
+row('input boundary CURRENT #26344a on raised', C['border'], C['raised'],3,'non-text')
+row('input boundary PROPOSED #5b6f8f on panel', C['inputborder'], C['panel'],3,'non-text')
+row('input boundary PROPOSED #5b6f8f on raised', C['inputborder'], C['raised'],3,'non-text')
+row('input boundary PROPOSED #5b6f8f on app', C['inputborder'], C['app'],3,'non-text')
+row('status dot teal on panel', C['teal'], C['panel'],3,'non-text')
+row('status ring (secondary) on panel', C['secondary'], C['panel'],3,'non-text')
+row('status cross (danger) on panel', C['danger'], C['panel'],3,'non-text')
+row('status pulse dot info on panel', C['info'], C['panel'],3,'non-text')
+row('attention outline teal on panel', C['teal'], C['panel'],3,'non-text')
+print('UNAVAILABLE (exempt; shown for information)')
+for op in (0.45,0.55,0.6):
+    print(f" opacity {op}: primary label on control {ratio(over(C['primary'],op,C['control']),C['control']):.2f}; on panel {ratio(over(C['primary'],op,C['panel']),C['panel']):.2f}; ink on teal button {ratio(over(C['inkteal'],op,C['panel']),over(C['teal'],op,C['panel'])):.2f}")
+for op in (0.75,):
+    print(f" read-only {op}: primary on control {ratio(over(C['primary'],op,C['control']),C['control']):.2f}; on raised {ratio(over(C['primary'],op,C['raised']),C['raised']):.2f}")

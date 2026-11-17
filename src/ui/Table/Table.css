@@ -1,0 +1,33 @@
+/* DESIGN.md 4.14. */
+.ui-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}
+.ui-table th {
+  padding: var(--space-1) var(--space-2);
+  font-family: var(--font-family-ui);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  color: var(--color-text-secondary);
+}
+.ui-table td {
+  padding: var(--space-2);
+  border-top: 1px solid var(--color-border-default);
+  vertical-align: top;
+  color: var(--color-text-primary);
+}
+.ui-table-row[data-selectable] {
+  cursor: pointer;
+}
+.ui-table-row[data-selectable]:hover:not([data-active]) {
+  background: var(--color-surface-raised);
+}
+.ui-table-row[data-active] {
+  background: var(--color-surface-control);
+}
+.ui-table-empty td {
+  font-family: var(--font-family-ui);
+  color: var(--color-text-secondary);
+}

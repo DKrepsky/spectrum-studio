@@ -1,0 +1,114 @@
+/* Split button (DESIGN.md 4.3). Geometry is fixed; the tone sets the fill; one ring for the group.
+   Only tokens here. */
+.split-button {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  height: var(--control-height);
+}
+.split-main,
+.split-chevron {
+  box-sizing: border-box;
+  height: 100%;
+  margin: 0;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.split-main {
+  width: var(--capture-main-width);
+  gap: var(--capture-main-gap);
+  padding: 0 var(--capture-main-padding-x);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  border-right-width: 0;
+  font-weight: var(--font-weight-semibold);
+}
+.split-chevron {
+  width: var(--capture-chevron-width);
+  padding: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.split-main svg,
+.split-chevron svg {
+  flex: none;
+}
+
+/* Tones. Each segment carries its own colours, so the group needs no custom properties. */
+.split-button[data-tone='accent'] .split-main,
+.split-button[data-tone='accent'] .split-chevron {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+.split-button[data-tone='accent'] .split-chevron {
+  border-left-color: var(--color-divider-on-teal);
+}
+.split-button[data-tone='accent'] button:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.split-button[data-tone='violet'] .split-main,
+.split-button[data-tone='violet'] .split-chevron {
+  background: var(--color-capture-single);
+  border-color: var(--color-capture-single);
+  color: var(--color-text-on-violet);
+}
+.split-button[data-tone='violet'] .split-chevron {
+  border-left-color: var(--color-divider-on-violet);
+}
+.split-button[data-tone='violet'] button:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-capture-single-hover);
+  border-color: var(--color-capture-single-hover);
+}
+
+.split-button[data-tone='danger'] .split-main,
+.split-button[data-tone='danger'] .split-chevron {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-text-on-danger);
+}
+.split-button[data-tone='danger'] .split-chevron {
+  border-left-color: var(--color-divider-on-violet);
+}
+.split-button[data-tone='danger'] button:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
+}
+
+.split-button button:disabled {
+  opacity: var(--opacity-unavailable);
+  cursor: default;
+}
+/* Busy: focusable and not dimmed, so keyboard focus and the tooltip stay. */
+.split-main[aria-disabled='true'] {
+  cursor: progress;
+}
+/* Locked: keeps focus and the tooltip, reads as unavailable. */
+.split-chevron[aria-disabled='true'] {
+  opacity: var(--opacity-unavailable);
+  cursor: default;
+}
+.split-chevron[aria-expanded='true'] {
+  filter: brightness(0.92);
+}
+
+/* One ring around the whole group, drawn outside the control. A per-segment ring would sit on the
+   neighbouring fill at about 1.3:1 and disappear. */
+.split-button .split-main:focus-visible,
+.split-button .split-chevron:focus-visible {
+  outline: none;
+}
+.split-button:has(.split-main:focus-visible, .split-chevron:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset-group);
+  border-radius: var(--radius-md);
+}
+
+.split-label {
+  white-space: nowrap;
+}

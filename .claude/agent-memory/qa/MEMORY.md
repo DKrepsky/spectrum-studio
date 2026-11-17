@@ -6,3 +6,4 @@
 - [WebDriver probe recipes](webkit-probe-recipes.md) — temp probe seeds per spec basename, computed-style colour checks, IPC spy does not work
 - [WebDriver e2e recipes](webdriver-e2e-recipes.md) — running the real app under WebKitWebDriver; wdio/TS pitfalls seen in the 006 QA tour
 - [Hardware replug recipes](hardware-replug-recipes.md) — non-root SA430 reboot via sa430 CLI, TIOCEXCL port holder, what needs root or a human
+- [Hardware visual and pixel checks](hardware-visual-and-pixel-checks.md) — real SA430 visual run, PNG width vs name check, toolbar border scan, computed-geometry diffs

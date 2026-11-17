@@ -5,7 +5,16 @@
  */
 import { $, browser } from '@wdio/globals';
 
-import { byTestId, closeSourceMenu, openSourceMenu, shot, waitForAppReady } from './helpers';
+import {
+  byTestId,
+  closeSourceMenu,
+  ensureWindowFocus,
+  openSourceMenu,
+  requireWmctrl,
+  shot,
+  waitForAppReady,
+  waitForGone,
+} from './helpers';
 
 const VIS_22 = 'source-entry-vis-22';
 const VIS_60 = 'source-entry-vis-60';
@@ -22,53 +31,85 @@ interface Metrics {
   label: string;
   itemTop: number;
   itemBottom: number;
+  /** Badge (line 1, third column) and name (line 1). */
+  badgeTop: number | null;
+  badgeBottom: number | null;
+  badgeCx: number | null;
   badgeCy: number | null;
+  nameCy: number;
   badgeOpacity: string | null;
   /** Edit/Forget are shown: opacity 1 and clickable. */
   revealed: boolean;
   actionsOpacity: string | null;
   actionsPointer: string | null;
-  actionsCy: number | null;
+  actionsTop: number | null;
+  actionsBottom: number | null;
+  actionsCx: number | null;
   actionsLeft: number | null;
   buttonCys: number[];
+  buttonSizes: { width: number; height: number }[];
   nameRight: number;
   nameScroll: number;
   nameClient: number;
+  /** The visible name alone (the accessible label also carries the status word). */
+  nameText: string;
   title: string | null;
   focusWithin: boolean;
 }
 
+/** The test id of one part of a row: `source-entry-x` has `source-badge-entry-x`, and so on. */
+const part = (testId: string, name: string) => `source-${name}-${testId.replace(/^source-/, '')}`;
+
 async function metrics(testId: string): Promise<Metrics> {
-  return browser.execute((id) => {
-    const item = document.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
-    const row = item.closest<HTMLElement>('.source-row');
-    const actions = row?.querySelector<HTMLElement>('.source-actions') ?? null;
-    const badge = item.querySelector<HTMLElement>('.src-badge');
-    const name = item.querySelector<HTMLElement>('.src-name')!;
-    const ir = item.getBoundingClientRect();
-    const cy = (r: DOMRect) => (r.top + r.bottom) / 2;
-    const buttons = actions ? Array.from(actions.querySelectorAll<HTMLElement>('button')) : [];
-    const ar = actions?.getBoundingClientRect() ?? null;
-    const as = actions ? getComputedStyle(actions) : null;
-    return {
-      label: item.dataset['label'] ?? '',
-      itemTop: ir.top,
-      itemBottom: ir.bottom,
-      badgeCy: badge ? cy(badge.getBoundingClientRect()) : null,
-      badgeOpacity: badge ? getComputedStyle(badge).opacity : null,
-      revealed: as !== null && as.opacity === '1' && as.pointerEvents === 'auto',
-      actionsOpacity: as ? as.opacity : null,
-      actionsPointer: as ? as.pointerEvents : null,
-      actionsCy: ar ? cy(ar) : null,
-      actionsLeft: ar ? ar.left : null,
-      buttonCys: buttons.map((b) => cy(b.getBoundingClientRect())),
-      nameRight: name.getBoundingClientRect().right,
-      nameScroll: name.scrollWidth,
-      nameClient: name.clientWidth,
-      title: item.getAttribute('title'),
-      focusWithin: actions ? actions.matches(':focus-within') : false,
-    };
-  }, testId);
+  return browser.execute(
+    (id, parts) => {
+      const item = document.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
+      const row = item.closest<HTMLElement>('[data-list-row]');
+      const edit = row?.querySelector<HTMLElement>('[data-row-action]') ?? null;
+      // The actions are the wrapper of the row's action buttons (centred in the badge column).
+      const actions = edit?.parentElement ?? null;
+      const badge = document.querySelector<HTMLElement>(`[data-testid="${parts.badge}"]`);
+      const name = document.querySelector<HTMLElement>(`[data-testid="${parts.name}"]`)!;
+      const ir = item.getBoundingClientRect();
+      const cy = (r: DOMRect) => (r.top + r.bottom) / 2;
+      const cx = (r: DOMRect) => (r.left + r.right) / 2;
+      const buttons = actions ? Array.from(actions.querySelectorAll<HTMLElement>('button')) : [];
+      const ar = actions?.getBoundingClientRect() ?? null;
+      const as = actions ? getComputedStyle(actions) : null;
+      const br = badge?.getBoundingClientRect() ?? null;
+      return {
+        label: item.getAttribute('aria-label') ?? '',
+        itemTop: ir.top,
+        itemBottom: ir.bottom,
+        badgeTop: br ? br.top : null,
+        badgeBottom: br ? br.bottom : null,
+        badgeCx: br ? cx(br) : null,
+        badgeCy: br ? cy(br) : null,
+        nameCy: cy(name.getBoundingClientRect()),
+        badgeOpacity: badge ? getComputedStyle(badge).opacity : null,
+        revealed: as !== null && as.opacity === '1' && as.pointerEvents === 'auto',
+        actionsOpacity: as ? as.opacity : null,
+        actionsPointer: as ? as.pointerEvents : null,
+        actionsTop: ar ? ar.top : null,
+        actionsBottom: ar ? ar.bottom : null,
+        actionsCx: ar ? cx(ar) : null,
+        actionsLeft: ar ? ar.left : null,
+        buttonCys: buttons.map((b) => cy(b.getBoundingClientRect())),
+        buttonSizes: buttons.map((b) => {
+          const r = b.getBoundingClientRect();
+          return { width: r.width, height: r.height };
+        }),
+        nameRight: name.getBoundingClientRect().right,
+        nameScroll: name.scrollWidth,
+        nameClient: name.clientWidth,
+        nameText: name.textContent ?? '',
+        title: item.getAttribute('title'),
+        focusWithin: actions ? actions.matches(':focus-within') : false,
+      };
+    },
+    testId,
+    { badge: part(testId, 'badge'), name: part(testId, 'name') },
+  );
 }
 
 /** Moves the pointer off every row (onto the top-left corner of the page, the toolbar). */
@@ -76,22 +117,46 @@ async function parkPointer() {
   await (await $('body')).moveTo({ xOffset: 2, yOffset: 2 });
 }
 
-/** Asserts that a row's buttons sit centred in the row and aligned with each other. */
-function assertCentred(m: Metrics, where: string) {
-  check(m.actionsCy !== null, `${where}: no actions`);
+/**
+ * The row actions sit in the badge column, centred vertically on the row (DESIGN.md 4.11): centred
+ * on the badge column, centred on the row's height, inside the row, 24 x 24 buttons aligned with
+ * each other. While they show, the badge is faded (checked by the callers), so they never cover a
+ * visible badge.
+ */
+function assertInBadgeColumn(m: Metrics, where: string) {
+  check(m.actionsTop !== null && m.badgeCx !== null, `${where}: no actions or badge`);
   check(
-    Math.abs(m.actionsCy! - (m.itemTop + m.itemBottom) / 2) <= TOL,
-    `${where}: actions not centred (${m.actionsCy} vs ${(m.itemTop + m.itemBottom) / 2})`,
+    Math.abs(m.actionsCx! - m.badgeCx!) <= TOL,
+    `${where}: actions not centred on the badge column (${m.actionsCx} vs ${m.badgeCx})`,
+  );
+  const rowCy = (m.itemTop + m.itemBottom) / 2;
+  const actionsCy = (m.actionsTop! + m.actionsBottom!) / 2;
+  check(
+    Math.abs(actionsCy - rowCy) <= TOL,
+    `${where}: actions not centred on the row (${actionsCy} vs ${rowCy})`,
+  );
+  check(
+    m.actionsTop! >= m.itemTop && m.actionsBottom! <= m.itemBottom - 1,
+    `${where}: actions overflow the row`,
   );
   for (const cy of m.buttonCys) {
-    check(Math.abs(cy - m.actionsCy!) <= TOL, `${where}: a button is not centred`);
+    check(Math.abs(cy - m.buttonCys[0]!) <= TOL, `${where}: buttons misaligned (${m.buttonCys})`);
   }
-  if (m.buttonCys.length > 1) {
+  for (const size of m.buttonSizes) {
     check(
-      Math.abs(m.buttonCys[0]! - m.buttonCys[1]!) <= TOL,
-      `${where}: buttons misaligned (${m.buttonCys})`,
+      Math.abs(size.width - 24) <= TOL && Math.abs(size.height - 24) <= TOL,
+      `${where}: a row action is ${size.width}x${size.height}, not 24x24`,
     );
   }
+}
+
+/** The badge is centred on the whole row (both lines), as before 009 (DESIGN.md 4.11). */
+function assertBadgeCentredOnRow(m: Metrics, where: string) {
+  const rowCy = (m.itemTop + m.itemBottom) / 2;
+  check(
+    Math.abs(m.badgeCy! - rowCy) <= TOL,
+    `${where}: badge not centred on the row (${m.badgeCy} vs ${rowCy})`,
+  );
 }
 
 /** Focuses a row by its test id (script focus, so the pointer state does not matter). */
@@ -103,6 +168,7 @@ async function focusRow(testId: string) {
 
 describe('source menu row polish (seeded visual fixture)', () => {
   before(async () => {
+    requireWmctrl(); // the focus tests below raise the window; fail here, not in the middle of one
     await browser.setWindowSize(1180, 820);
     await browser.pause(250);
     await waitForAppReady();
@@ -114,10 +180,14 @@ describe('source menu row polish (seeded visual fixture)', () => {
     await browser.pause(300);
     const rows = await browser.execute(() =>
       Array.from(
-        document.querySelectorAll<HTMLElement>('[data-testid="source-menu"] .source-row'),
+        document.querySelectorAll<HTMLElement>(
+          '[data-testid="source-menu"] [data-list-row]:has([data-row-action])',
+        ),
       ).map((r) => {
-        const s = getComputedStyle(r.querySelector<HTMLElement>('.source-actions')!);
-        const b = r.querySelector<HTMLElement>('.src-badge');
+        const s = getComputedStyle(
+          r.querySelector<HTMLElement>('[data-row-action]')!.parentElement!,
+        );
+        const b = r.querySelector<HTMLElement>('[data-testid^="source-badge-"]');
         return {
           opacity: s.opacity,
           pe: s.pointerEvents,
@@ -141,9 +211,9 @@ describe('source menu row polish (seeded visual fixture)', () => {
     await browser.pause(300);
     const focused = await browser.execute(() => {
       const el = document.activeElement as HTMLElement;
-      const row = el.closest('.source-row');
-      const a = row?.querySelector<HTMLElement>('.source-actions');
-      const b = row?.querySelector<HTMLElement>('.src-badge');
+      const row = el.closest('[data-list-row]');
+      const a = row?.querySelector<HTMLElement>('[data-row-action]')?.parentElement;
+      const b = row?.querySelector<HTMLElement>('[data-testid^="source-badge-"]');
       return {
         opacity: a ? getComputedStyle(a).opacity : null,
         badge: b ? getComputedStyle(b).opacity : null,
@@ -160,6 +230,8 @@ describe('source menu row polish (seeded visual fixture)', () => {
   });
 
   it('ArrowRight from a row with the pointer away moves focus to its Edit button', async () => {
+    // :focus-within needs OS focus for the window (see ensureWindowFocus).
+    await ensureWindowFocus();
     await parkPointer();
     await browser.pause(200);
     await focusRow(VIS_22);
@@ -168,12 +240,19 @@ describe('source menu row polish (seeded visual fixture)', () => {
     await browser.pause(300);
     const after = await browser.execute(() => ({
       testid: document.activeElement?.getAttribute('data-testid') ?? null,
-      menuAction: document.activeElement?.getAttribute('data-menu-action') ?? null,
+      menuAction: document.activeElement?.getAttribute('data-row-action') ?? null,
     }));
     check(after.menuAction === 'edit', `ArrowRight did not reach Edit: ${JSON.stringify(after)}`);
     // Focus is inside the actions: they stay revealed and the badge fades, with the pointer away.
+    // The window may have lost OS focus since the first call (another window raised): raise it again,
+    // then wait for the reveal transition (150 ms) to finish before reading the opacity.
+    await ensureWindowFocus();
+    await browser.waitUntil(async () => (await metrics(VIS_22)).revealed, {
+      timeout: 2000,
+      timeoutMsg: 'the row actions did not reveal while Edit has focus',
+    });
     const focused = await metrics(VIS_22);
-    check(focused.focusWithin, 'Edit is not focus-within its row');
+    check(focused.focusWithin, 'Edit is not focus-within its row (the window has OS focus)');
     check(focused.revealed, 'row actions hidden while Edit has focus');
     check(
       focused.badgeOpacity === '0',
@@ -193,7 +272,8 @@ describe('source menu row polish (seeded visual fixture)', () => {
     await (await byTestId(VIS_REAL)).moveTo();
     await browser.pause(400);
     const trStyle = await browser.execute(
-      () => getComputedStyle(document.querySelector('.source-actions')!).transition,
+      () =>
+        getComputedStyle(document.querySelector('[data-row-action]')!.parentElement!).transition,
     );
     check(
       trStyle.includes('opacity') &&
@@ -204,7 +284,7 @@ describe('source menu row polish (seeded visual fixture)', () => {
     const m = await metrics(VIS_REAL);
     check(m.revealed, `buttons not revealed on hover: opacity ${m.actionsOpacity}`);
     check(m.badgeOpacity === '0', `badge not faded: ${m.badgeOpacity}`);
-    assertCentred(m, 'two-line hover');
+    assertInBadgeColumn(m, 'two-line hover');
     check(
       m.actionsLeft! >= m.nameRight - 0.5,
       `actions overlap the name (${m.actionsLeft} < ${m.nameRight})`,
@@ -222,18 +302,40 @@ describe('source menu row polish (seeded visual fixture)', () => {
     check(m.badgeOpacity === '1', `badge not back after leave: ${m.badgeOpacity}`);
   });
 
+  it('rows are 44px with a 3px gap: two-line rows are 47px apart', async () => {
+    const pitches = await browser.execute(() => {
+      // Consecutive rows of one list only (a group heading sits between two lists). Each row sits in its own li.
+      const rows = [
+        ...document.querySelectorAll<HTMLElement>('[data-list-row][data-size="two-line"]'),
+      ];
+      const out: number[][] = [];
+      for (let i = 1; i < rows.length; i++) {
+        const prev = rows[i - 1]!;
+        const cur = rows[i]!;
+        if (prev.closest('ul') !== cur.closest('ul')) continue;
+        out.push([
+          cur.getBoundingClientRect().top - prev.getBoundingClientRect().top,
+          prev.getBoundingClientRect().height,
+        ]);
+      }
+      return out;
+    });
+    check(pitches.length >= 2, `fewer than two consecutive two-line rows: ${pitches.length}`);
+    for (const [pitch, height] of pitches) {
+      check(Math.abs(pitch! - 47) <= TOL, `row pitch ${pitch} (expected 47)`);
+      check(Math.abs(height! - 44) <= TOL, `row height ${height} (expected 44)`);
+    }
+  });
+
   it('remembered simulator: badge centred at rest, buttons centred on hover', async () => {
     const rest = await metrics(VIS_SIM);
-    check(
-      Math.abs(rest.badgeCy! - (rest.itemTop + rest.itemBottom) / 2) <= TOL,
-      `rest badge not centred: ${rest.badgeCy} vs ${(rest.itemTop + rest.itemBottom) / 2}`,
-    );
+    assertBadgeCentredOnRow(rest, 'rest');
     await shot('rest-two-line-{w}-visual');
     await (await byTestId(VIS_SIM)).moveTo();
     await browser.pause(350);
     const m = await metrics(VIS_SIM);
     check(m.revealed, 'hovered simulator buttons not revealed');
-    assertCentred(m, 'simulator hover');
+    assertInBadgeColumn(m, 'simulator hover');
     await shot('hover-simulator-{w}-visual');
     await parkPointer();
   });
@@ -243,9 +345,9 @@ describe('source menu row polish (seeded visual fixture)', () => {
     await browser.pause(350);
     const m = await metrics(VIS_60);
     check(m.nameScroll > m.nameClient, 'long name is not ellipsised');
-    check((m.title ?? '').includes(m.label), 'no full-name tooltip on the long row');
+    check((m.title ?? '').includes(m.nameText), 'no full-name tooltip on the long row');
     check(m.revealed, 'long-name row buttons not revealed on hover');
-    assertCentred(m, 'long-name hover');
+    assertInBadgeColumn(m, 'long-name hover');
     check(m.actionsLeft! >= m.nameRight - 0.5, 'buttons overlap the long name');
     check(m.badgeOpacity === '0', 'badge not faded on long row');
     await shot('hover-long-{w}-visual');
@@ -259,7 +361,7 @@ describe('source menu row polish (seeded visual fixture)', () => {
     await browser.keys(['ArrowRight']);
     await browser.pause(200);
     const after = await browser.execute(
-      () => document.activeElement?.getAttribute('data-menu-action') ?? null,
+      () => document.activeElement?.getAttribute('data-row-action') ?? null,
     );
     await shot('focus-arrowright-hovered-{w}-visual');
     await parkPointer();
@@ -273,7 +375,7 @@ describe('source menu row polish (seeded visual fixture)', () => {
     await browser.keys(['F2']);
     await byTestId('add-source-dialog').waitForDisplayed();
     await browser.keys(['Escape']);
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
     await openSourceMenu();
     await focusRow(VIS_22);
     await browser.keys(['Delete']);
@@ -290,7 +392,7 @@ describe('source menu row polish (seeded visual fixture)', () => {
     await (await byTestId(VIS_60)).moveTo();
     await browser.pause(350);
     const m = await metrics(VIS_60);
-    assertCentred(m, 'narrow long-name hover');
+    assertInBadgeColumn(m, 'narrow long-name hover');
     const sideways = await browser.execute(
       () => document.documentElement.scrollWidth - window.innerWidth,
     );

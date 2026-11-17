@@ -1,0 +1,40 @@
+/* IconButton (DESIGN.md 4.2). Tokens only; ui- prefix. Minimum target 24 x 24 (F2). */
+.ui-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ui-icon-button--filled {
+  background: var(--color-surface-control);
+  border-color: var(--color-border-default);
+}
+
+.ui-icon-button:hover:not(.ui-icon-button--unavailable),
+.ui-icon-button:active:not(.ui-icon-button--unavailable) {
+  background: var(--color-surface-control-hover);
+  border-color: var(--color-border-hover);
+}
+
+.ui-icon-button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.ui-icon-button--unavailable {
+  opacity: var(--opacity-unavailable);
+  cursor: default;
+}

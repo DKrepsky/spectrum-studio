@@ -4,7 +4,18 @@ import { nextPeak, readMarkers } from '../../plot/markers';
 import { useSession } from '../../state/session';
 import { useFrameTick } from '../../state/useFrameTick';
 import { MAX_MARKERS, useView } from '../../state/view';
+import { Button } from '../../ui/Button';
+import { IconButton } from '../../ui/IconButton';
+import { InlineMessage } from '../../ui/InlineMessage';
+import { Table } from '../../ui/Table';
 import { currentView } from '../SpectrumView';
+
+const COLUMNS = [
+  { key: 'id', header: '' },
+  { key: 'frequency', header: 'Frequency' },
+  { key: 'level', header: 'Level' },
+  { key: 'actions', header: '' },
+];
 
 export function MarkersPanel() {
   const frame = useFrameTick();
@@ -25,21 +36,21 @@ export function MarkersPanel() {
   };
 
   return (
-    <div className="panel-body">
-      <div className="button-row">
-        <button
-          className="small"
+    <>
+      <div className="panel-row">
+        <Button
+          size="small"
           disabled={!peaks.length}
           onClick={() => toPeak(false)}
           data-testid="peak-search"
         >
           Peak search
-        </button>
-        <button className="small" disabled={!peaks.length} onClick={() => toPeak(true)}>
+        </Button>
+        <Button size="small" disabled={!peaks.length} onClick={() => toPeak(true)}>
           Next peak
-        </button>
-        <button
-          className="small"
+        </Button>
+        <Button
+          size="small"
           disabled={!frame || markers.length >= MAX_MARKERS}
           onClick={() => {
             const v = currentView();
@@ -47,69 +58,64 @@ export function MarkersPanel() {
           }}
         >
           + Marker
-        </button>
+        </Button>
       </div>
       {markers.length === 0 ? (
-        <p className="hint">Click the spectrum to place a marker (Shift+click adds another).</p>
+        <InlineMessage variant="hint">
+          Click the spectrum to place a marker (Shift+click adds another).
+        </InlineMessage>
       ) : (
-        <table className="readout-table" data-testid="marker-table">
-          <thead>
-            <tr>
-              <th />
-              <th>Frequency</th>
-              <th>Level</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {readMarkers(frame, markers).map(({ marker, level, delta }) => (
-              <tr
-                key={marker.id}
-                className={marker.id === activeMarker ? 'active' : undefined}
-                onClick={() => view.setActiveMarker(marker.id)}
-              >
-                <td className="marker-id">M{marker.id}</td>
-                <td>
-                  {formatFrequency(marker.frequencyHz, resolution)}
-                  {delta && <div className="delta">Δ {formatFrequency(delta.hz, resolution)}</div>}
-                </td>
-                <td>
-                  {formatLevel(level, unit, 2)}
-                  {delta && <div className="delta">Δ {formatLevel(delta.db, 'dB', 2)}</div>}
-                </td>
-                <td className="row-actions">
-                  {tunable && (
-                    <button
-                      className="icon"
-                      title="Set center frequency to this marker"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void useSession.getState().applySettings({
-                          centerHz: marker.frequencyHz,
-                          spanHz: null,
-                          params: {},
-                        });
-                      }}
-                    >
-                      ⇥
-                    </button>
-                  )}
-                  <button
-                    className="icon"
-                    title="Remove marker"
+        <Table
+          label="Markers"
+          data-testid="marker-table"
+          columns={COLUMNS}
+          emptyText="No markers."
+          rows={readMarkers(frame, markers).map(({ marker, level, delta }) => ({
+            key: String(marker.id),
+            active: marker.id === activeMarker,
+            onSelect: () => view.setActiveMarker(marker.id),
+            cells: [
+              <span className="marker-id">M{marker.id}</span>,
+              <>
+                {formatFrequency(marker.frequencyHz, resolution)}
+                {delta && <div className="delta">Δ {formatFrequency(delta.hz, resolution)}</div>}
+              </>,
+              <>
+                {formatLevel(level, unit, 2)}
+                {delta && <div className="delta">Δ {formatLevel(delta.db, 'dB', 2)}</div>}
+              </>,
+              <span className="table-actions">
+                {tunable && (
+                  <IconButton
+                    label={`Set center frequency to M${marker.id}`}
+                    title="Set center frequency to this marker"
                     onClick={(e) => {
                       e.stopPropagation();
-                      view.removeMarker(marker.id);
+                      void useSession.getState().applySettings({
+                        centerHz: marker.frequencyHz,
+                        spanHz: null,
+                        params: {},
+                      });
                     }}
                   >
-                    ×
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    ⇥
+                  </IconButton>
+                )}
+                <IconButton
+                  label={`Remove marker M${marker.id}`}
+                  title="Remove marker"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    view.removeMarker(marker.id);
+                  }}
+                >
+                  ×
+                </IconButton>
+              </span>,
+            ],
+          }))}
+        />
       )}
-    </div>
+    </>
   );
 }

@@ -12,6 +12,8 @@ import type { ParamValue } from '../../bindings/ParamValue';
 import { useSession } from '../../state/session';
 import { toParamMap } from '../../state/sourceConfig';
 import { splitConnectionParams } from '../../state/sourceEntries';
+import { Button } from '../../ui/Button';
+import { InlineMessage } from '../../ui/InlineMessage';
 import { ParamForm } from '../ParamForm';
 
 type Values = Partial<Record<string, ParamValue>>;
@@ -119,52 +121,56 @@ export function SourceForm({
       onKeyDown={onKeyDown}
     >
       <div className="source-form-header">
-        <button type="button" onClick={onBack} disabled={connecting} data-testid="source-form-back">
+        <Button
+          size="small"
+          onClick={onBack}
+          unavailable={connecting}
+          data-testid="source-form-back"
+        >
           ← Back
-        </button>
-        <strong className="src-name">{driver.name}</strong>
+        </Button>
+        <strong className="source-form-title">{driver.name}</strong>
       </div>
       {noDeviceHint && (
-        <p className="hint">{`No ${driver.name} found. Plug it in and it will appear here, or enter its details:`}</p>
+        <InlineMessage variant="hint">
+          {`No ${driver.name} found. Plug it in and it will appear here, or enter its details:`}
+        </InlineMessage>
       )}
       {section(split.primary, `conn-${driver.id}`)}
       {split.more.length > 0 && (
         <>
-          <button
-            type="button"
-            className="small"
-            aria-expanded={showMore}
-            onClick={() => setShowMore((v) => !v)}
-          >
+          <Button size="small" aria-expanded={showMore} onClick={() => setShowMore((v) => !v)}>
             {showMore ? 'Show less' : 'Show more'}
-          </button>
+          </Button>
           {showMore && section(split.more, `conn-${driver.id}`)}
         </>
       )}
-      <div className="button-row">
-        <button
+      <div className="source-form-actions">
+        <Button
           type="submit"
-          className="primary"
-          disabled={!valid || busy !== null}
+          variant="primary"
+          busy={connecting}
+          // Native disable only for the real not-ready state (a required value is missing).
+          disabled={!valid}
+          unavailable={busy !== null && !connecting}
+          // A lead slot while connecting: the spinner shows beside the label, which stays.
+          icon={connecting ? <span /> : undefined}
           data-testid="source-form-connect"
         >
-          {connecting ? (
-            <>
-              <span className="spinner" aria-hidden /> Connecting…
-            </>
-          ) : (
-            'Connect'
-          )}
-        </button>
-        <button type="button" onClick={onCancel} disabled={connecting}>
+          {connecting ? 'Connecting…' : 'Connect'}
+        </Button>
+        <Button unavailable={connecting} onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
-      {error && (
-        <p className="error" role="alert" data-testid="source-form-error">
-          {`Connection failed: ${error}`}
-        </p>
-      )}
+      {/* The region is always mounted, so the error is announced when it appears (DESIGN.md 9.6). */}
+      <div role="status" aria-live="polite" className="source-form-status">
+        {error && (
+          <InlineMessage variant="error" data-testid="source-form-error">
+            {`Connection failed: ${error}`}
+          </InlineMessage>
+        )}
+      </div>
     </form>
   );
 }

@@ -12,6 +12,7 @@ import { startFramePump } from './state/framePump';
 import { frameStore } from './state/frames';
 import { useSession } from './state/session';
 import { useView } from './state/view';
+import { BannerRegion } from './ui/Banner';
 
 export function App() {
   const showWaterfall = useView((s) => s.showWaterfall);
@@ -53,9 +54,9 @@ export function App() {
   return (
     <div className="app">
       <Toolbar />
-      <div className="notices">
+      <BannerRegion>
         <NoticeBanner />
-      </div>
+      </BannerRegion>
       <main className="workspace">
         <section
           className={`plots${showWaterfall ? ' with-waterfall' : ''}`}

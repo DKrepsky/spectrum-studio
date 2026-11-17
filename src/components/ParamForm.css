@@ -1,0 +1,25 @@
+/* Parameter forms (ParamForm): the group frame. Fields come from src/ui/Field. Tokens only. */
+.param-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.param-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+.param-group legend {
+  padding: 0 var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+/* No frame and no padding: the group is a plain column of fields. */
+.param-group--bare {
+  padding: 0;
+  border: 0;
+}

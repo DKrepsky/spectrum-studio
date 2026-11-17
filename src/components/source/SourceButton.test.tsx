@@ -1,6 +1,6 @@
 import '../../test/mockApi';
 
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 
 import { useSession } from '../../state/session';
 import { emptyConfig } from '../../state/sourceConfig';
@@ -39,11 +39,11 @@ describe('source button', () => {
     useSession.setState({ status: status({ revision: 1 }), busy: null, commandError: null });
   });
 
-  it('has no glyph and the attention outline while nothing is chosen', () => {
+  it('has no status dot and the attention outline while nothing is chosen', () => {
     setup(null);
     const button = screen.getByTestId('source-button');
     expect(button).toHaveTextContent('Choose a source');
-    expect(button.querySelector('.src-dot')).toBeNull();
+    expect(within(button).queryByTestId('source-button-status')).toBeNull();
     expect(button).toHaveClass('attention');
     expect(button).toHaveAccessibleName('Source: Choose a source');
   });
@@ -53,11 +53,11 @@ describe('source button', () => {
     const button = screen.getByTestId('source-button');
     expect(button).toHaveAccessibleName(`Source: ${LONG}, Disconnected`);
     expect(button).toHaveAttribute('title', `${LONG}\nChoose source (Ctrl+K)`);
-    expect(button.querySelector('.src-name')).toHaveTextContent(LONG);
+    expect(within(button).getByTestId('source-button-name')).toHaveTextContent(LONG);
     expect(button).not.toHaveClass('attention');
   });
 
-  it('wears the same glyph as the rows and no status text', () => {
+  it('wears the same status dot as the rows and no status text', () => {
     setup('Bench');
     act(() =>
       useSession.setState({
@@ -69,11 +69,16 @@ describe('source button', () => {
       }),
     );
     const button = screen.getByTestId('source-button');
-    const dot = button.querySelector('.src-dot');
+    const dot = within(button).getByTestId('source-button-status');
     expect(dot).toHaveAttribute('data-status', 'connected');
     expect(dot).toHaveAttribute('aria-hidden', 'true');
-    expect(button.querySelectorAll('.badge, .src-status, .row-sub')).toHaveLength(0);
+    expect(button.textContent).toBe('Bench▾');
     expect(button).toHaveAccessibleName('Source: Bench, Connected');
+  });
+
+  it('announces a popover (dialog), not a menu', () => {
+    setup('Bench');
+    expect(screen.getByTestId('source-button')).toHaveAttribute('aria-haspopup', 'dialog');
   });
 
   it.each([
@@ -82,9 +87,6 @@ describe('source button', () => {
   ] as const)('shows the %s glyph while the session is %s', (state, glyph) => {
     setup('Bench');
     act(() => useSession.setState({ status: status({ revision: 3, state }) }));
-    expect(screen.getByTestId('source-button').querySelector('.src-dot')).toHaveAttribute(
-      'data-status',
-      glyph,
-    );
+    expect(screen.getByTestId('source-button-status')).toHaveAttribute('data-status', glyph);
   });
 });

@@ -1,7 +1,7 @@
 import type { ParamSpec } from '../bindings/ParamSpec';
 import type { ParamValue } from '../bindings/ParamValue';
-import { FrequencyInput } from './FrequencyInput';
-import { NumberInput } from './NumberInput';
+import { Checkbox, Field, FrequencyField, NumberField, Select, TextField } from '../ui/Field';
+import './ParamForm.css';
 
 interface Props {
   specs: readonly ParamSpec[];
@@ -10,6 +10,16 @@ interface Props {
   disabled?: boolean;
   /** Prefix for element ids, so several forms can coexist. */
   idPrefix: string;
+  /**
+   * `stacked` (default): label above the control, for dialogs. `inline`: label left of the
+   * control, for the side panel (DESIGN.md 4.4).
+   */
+  layout?: 'inline' | 'stacked';
+  /**
+   * `true` (default): each group has a border and padding, as in the side panel. `false`: no frame
+   * (the source dialog, whose connection fields were never framed).
+   */
+  framed?: boolean;
 }
 
 function groupSpecs(specs: readonly ParamSpec[]): [string, ParamSpec[]][] {
@@ -24,11 +34,19 @@ function groupSpecs(specs: readonly ParamSpec[]): [string, ParamSpec[]][] {
 }
 
 /** Renders driver-described parameters generically (see `ParamSpec` in the core). */
-export function ParamForm({ specs, values, onChange, disabled, idPrefix }: Props) {
+export function ParamForm({
+  specs,
+  values,
+  onChange,
+  disabled,
+  idPrefix,
+  layout = 'stacked',
+  framed = true,
+}: Props) {
   return (
     <div className="param-form">
       {groupSpecs(specs).map(([group, list]) => (
-        <fieldset key={group} className="param-group">
+        <fieldset key={group} className={framed ? 'param-group' : 'param-group param-group--bare'}>
           {group && <legend>{group}</legend>}
           {list.map((spec) => (
             <ParamField
@@ -38,6 +56,7 @@ export function ParamForm({ specs, values, onChange, disabled, idPrefix }: Props
               onChange={(v) => onChange(spec.id, v)}
               disabled={disabled}
               id={`${idPrefix}-${spec.id}`}
+              layout={layout}
             />
           ))}
         </fieldset>
@@ -52,91 +71,91 @@ interface FieldProps {
   onChange: (value: ParamValue) => void;
   disabled?: boolean | undefined;
   id: string;
+  layout: 'inline' | 'stacked';
 }
 
-function ParamField({ spec, value, onChange, disabled, id }: FieldProps) {
+/** One parameter as a `ui/` field. The label keeps its required mark in the text (no danger colour). */
+function ParamField({ spec, value, onChange, disabled, id, layout }: FieldProps) {
   const kind = spec.kind;
-  let control;
+  const title = spec.help ?? undefined;
+  const label = spec.required ? `${spec.label} *` : spec.label;
   switch (kind.type) {
-    case 'number': {
-      const n = typeof value === 'number' ? value : 0;
-      control =
-        kind.unit === 'Hz' ? (
-          <FrequencyInput
-            id={id}
-            label={spec.label}
-            value={n}
-            min={kind.min}
-            max={kind.max}
-            step={kind.step}
-            onCommit={onChange}
-            disabled={disabled}
-          />
-        ) : (
-          <span className="with-unit">
-            <NumberInput
-              id={id}
-              label={spec.label}
-              value={n}
-              min={kind.min}
-              max={kind.max}
-              step={kind.step}
-              integer={Number.isInteger(kind.step) && kind.step >= 1}
-              onCommit={onChange}
-              disabled={disabled}
-            />
-            {kind.unit && <span className="unit">{kind.unit}</span>}
-          </span>
-        );
-      break;
-    }
+    case 'number':
+      return (
+        <Field label={label} id={id} layout={layout} title={title}>
+          {(c) =>
+            kind.unit === 'Hz' ? (
+              <FrequencyField
+                id={c.id}
+                aria-describedby={c.describedBy}
+                label={spec.label}
+                value={typeof value === 'number' ? value : 0}
+                min={kind.min}
+                max={kind.max}
+                step={kind.step}
+                onCommit={onChange}
+                disabled={disabled}
+              />
+            ) : (
+              <NumberField
+                id={c.id}
+                aria-describedby={c.describedBy}
+                label={spec.label}
+                unit={kind.unit ?? undefined}
+                value={typeof value === 'number' ? value : 0}
+                min={kind.min}
+                max={kind.max}
+                step={kind.step}
+                integer={Number.isInteger(kind.step) && kind.step >= 1}
+                onCommit={onChange}
+                disabled={disabled}
+              />
+            )
+          }
+        </Field>
+      );
     case 'bool':
-      control = (
-        <input
-          id={id}
-          type="checkbox"
-          checked={value === true}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
-        />
+      return (
+        <div title={title}>
+          <Checkbox
+            label={spec.label}
+            checked={value === true}
+            disabled={disabled}
+            onChange={(checked) => onChange(checked)}
+          />
+        </div>
       );
-      break;
     case 'choice':
-      control = (
-        <select
-          id={id}
-          value={String(value)}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          {kind.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+      return (
+        <Field label={label} id={id} layout={layout} title={title}>
+          {(c) => (
+            <Select
+              id={c.id}
+              aria-describedby={c.describedBy}
+              label={spec.label}
+              value={String(value)}
+              options={kind.options}
+              disabled={disabled}
+              onChange={(v) => onChange(v)}
+            />
+          )}
+        </Field>
       );
-      break;
     case 'text':
-      control = (
-        <input
-          id={id}
-          type="text"
-          maxLength={kind.maxLength}
-          value={String(value)}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
-        />
+      return (
+        <Field label={label} id={id} layout={layout} title={title}>
+          {(c) => (
+            <TextField
+              id={c.id}
+              aria-describedby={c.describedBy}
+              aria-label={spec.label}
+              maxLength={kind.maxLength}
+              value={String(value)}
+              disabled={disabled}
+              onChange={(v) => onChange(v)}
+            />
+          )}
+        </Field>
       );
-      break;
   }
-  return (
-    <div className="param-field" title={spec.help ?? undefined}>
-      <label htmlFor={id}>
-        {spec.label}
-        {spec.required && <span className="required"> *</span>}
-      </label>
-      {control}
-    </div>
-  );
 }

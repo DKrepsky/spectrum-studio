@@ -20,6 +20,7 @@ import {
   statusBarText,
   textOf,
   waitForAppReady,
+  waitForGone,
   waitForLaunchSettled,
   waitForState,
 } from './helpers';
@@ -31,7 +32,7 @@ import {
 const describeHardware = process.env.SPECTRUM_E2E_SA430 === '1' ? describe : describe.skip;
 
 describeHardware('TI SA430 (real hardware)', () => {
-  it('connects by itself at launch, paused: Play is not pressed and one row is remembered', async () => {
+  it('connects by itself at launch, paused: the capture button is not pressed and one row is remembered', async () => {
     // This spec file starts with nothing remembered, so the launch auto-connect (ADR 0014) takes the
     // attached analyzer: connected, remembered, paused. No detected entry is left over.
     await waitForLaunchSettled();
@@ -39,7 +40,7 @@ describeHardware('TI SA430 (real hardware)', () => {
     expect(await acquireState()).toBe('idle');
     expect(await livenessKind()).not.toBe('live');
     await openSourceMenu();
-    const rows = await $$('[data-testid^="source-entry-"][data-label*="SA430"]');
+    const rows = await $$('[data-testid^="source-entry-"][aria-label*="SA430"]');
     expect(rows).toHaveLength(1);
     expect(await textOf(rows[0]!)).toMatch(/Connected/);
     await expect(await $('[data-testid^="source-detected-sa430-"]')).not.toBeExisting();
@@ -56,14 +57,14 @@ describeHardware('TI SA430 (real hardware)', () => {
     expect(text).toContain('Connection OK');
     expect(text).toMatch(/Serial number [0-9A-F]{8,}/);
     // The device is already remembered: the dialog says so and Save is refused.
-    await expect(await $('.source-dialog .dlg-note.warn')).toHaveText(
+    await expect(await $('[data-testid="dialog-note-warn"]')).toHaveText(
       expect.stringContaining('already in Your sources'),
     );
-    await expect(await byTestId('add-source-save')).toBeDisabled();
+    await expect(await byTestId('add-source-save')).toHaveAttribute('aria-disabled', 'true');
     await (await byTestId('add-source-cancel')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
     await openSourceMenu();
-    expect(await $$('[data-testid^="source-entry-"][data-label*="SA430"]')).toHaveLength(1);
+    expect(await $$('[data-testid^="source-entry-"][aria-label*="SA430"]')).toHaveLength(1);
     await expect(await $('[data-testid^="source-detected-sa430-"]')).not.toBeExisting();
     await closeSourceMenu();
   });
@@ -75,7 +76,7 @@ describeHardware('TI SA430 (real hardware)', () => {
     await openEditDialog(id);
     await fillDialog({ name: 'E2E SA430 renamed' });
     await (await byTestId('add-source-save')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
     await closeSourceMenu();
 
     await browser.reloadSession();

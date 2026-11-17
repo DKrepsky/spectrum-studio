@@ -1,7 +1,6 @@
 import { $, browser, expect } from '@wdio/globals';
 
 import {
-  sessionState,
   byTestId,
   captureMode,
   chooseMode,
@@ -10,14 +9,16 @@ import {
   fillDialog,
   openEditDialog,
   openSourceMenu,
+  clickRowAction,
   runSimulator,
   selectSource,
+  sessionState,
   setInput,
   sourceButtonText,
-  revealRowActions,
   statusBarText,
   textOf,
   waitForAppReady,
+  waitForGone,
   waitForState,
 } from './helpers';
 
@@ -32,7 +33,7 @@ async function simulatorEntryId(): Promise<string> {
  * ADR 0014), so the row is the one that is not the SA430.
  */
 async function simulatorEntry() {
-  const entry = await $('[data-testid^="source-entry-"]:not([data-label*="SA430"])');
+  const entry = await $('[data-testid^="source-entry-"]:not([aria-label*="SA430"])');
   await entry.waitForExist({ timeoutMsg: 'the simulator was not remembered' });
   return entry;
 }
@@ -56,7 +57,7 @@ describe('Remembered sources and preferences', () => {
     await openEditDialog(id);
     await fillDialog({ name: 'E2E FM setup' });
     await (await byTestId('add-source-save')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
     // Saving returns to the menu with the renamed row.
     expect(await textOf(simulatorEntry())).toContain('E2E FM setup');
     await closeSourceMenu();
@@ -66,7 +67,7 @@ describe('Remembered sources and preferences', () => {
   it('forgets a source and brings it back with Undo', async () => {
     await openSourceMenu();
     const id = (await simulatorEntryId()).replace('source-entry-', '');
-    await (await revealRowActions(`source-entry-${id}`)).$('[data-testid="source-forget"]').click();
+    await clickRowAction(`source-entry-${id}`, 'source-forget');
     await expect(await byTestId(`source-entry-${id}`)).not.toBeExisting();
     await (await byTestId('source-undo')).click();
     await expect(await byTestId(`source-entry-${id}`)).toBeExisting();
@@ -108,7 +109,7 @@ describe('Remembered sources and preferences', () => {
         timeoutMsg: 'the last source was not restored as the selection',
       });
     }
-    // Play is disabled until a device is connected: connect the simulator first.
+    // The capture button is disabled until a device is connected: connect the simulator first.
     await openSourceMenu();
     await selectSource(await simulatorEntryId());
     await waitForState('Connected');

@@ -26,7 +26,7 @@ describe('Toolbar', () => {
     });
   });
 
-  it('shows no state pill and a disabled Play while disconnected', () => {
+  it('shows no state pill and a disabled capture button while disconnected', () => {
     useSession.getState().receiveStatus(status({ revision: 1 }));
     renderToolbar();
     expect(screen.queryByTestId('session-state')).not.toBeInTheDocument();
@@ -64,11 +64,14 @@ describe('Toolbar', () => {
     expect(screen.getByTestId('acquire-button')).toHaveAttribute('title', 'Connect a source first');
   });
 
-  it.each(['connecting', 'disconnecting'] as const)('disables Play while %s', (state) => {
-    useSession.getState().receiveStatus(status({ revision: 1, state }));
-    renderToolbar();
-    expect(screen.getByTestId('acquire-button')).toBeDisabled();
-  });
+  it.each(['connecting', 'disconnecting'] as const)(
+    'disables the capture button while %s',
+    (state) => {
+      useSession.getState().receiveStatus(status({ revision: 1, state }));
+      renderToolbar();
+      expect(screen.getByTestId('acquire-button')).toBeDisabled();
+    },
+  );
 
   it('marks the capture button aria-disabled while a command is in flight, even when connected', () => {
     useSession.getState().receiveStatus(status({ revision: 1, state: 'connected' }));
@@ -177,5 +180,20 @@ describe('Toolbar', () => {
     await userEvent.type(input, '7G{Enter}');
     expect(input).toHaveAttribute('aria-invalid', 'true');
     expect(apiMock.applySourceSettings).not.toHaveBeenCalled();
+  });
+
+  it('is a labelled header without role=toolbar, which promises a roving focus it does not have (B7)', () => {
+    useSession.getState().receiveStatus(status({ revision: 1 }));
+    renderToolbar();
+    expect(screen.queryByRole('toolbar')).toBeNull();
+    expect(screen.getByRole('banner', { name: 'Main toolbar' })).toBeInTheDocument();
+  });
+
+  it('describes why the capture button is unavailable, through its accessible description', () => {
+    useSession.getState().receiveStatus(status({ revision: 1 }));
+    renderToolbar();
+    expect(
+      screen.getByRole('button', { name: 'Start continuous acquisition' }),
+    ).toHaveAccessibleDescription('Connect a source first');
   });
 });

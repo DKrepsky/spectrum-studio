@@ -31,6 +31,23 @@ These apply to humans and AI agents alike.
 - Global UI state lives in a small zustand store; high-rate data (frames) lives outside React
   state and is drawn on canvas in `requestAnimationFrame`.
 - Components stay presentational where possible; logic goes into plain, unit-tested modules.
+- **Build UI from `src/ui/`.** A button, icon button, field, select, checkbox, badge, banner, menu,
+  popover, dialog, table or status element is a `src/ui/` component; feature code in
+  `src/components/` composes them and maps its state to their props. Do not add a raw `<button>`,
+  `<input>` or `<select>` or a copy of an existing element in feature code. A new element goes into
+  `src/ui/` once a second screen needs it (DESIGN.md 10.2).
+- **`src/ui/` is presentational.** It imports React, `src/format/` and its own files only. No IPC,
+  `src/state`, `src/bindings`, `src/plot`, `src/components`, Tauri or zustand, not even as a type.
+  ESLint and `src/ui/boundary.test.ts` enforce it (ADR 0015).
+- **Tokens, not values.** Colours, sizes, radii, shadows, z-index and opacity come from
+  `src/styles/tokens.css` (`var(--token)` in CSS). Do not write a colour or size literal in CSS or
+  TSX; a value that is missing from the token file gets a semantic token first (DESIGN.md 2.17,
+  2.19 and 10.1). React emits class names; inline styles are for plot geometry only.
+- **Formatting** of numbers, frequencies, levels and rates goes through `src/format/` (DESIGN.md 7.5).
+- **Design source.** [DESIGN.md](../DESIGN.md) at the repo root is the design system (rules, tokens,
+  component catalogue, accessibility). A UI change that touches a screen comes with before and after
+  screenshots of the states it affects (DESIGN.md 10.4), and the component entry in DESIGN.md is
+  updated in the same change.
 - Prettier formatting, ESLint (typescript-eslint strict + react-hooks).
 
 ## Testing
@@ -39,6 +56,8 @@ These apply to humans and AI agents alike.
 - Rust unit tests next to the code; cross-module scenarios in `crates/spectrum-core/tests/`.
 - Frontend logic (decoding, scales, formatting, markers) gets Vitest tests; components get
   Testing Library tests with the IPC layer mocked.
+- Every `src/ui/` component has tests for render, variants, states and keyboard or ARIA behaviour.
+  The token, boundary and CSS-import guards run in `npm test` (see [testing.md](testing.md)).
 - End-to-end tests drive the real app via WebDriver for the main workflows.
 
 ## Definition of done

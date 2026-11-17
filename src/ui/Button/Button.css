@@ -1,0 +1,104 @@
+/* Button (DESIGN.md 4.1). Tokens only; ui- prefix. */
+.ui-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  min-height: var(--control-height);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-control);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-button:hover:not(:disabled):not([aria-disabled='true']),
+.ui-button:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-surface-control-hover);
+  border-color: var(--color-border-hover);
+}
+
+.ui-button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.ui-button--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ui-button--primary:hover:not(:disabled):not([aria-disabled='true']),
+.ui-button--primary:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.ui-button--destructive {
+  background: transparent;
+  border-color: var(--color-border-danger-muted);
+  color: var(--color-danger);
+}
+
+.ui-button--destructive:hover:not(:disabled):not([aria-disabled='true']),
+.ui-button--destructive:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-tint-error);
+  border-color: var(--color-danger);
+}
+
+.ui-button--small {
+  min-height: var(--control-height-small);
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.ui-button--unavailable,
+.ui-button:disabled {
+  opacity: var(--opacity-unavailable);
+  cursor: default;
+}
+
+.ui-button--busy {
+  cursor: progress;
+}
+
+/* The icon slot is 12px whether it holds the icon or the spinner, so busy does not widen the button. */
+.ui-button__lead {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 var(--button-icon-slot);
+  width: var(--button-icon-slot);
+  height: var(--button-icon-slot);
+  font-size: var(--font-size-sm);
+}
+
+/* The label keeps its box and its text (the accessible name) while the overlay spins over it. */
+.ui-button__label--masked {
+  color: transparent;
+}
+
+.ui-button__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* The spinner paints in the button's own text colour, so it reads on the primary accent fill too. */
+.ui-button__lead .ui-spinner,
+.ui-button__overlay .ui-spinner {
+  color: inherit;
+}

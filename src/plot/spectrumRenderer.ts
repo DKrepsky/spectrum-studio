@@ -4,7 +4,7 @@ import type { DecodedFrame } from '../ipc/frame';
 import type { FrequencyView, Marker } from '../state/view';
 import { tracePoints, valueAt } from './envelope';
 import { linearScale, ticks, type LinearScale } from './scale';
-import { PLOT_INSETS, PLOT_THEME as T } from './theme';
+import { getPlotTheme, PLOT_INSETS } from './theme';
 
 export interface SpectrumDrawOptions {
   /** Size in CSS pixels; the context is already scaled for the device pixel ratio. */
@@ -54,6 +54,7 @@ export function plotGeometry(
 }
 
 export function drawSpectrum(ctx: CanvasRenderingContext2D, o: SpectrumDrawOptions): PlotGeometry {
+  const T = getPlotTheme();
   const g = plotGeometry(o.width, o.height, o.view, o.referenceLevel, o.rangeDb);
   ctx.fillStyle = T.background;
   ctx.fillRect(0, 0, o.width, o.height);
@@ -78,6 +79,7 @@ export function drawSpectrum(ctx: CanvasRenderingContext2D, o: SpectrumDrawOptio
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, g: PlotGeometry, unit: string) {
+  const T = getPlotTheme();
   const plotWidth = g.right - g.left;
   const plotHeight = g.bottom - g.top;
   const fTicks = ticks(g.x.d0, g.x.d1, Math.max(2, Math.floor(plotWidth / 110)));
@@ -149,6 +151,7 @@ function tracePath(
 }
 
 function drawTraces(ctx: CanvasRenderingContext2D, g: PlotGeometry, o: SpectrumDrawOptions) {
+  const T = getPlotTheme();
   const frame = o.frame!;
   const width = Math.max(1, Math.floor(g.right - g.left));
   const points = (trace: Float32Array) =>
@@ -188,6 +191,7 @@ function drawPeaks(
   peaks: readonly Peak[],
   selectedHz: number | null,
 ) {
+  const T = getPlotTheme();
   ctx.font = T.font;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
@@ -219,6 +223,7 @@ function drawPeaks(
 }
 
 function drawMarkers(ctx: CanvasRenderingContext2D, g: PlotGeometry, o: SpectrumDrawOptions) {
+  const T = getPlotTheme();
   const frame = o.frame!;
   ctx.font = T.font;
   ctx.textBaseline = 'bottom';
@@ -249,6 +254,7 @@ function drawMarkers(ctx: CanvasRenderingContext2D, g: PlotGeometry, o: Spectrum
 }
 
 function drawCrosshair(ctx: CanvasRenderingContext2D, g: PlotGeometry, o: SpectrumDrawOptions) {
+  const T = getPlotTheme();
   const { x, y } = o.hover!;
   if (x < g.left || x > g.right || y < g.top || y > g.bottom) return;
   ctx.strokeStyle = T.crosshair;

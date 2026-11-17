@@ -213,7 +213,7 @@ export function menuModel(
   };
 }
 
-/** Which remembered entry a "Run"/"Reconnect" should target: the entry if it still exists. */
+/** Which remembered entry a Connect or Reconnect should target: the entry if it still exists. */
 export function isRemembered(list: readonly SavedSource[], id: string | null): id is string {
   return id != null && list.some((e) => e.id === id);
 }

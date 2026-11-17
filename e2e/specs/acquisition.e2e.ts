@@ -1,7 +1,6 @@
 import { $, $$, browser, expect } from '@wdio/globals';
 
 import {
-  sessionState,
   acquireState,
   byTestId,
   captureMode,
@@ -10,9 +9,11 @@ import {
   frameSeq,
   livenessKind,
   runSimulator,
+  sessionState,
   setInput,
   sourceButtonText,
   statusBarText,
+  waitForGone,
   waitForLaunchSettled,
   waitForState,
 } from './helpers';
@@ -108,7 +109,7 @@ describe('Simulator acquisition workflow', () => {
     await waitForState('Connected');
   });
 
-  it('keeps keyboard focus on Play/Pause across Space and Enter presses', async () => {
+  it('keeps keyboard focus on the capture button across Space and Enter presses', async () => {
     const focusedTestId = () =>
       browser.execute(() => document.activeElement?.getAttribute('data-testid') ?? null);
     await browser.execute(() =>
@@ -139,7 +140,7 @@ describe('Simulator acquisition workflow', () => {
     expect(await byTestId('capture-mode-single').getAttribute('aria-checked')).toBe('false');
     await browser.keys(['ArrowDown']);
     await browser.keys(['Escape']);
-    await byTestId('capture-mode-menu').waitForExist({ reverse: true });
+    await waitForGone('capture-mode-menu');
     expect(await captureMode()).toBe('continuous');
     // Escape returns focus to the chevron, so the keyboard user keeps their place.
     expect(
@@ -202,7 +203,7 @@ describe('Simulator acquisition workflow', () => {
   it('disconnects and releases the source', async () => {
     await ensureDisconnected();
     await expect(await byTestId('simulated-badge')).not.toBeExisting();
-    // The source stays selected, but Play needs a connected device, so it is disabled.
+    // The source stays selected, but the capture button needs a connected device, so it is disabled.
     expect(await sourceButtonText()).toContain('Signal simulator');
     await expect(await byTestId('acquire-button')).toBeDisabled();
     await expect(await byTestId('capture-mode-button')).toBeDisabled();

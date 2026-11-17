@@ -164,7 +164,7 @@ describe('source button and menu', () => {
       setup();
       expect(button()).toHaveTextContent('Choose a source');
       expect(button()).toHaveAccessibleName('Source: Choose a source');
-      expect(button()).toHaveAttribute('aria-haspopup', 'menu');
+      expect(button()).toHaveAttribute('aria-haspopup', 'dialog');
       expect(button()).toHaveAttribute('aria-expanded', 'false');
       expect(button()).toHaveAttribute('title', 'Choose source (Ctrl+K)');
       expect(screen.queryByTestId('source-menu')).not.toBeInTheDocument();
@@ -175,7 +175,7 @@ describe('source button and menu', () => {
       setup();
       await openMenu();
       expect(button()).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByRole('menu')).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Sources' })).toBeInTheDocument();
       expect(screen.getByTestId('source-simulator')).toBeInTheDocument();
       expect(screen.getByTestId('source-add')).toHaveTextContent('Add source…');
       expect(screen.queryByText(/Other sources/)).not.toBeInTheDocument();
@@ -261,7 +261,7 @@ describe('source button and menu', () => {
       );
       await openMenu();
       const row = screen.getByTestId('source-entry-a');
-      expect(row).toHaveAttribute('aria-checked', 'true');
+      expect(row).toHaveAttribute('aria-current', 'true');
       expect(row).toHaveTextContent('Acquiring');
       await userEvent.click(screen.getByTestId('source-disconnect'));
       expect(apiMock.disconnectSource).toHaveBeenCalled();
@@ -362,7 +362,7 @@ describe('source button and menu', () => {
   });
 
   describe('keyboard', () => {
-    it('opens with ArrowDown, focuses the active row and moves with wrap, Home and End', async () => {
+    it('opens with ArrowDown, focuses the active row, moves between rows and stops at the ends', async () => {
       setup({
         list: [alpha, bravo, charlie],
         activeId: 'b',
@@ -377,32 +377,42 @@ describe('source button and menu', () => {
       await userEvent.keyboard('{End}');
       expect(screen.getByTestId('source-add')).toHaveFocus();
       await userEvent.keyboard('{ArrowDown}');
-      expect(screen.getByTestId('source-entry-a')).toHaveFocus();
+      expect(screen.getByTestId('source-add')).toHaveFocus(); // no wrap
       await userEvent.keyboard('{ArrowUp}');
-      expect(screen.getByTestId('source-add')).toHaveFocus();
+      expect(screen.getByTestId('source-entry-c')).toHaveFocus();
       await userEvent.keyboard('{Home}');
       expect(screen.getByTestId('source-entry-a')).toHaveFocus();
     });
 
-    it('exposes menu roles, radio state and labelled groups', async () => {
+    it('is a dialog with list content: no menu, menuitem or radio roles', async () => {
       setup({ list: [alpha, charlie], activeId: 'a' });
       await openMenu();
-      expect(screen.getByRole('menu')).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Sources' })).toBeInTheDocument();
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(screen.queryAllByRole('menuitem')).toHaveLength(0);
+      expect(screen.queryAllByRole('menuitemradio')).toHaveLength(0);
       const group = screen.getByRole('group', { name: 'Your sources' });
-      const radios = within(group).getAllByRole('menuitemradio');
-      expect(radios).toHaveLength(2);
-      expect(radios[0]).toHaveAttribute('aria-checked', 'true');
-      expect(radios[1]).toHaveAttribute('aria-checked', 'false');
+      expect(within(group).getAllByRole('list')).toHaveLength(1);
+      expect(within(group).getByRole('button', { name: 'Alpha' })).toHaveAttribute('aria-current');
     });
 
-    it('jumps with type-ahead and activates with Enter', async () => {
+    it('marks the active row with aria-current, not a checked state', async () => {
+      setup({ list: [alpha, charlie], activeId: 'a' });
+      await openMenu();
+      const active = screen.getByTestId('source-entry-a');
+      expect(active).toHaveAttribute('aria-current', 'true');
+      expect(active).not.toHaveAttribute('aria-checked');
+      expect(screen.getByTestId('source-entry-c')).not.toHaveAttribute('aria-current');
+    });
+
+    it('has no type-ahead: typing a letter moves nothing, Enter activates the focused row', async () => {
       apiMock.connectRemembered.mockResolvedValue(status({ revision: 2, state: 'connected' }));
       setup({ list: [alpha, bravo, charlie] });
       await openMenu();
+      expect(screen.getByTestId('source-entry-a')).toHaveFocus();
       await userEvent.keyboard('c');
-      expect(screen.getByTestId('source-entry-c')).toHaveFocus();
-      await userEvent.keyboard('o');
-      // 'co' matches nothing: focus stays; a fresh pause starts a new word
+      expect(screen.getByTestId('source-entry-a')).toHaveFocus();
+      await userEvent.keyboard('{ArrowDown}');
       expect(screen.getByTestId('source-entry-c')).toHaveFocus();
       await userEvent.keyboard('{Enter}');
       expect(apiMock.connectRemembered).toHaveBeenCalledWith('c');
@@ -416,12 +426,33 @@ describe('source button and menu', () => {
       expect(button()).toHaveFocus();
     });
 
-    it('closes with Tab and leaves the menu', async () => {
+    it('keeps open while Tab moves between its controls', async () => {
       setup({ list: [alpha] });
       await openMenu();
+      expect(screen.getByTestId('source-entry-a')).toHaveFocus();
+      await userEvent.tab();
+      expect(screen.getByTestId('source-edit')).toHaveFocus();
+      await userEvent.tab();
+      expect(screen.getByTestId('source-forget')).toHaveFocus();
+      expect(screen.getByTestId('source-menu')).toBeInTheDocument();
+    });
+
+    it('closes without moving focus back to the button when Tab leaves past the last control', async () => {
+      setup({ list: [alpha] });
+      await openMenu();
+      screen.getByTestId('source-add').focus();
       await userEvent.tab();
       expect(screen.queryByTestId('source-menu')).not.toBeInTheDocument();
-      expect(screen.getByTestId('source-button')).not.toHaveAttribute('aria-expanded', 'true');
+      expect(button()).not.toHaveFocus();
+      expect(button()).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('closes when Shift+Tab leaves before the first control; focus goes to the previous control in order', async () => {
+      setup({ list: [alpha] });
+      await openMenu();
+      await userEvent.tab({ shift: true });
+      expect(screen.queryByTestId('source-menu')).not.toBeInTheDocument();
+      expect(button()).toHaveFocus(); // the trigger is the previous control; it is not "returned to"
     });
 
     it('closes on a click outside', async () => {
@@ -450,10 +481,15 @@ describe('source button and menu', () => {
       apiMock.restoreSource.mockResolvedValue({ sources: [alpha, charlie], activeId: null });
       setup({ list: [alpha, charlie] });
       await openMenu();
+      // DESIGN 9.6: the polite region exists before anything is announced; the toast goes into it.
+      const live = screen.getByTestId('source-forgot-live');
+      expect(live).toHaveAttribute('role', 'status');
+      expect(live).toHaveAttribute('aria-live', 'polite');
+      expect(screen.queryByTestId('source-forgot-toast')).not.toBeInTheDocument();
       await userEvent.keyboard('{Delete}');
       expect(apiMock.forgetSource).toHaveBeenCalledWith('a');
       const toast = await screen.findByTestId('source-forgot-toast');
-      expect(toast).toHaveAttribute('role', 'status');
+      expect(live).toContainElement(toast);
       expect(toast).toHaveTextContent('Forgot "Alpha".');
       expect(screen.queryByTestId('source-entry-a')).not.toBeInTheDocument();
       expect(screen.getByTestId('source-undo')).toHaveFocus();
@@ -532,7 +568,7 @@ describe('source button and menu', () => {
       expect(screen.getByTestId('dialog-stub')).toHaveAttribute('data-mode', 'edit');
       expect(screen.getByTestId('dialog-stub')).toHaveAttribute('data-name', 'Alpha');
       expect(screen.queryByRole('textbox', { name: 'Name' })).not.toBeInTheDocument();
-      expect(screen.getByTestId('source-menu')).not.toBeVisible(); // the menu is hidden, not torn down
+      expect(screen.queryByTestId('source-menu')).not.toBeInTheDocument(); // the dialog replaces the popover
 
       await userEvent.click(screen.getByTestId('dialog-cancel'));
       expect(screen.queryByTestId('dialog-stub')).not.toBeInTheDocument();
@@ -551,10 +587,10 @@ describe('source button and menu', () => {
       setup({ drivers: [...baseDrivers, sa430Driver] });
       await openMenu();
       const row = (await screen.findByTestId(`source-detected-sa430-${SA430_SERIAL}`)).closest(
-        '[data-menu-row]',
+        'li',
       ) as HTMLElement;
       expect(within(row).queryByTestId('source-forget')).not.toBeInTheDocument();
-      expect(within(row).getByRole('menuitem', { name: `Edit SA430 ${SA430_SERIAL}` })).toBe(
+      expect(within(row).getByRole('button', { name: `Edit SA430 ${SA430_SERIAL}` })).toBe(
         within(row).getByTestId('source-edit'),
       );
       await userEvent.click(within(row).getByTestId('source-edit'));
@@ -636,27 +672,22 @@ describe('source button and menu', () => {
     const scan = (devices = [sa430Device(SA430_SERIAL, '/dev/ttyACM0')]) =>
       apiMock.discoverAll.mockResolvedValue([{ driverId: 'sa430', devices, error: null }]);
 
-    /** One glyph, a 64px badge as the third grid child, a line 2, and the actions in the DOM. */
+    /** One status dot, a badge in the name row's third column, the status line, and an Edit action. */
     function expectStructure(
       testId: string,
       expected: { status: string; badge: string; line2: string },
     ) {
-      const item = screen.getByTestId(testId);
-      const dots = item.querySelectorAll('.src-dot');
-      expect(dots).toHaveLength(1);
-      expect(dots[0]).toHaveAttribute('data-status', expected.status);
-      expect(dots[0]).toHaveAttribute('aria-hidden', 'true');
-      expect(dots[0]).toBe(item.children[0]);
-      expect(item.querySelectorAll('.src-badge')).toHaveLength(1);
-      expect(item.children[2]).toHaveClass('src-badge');
-      expect(item.children[2]).toHaveTextContent(expected.badge);
-      expect(item.children[3]).toHaveClass('row-sub');
-      expect(item.children[3]?.textContent).toBe(expected.line2);
-      const row = item.closest('[data-menu-row]')!;
-      const name = item.getAttribute('data-label')!;
-      expect(
-        within(row as HTMLElement).getByRole('menuitem', { name: `Edit ${name}` }),
-      ).toBeInTheDocument();
+      const id = testId.replace(/^source-/, '');
+      const dot = screen.getByTestId(`source-status-${id}`);
+      expect(dot).toHaveAttribute('data-status', expected.status);
+      expect(dot).toHaveAttribute('aria-hidden', 'true');
+      expect(screen.getByTestId(`source-badge-${id}`)).toHaveTextContent(expected.badge);
+      expect(screen.getByTestId(`source-sub-${id}`).textContent).toBe(expected.line2);
+      const row = screen.getByTestId(testId).closest<HTMLElement>('[data-list-row]')!;
+      expect(within(row).getByTestId('source-edit')).toHaveAttribute(
+        'aria-label',
+        expect.stringMatching(/^Edit /),
+      );
     }
 
     it('gives remembered rows one glyph, badge and line 2 each, with the status text of the table', async () => {
@@ -672,11 +703,13 @@ describe('source button and menu', () => {
       });
       expectStructure('source-entry-s', { status: 'idle', badge: 'Built-in', line2: '' });
       for (const id of ['p', 'x', 's']) {
-        const row = screen.getByTestId(`source-entry-${id}`).closest('[data-menu-row]')!;
+        const row = screen
+          .getByTestId(`source-entry-${id}`)
+          .closest<HTMLElement>('[data-list-row]')!;
         expect(
-          within(row as HTMLElement)
-            .getAllByRole('menuitem')
-            .map((e) => e.getAttribute('data-menu-action')),
+          [...row.querySelectorAll<HTMLElement>('[data-row-action]')].map((e) =>
+            e.getAttribute('data-row-action'),
+          ),
         ).toEqual(['edit', 'forget']);
       }
       expect(screen.getByTestId('source-entry-x')).toHaveClass('dimmed');
@@ -692,10 +725,8 @@ describe('source button and menu', () => {
         badge: 'USB',
         line2: 'New·/dev/ttyACM5',
       });
-      const fixed = screen.getByTestId('source-simulator');
-      expect(fixed.querySelectorAll('.src-dot[data-status="idle"]')).toHaveLength(1);
-      expect(fixed.children[2]).toHaveClass('src-badge');
-      expect(fixed.children[2]).toHaveTextContent('Built-in');
+      expect(screen.getByTestId('source-status-simulator')).toHaveAttribute('data-status', 'idle');
+      expect(screen.getByTestId('source-badge-simulator')).toHaveTextContent('Built-in');
     });
 
     it.each([
@@ -714,9 +745,9 @@ describe('source button and menu', () => {
       );
       await openMenu();
       expectStructure('source-entry-p', { status: glyph, badge: 'USB', line2 });
-      expect(screen.getByTestId('source-entry-p')).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByTestId('source-entry-p')).toHaveAttribute('aria-current', 'true');
       // the source button wears the same glyph
-      expect(button().querySelector('.src-dot')).toHaveAttribute('data-status', glyph);
+      expect(screen.getByTestId('source-button-status')).toHaveAttribute('data-status', glyph);
     });
 
     it('a failed row shows the cross and Failed with its port', async () => {
@@ -736,8 +767,7 @@ describe('source button and menu', () => {
       setup({ list, drivers });
       await openMenu();
       const item = screen.getByTestId('source-entry-p');
-      const snapshot = () =>
-        item.closest('[data-menu-row]')!.innerHTML.replace(/ data-highlight=""/g, '');
+      const snapshot = () => item.closest('li')!.innerHTML.replace(/ data-highlight=""/g, '');
       const before = snapshot();
       await userEvent.hover(item);
       expect(snapshot()).toBe(before);
@@ -757,12 +787,12 @@ describe('source button and menu', () => {
       setup({ list: [present], drivers });
       await openMenu();
       await waitFor(() =>
-        expect(screen.getByTestId('source-entry-p').children[3]).toHaveTextContent('/dev/ttyACM7'),
+        expect(screen.getByTestId('source-sub-entry-p')).toHaveTextContent('/dev/ttyACM7'),
       );
-      expect(screen.getByTestId('source-entry-p')).toHaveAttribute('data-label', 'Bench SA430');
+      expect(screen.getByTestId('source-entry-p')).toHaveAttribute('aria-label', 'Bench SA430');
       expect(screen.queryByTestId(`source-detected-sa430-${SA430_SERIAL}`)).not.toBeInTheDocument();
-      const labels = [...menu().querySelectorAll('[data-label]')].map((e) =>
-        e.getAttribute('data-label'),
+      const labels = [...menu().querySelectorAll('[data-list-item]')].map((e) =>
+        e.getAttribute('aria-label'),
       );
       expect(new Set(labels).size).toBe(labels.length);
       expect(labels).not.toContain(`SA430 ${SA430_SERIAL}`);
@@ -826,7 +856,8 @@ describe('source button and menu', () => {
       await userEvent.type(screen.getByLabelText(/Host/), 'nowhere');
       await userEvent.click(screen.getByTestId('source-form-connect'));
       const error = await screen.findByTestId('source-form-error');
-      expect(error).toHaveAttribute('role', 'alert');
+      expect(screen.getByRole('status')).toContainElement(error);
+      expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
       expect(error).toHaveTextContent('Connection failed: Connection refused.');
       expect(screen.getByLabelText(/Host/)).toBeEnabled();
       expect(useSession.getState().status?.state).toBe('disconnected');

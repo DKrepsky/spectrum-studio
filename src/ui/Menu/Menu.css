@@ -1,0 +1,58 @@
+/* Menu (DESIGN.md 4.11). The surface is `.popover` (Popover.css). Only tokens here. */
+.popover-mode > .popover-heading:first-child {
+  margin-top: var(--space-3);
+}
+
+.menu-item {
+  display: grid;
+  grid-template-columns: var(--glyph-cell) minmax(0, 1fr) var(--menu-end-column);
+  column-gap: var(--space-4);
+  align-items: start;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font: inherit;
+  color: var(--color-text-primary);
+  text-align: left;
+  white-space: normal;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--color-surface-control);
+}
+/* Outside the item, 1px offset (F4): the ring is not drawn on the item's own fill. */
+.menu-item:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.menu-item-icon {
+  display: flex;
+  justify-content: center;
+  margin-top: 1px;
+}
+.menu-item-icon:empty {
+  display: none;
+}
+.menu-item-name {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+}
+.menu-item-desc {
+  display: block;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  color: var(--color-text-secondary);
+}
+.menu-item-check {
+  margin-top: var(--space-1);
+  color: var(--color-text-primary);
+  visibility: hidden;
+}
+.menu-item[aria-checked='true'] .menu-item-check {
+  visibility: visible;
+}

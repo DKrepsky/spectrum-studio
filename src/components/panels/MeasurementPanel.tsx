@@ -1,6 +1,7 @@
 import type { WindowKind } from '../../bindings/WindowKind';
 import { useSession } from '../../state/session';
-import { NumberInput } from '../NumberInput';
+import { Button } from '../../ui/Button';
+import { Checkbox, Field, NumberField, Select } from '../../ui/Field';
 
 const FFT_SIZES = [256, 512, 1024, 2048, 4096, 8192, 16384, 32768];
 
@@ -22,79 +23,71 @@ export function MeasurementPanel() {
     : undefined;
 
   return (
-    <div className="panel-body">
-      <div className="form-row">
-        <label htmlFor="fft-size">FFT size</label>
-        <select
-          id="fft-size"
-          value={processing.fftSize}
-          disabled={traceSource}
-          title={fftTitle}
-          onChange={(e) => void setProcessing({ fftSize: Number(e.target.value) })}
-        >
-          {FFT_SIZES.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-row">
-        <label htmlFor="window">Window</label>
-        <select
-          id="window"
-          value={processing.window}
-          disabled={traceSource}
-          title={fftTitle}
-          onChange={(e) => void setProcessing({ window: e.target.value as WindowKind })}
-        >
-          {WINDOWS.map((w) => (
-            <option key={w.value} value={w.value}>
-              {w.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-row">
-        <label htmlFor="averaging">Averaging</label>
-        <span className="with-unit">
-          <NumberInput
-            id="averaging"
+    <>
+      <Field label="FFT size" id="fft-size" layout="inline">
+        {(c) => (
+          <Select
+            id={c.id}
+            aria-describedby={c.describedBy}
+            label="FFT size"
+            value={String(processing.fftSize)}
+            options={FFT_SIZES.map((n) => ({ value: String(n), label: String(n) }))}
+            disabled={traceSource}
+            title={fftTitle}
+            onChange={(value) => void setProcessing({ fftSize: Number(value) })}
+          />
+        )}
+      </Field>
+      <Field label="Window" id="window" layout="inline">
+        {(c) => (
+          <Select
+            id={c.id}
+            aria-describedby={c.describedBy}
+            label="Window"
+            value={processing.window}
+            options={WINDOWS}
+            disabled={traceSource}
+            title={fftTitle}
+            onChange={(value) => void setProcessing({ window: value as WindowKind })}
+          />
+        )}
+      </Field>
+      <Field label="Averaging" id="averaging" layout="inline">
+        {(c) => (
+          <NumberField
+            id={c.id}
+            aria-describedby={c.describedBy}
             label="Averaging"
+            unit="traces"
             value={processing.averaging}
             min={1}
             max={1000}
             integer
             onCommit={(averaging) => void setProcessing({ averaging })}
           />
-          <span className="unit">traces</span>
-        </span>
-      </div>
-      <div className="form-row checks">
-        <label>
-          <input
-            type="checkbox"
-            checked={processing.maxHold}
-            onChange={(e) => void setProcessing({ maxHold: e.target.checked })}
-          />
-          <span className="swatch max-hold" /> Max hold
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={processing.minHold}
-            onChange={(e) => void setProcessing({ minHold: e.target.checked })}
-          />
-          <span className="swatch min-hold" /> Min hold
-        </label>
-        <button
-          className="small"
+        )}
+      </Field>
+      <div className="panel-row">
+        <Checkbox
+          label="Max hold"
+          checked={processing.maxHold}
+          onChange={(maxHold) => void setProcessing({ maxHold })}
+          adornment={<span className="swatch max-hold" />}
+        />
+        <Checkbox
+          label="Min hold"
+          checked={processing.minHold}
+          onChange={(minHold) => void setProcessing({ minHold })}
+          adornment={<span className="swatch min-hold" />}
+        />
+        <Button
+          size="small"
+          unavailable={!processing.maxHold && !processing.minHold}
           onClick={() => void resetHolds()}
-          disabled={!processing.maxHold && !processing.minHold}
         >
           Reset
-        </button>
+        </Button>
       </div>
-    </div>
+    </>
   );
 }

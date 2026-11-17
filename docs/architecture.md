@@ -35,7 +35,11 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 | `session` | One active source at a time; lifecycle, threading, error recovery, feeding the DSP pipeline. | Know about specific devices. |
 | `store` | Load/save JSON atomically, migrate/repair (`sources.json` v3 with a backup of the old file), merge records of one device. | Hold application state. |
 | `src-tauri` | Translate IPC ⇄ core API; choose persistence paths. | Contain domain logic. |
-| `src/` (UI) | Present state, collect user intent, draw plots. | Compute spectra or assume backend state. |
+| `src/ui/` | Presentational components (Button, Field, Dialog, Popover, Banner, StatusStrip, ...) and their DOM hooks. Props in, callbacks out. | Import IPC, state, bindings, the plot, feature components, Tauri or zustand (ESLint and `src/ui/boundary.test.ts`, ADR 0015). |
+| `src/components/` | Feature containers: read the store, call IPC through `src/state`, map domain values to `src/ui/` props and compose them. | Duplicate an element that `src/ui/` already has, or make styling decisions beyond the layout of their own area. |
+| `src/styles/tokens.css` | The single token file (equal to `DESIGN.md` Appendix A) and the cascade layer order. | Hold a value that is not in Appendix A, or be defined anywhere else. |
+| `src/plot/` | Draws the spectrum and waterfall on canvas. Reads its colours from the tokens at runtime. | Keep a copy of a colour; the data colour map (`colormap.ts`) is the one exception. |
+| `src/format/` | Pure formatting and parsing of values for display (DESIGN.md 7.5). | Hold state. Callers in `src/ui/` and the readouts format through it, never with `toFixed` or `toLocaleString`. |
 
 **Auto-connect** runs beside the session, not inside it. `autoconnect.rs` holds the rules (launch
 connect, connect on plug-in, disconnect on unplug) and is driven by one coordinator thread that
@@ -45,6 +49,24 @@ which only forwards events. Device specifics stay in the driver's `watch` (see
 manual pick win, and the app shell starts and shuts it down. On exit, `shutdown` stops every
 watcher whose driver can be stopped and joins it (at most 1 s in total), before the session
 disconnects; a watcher that cannot be stopped is left to end with the process.
+
+## Frontend layers and design tokens
+
+The React UI has two layers, and the dependency runs one way: `src/components/` (feature containers)
+uses `src/ui/` (presentational components), which uses React and `src/format/` only. A `src/ui/`
+component knows no device, session state or unit; its props are visual vocabulary (`tone`,
+`variant`, `status`), and the feature container maps domain state to them. The boundary is checked
+by ESLint and by `src/ui/boundary.test.ts` (ADR 0015).
+
+Design tokens (colours, type, spacing, radius, elevation, motion, z-index, component geometry) are
+CSS custom properties in `src/styles/tokens.css`, which is imported first. CSS reads them with
+`var(--token)`. React components emit class names and do not hold colour or size values. The canvas
+reads its colours from the same file once, on first draw (`getPlotTheme()` in `src/plot/theme.ts`,
+through `getComputedStyle`), and fails on a missing token rather than falling back to a copy. The
+token tests (`src/styles/tokens.test.ts`) check that every referenced token is defined, that no
+colour or size literal sits outside the token file, that the contrast pairs of DESIGN.md meet
+their ratios, and that the token file equals Appendix A. The rules for adding a token or a
+component are in [DESIGN.md](../DESIGN.md) section 10.
 
 ## Data flow during acquisition
 

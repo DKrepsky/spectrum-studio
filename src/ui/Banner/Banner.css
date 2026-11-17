@@ -1,0 +1,36 @@
+/* DESIGN.md 4.9 and 5.7. */
+.ui-banner-region {
+  display: flex;
+  flex-direction: column;
+}
+.ui-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-tint-warn);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-body);
+}
+.ui-banner[data-tone='error'] {
+  background: var(--color-tint-error);
+}
+.ui-banner-message {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ui-banner-actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-4);
+}
+/* The dismiss is an IconButton (24px target, ring, hover); only its tone and place differ. */
+.ui-banner-dismiss {
+  flex: none;
+  color: var(--color-text-secondary);
+}

@@ -1,0 +1,1233 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:16px;background:#101722;font-family:var(--font-family-ui);width:400px}
+@layer legacy-controls;
+/* tokens.css. Normative: DESIGN.md Appendix A. Define tokens here only. */
+:root {
+  /* 2.2 Primitives: colour */
+  --palette-night-900: #0b1018;
+  --palette-night-850: #0e1520;
+  --palette-night-800: #121a26;
+  --palette-night-750: #182233;
+  --palette-night-700: #1f2b3f;
+  --palette-night-650: #25344c;
+  --palette-night-600: #26344a;
+  --palette-night-550: #3a4d6b;
+  --palette-slate-600: #5b6f8f; /* Proposed (F15): input boundary */
+  --palette-slate-500: #7a8799;
+  --palette-slate-400: #8a9ab1;
+  --palette-slate-350: #8ea0b8; /* canvas axis text */
+  --palette-slate-100: #dbe4f0;
+  --palette-slate-050: #e6edf6; /* canvas readout text */
+  --palette-teal-400: #3ee0b5;
+  --palette-teal-500: #2bc79e;
+  --palette-ink-teal: #062018;
+  --palette-amber-400: #ffb547;
+  --palette-red-400: #ff6b6b;
+  --palette-red-500: #f04848;
+  --palette-blue-400: #5aa9ff;
+  --palette-violet-400: #a47cff;
+  --palette-violet-500: #9166f5;
+  --palette-ink-dark: #120a24;
+  --palette-orange-400: #ff9f43;
+  --palette-magenta-400: #ff6bcb;
+  --palette-yellow-300: #ffd166;
+  --palette-white: #ffffff;
+
+  /* 2.3 Semantic colour */
+  --color-surface-app: var(--palette-night-900);
+  --color-surface-panel: var(--palette-night-800);
+  --color-surface-raised: var(--palette-night-750);
+  --color-surface-control: var(--palette-night-700);
+  --color-surface-control-hover: var(--palette-night-650);
+  --color-surface-plot: var(--palette-night-850);
+  --color-border-default: var(--palette-night-600);
+  --color-border-hover: var(--palette-night-550);
+  --color-border-input: var(--palette-slate-600); /* Proposed (F15) */
+  --color-text-primary: var(--palette-slate-100);
+  --color-text-secondary: var(--palette-slate-400);
+  --color-text-on-accent: var(--palette-ink-teal);
+  --color-text-on-violet: var(--palette-ink-dark);
+  --color-text-on-danger: var(--palette-ink-dark);
+  --color-accent: var(--palette-teal-400);
+  --color-accent-hover: var(--palette-teal-500);
+  --color-warn: var(--palette-amber-400);
+  --color-danger: var(--palette-red-400);
+  --color-danger-hover: var(--palette-red-500);
+  --color-info: var(--palette-blue-400);
+  --color-focus-ring: var(--palette-blue-400);
+  --color-capture-continuous: var(--color-accent);
+  --color-capture-continuous-hover: var(--color-accent-hover);
+  --color-capture-single: var(--palette-violet-400);
+  --color-capture-single-hover: var(--palette-violet-500);
+  --color-capture-stop: var(--color-danger);
+  --color-capture-stop-hover: var(--color-danger-hover);
+
+  /* 2.4 Derived colour (explicit values) */
+  --color-tint-ok: rgba(62, 224, 181, 0.08);
+  --color-tint-ok-strong: rgba(62, 224, 181, 0.16);
+  --color-tint-warn: rgba(255, 181, 71, 0.12);
+  --color-tint-error: rgba(255, 107, 107, 0.12);
+  --color-tint-error-subtle: rgba(255, 107, 107, 0.08);
+  --color-halo-ok: rgba(62, 224, 181, 0.28);
+  --color-halo-info: rgba(90, 169, 255, 0.35);
+  --halo-ok: 0 0 0 2px var(--color-halo-ok);
+  --halo-info: 0 0 0 2px var(--color-halo-info);
+  --color-border-danger-muted: rgba(255, 107, 107, 0.45);
+  --color-divider-on-teal: rgba(6, 32, 24, 0.35);
+  --color-divider-on-violet: rgba(18, 10, 36, 0.35);
+  --color-scrim-modal: rgba(5, 8, 14, 0.6);
+  --color-scrim-chip: rgba(8, 12, 18, 0.8);
+  --color-scrim-readout: rgba(8, 12, 18, 0.88);
+
+  /* 2.6 and 6.3 Data colour (canvas and DOM twins) */
+  --color-trace-live: var(--palette-teal-400);
+  --color-trace-live-fill: rgba(62, 224, 181, 0.1);
+  --color-trace-stale: var(--palette-slate-500);
+  --color-trace-max-hold: var(--palette-orange-400);
+  --color-trace-min-hold: var(--palette-blue-400);
+  --color-marker: var(--palette-magenta-400);
+  --color-marker-active: var(--palette-white);
+  --color-peak: var(--palette-yellow-300);
+  --color-grid: rgba(120, 150, 190, 0.14);
+  --color-grid-strong: rgba(120, 150, 190, 0.28);
+  --color-crosshair: rgba(220, 230, 245, 0.45);
+  --color-text-axis: var(--palette-slate-350);
+  --color-text-readout: var(--palette-slate-050);
+
+  /* 2.7 Focus */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 1px;
+  --focus-ring-offset-group: 2px;
+
+  /* 2.8 Typography */
+  --font-family-ui: 'Inter', 'Cantarell', 'Ubuntu', system-ui, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 15px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --letter-spacing-caps: 0.06em;
+  --letter-spacing-chip: 0.05em;
+  --letter-spacing-brand: 0.02em;
+  --line-height-body: 1.4;
+  --line-height-title: 1.3;
+
+  /* 2.9 Spacing */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 24px;
+
+  /* 2.10 Geometry */
+  --control-height: 30px;
+  --control-height-small: 24px;
+  --target-min: 24px;
+  --field-height-compact: 28px;
+  --glyph-cell: 18px;
+  --glyph-dot: 10px;
+  --row-height: 52px;
+  --row-height-single: 30px;
+  --panel-width: 330px;
+  --popover-width: 360px;
+  --popover-width-mode: 280px;
+  --dialog-width: 440px;
+  --dialog-offset-top: 90px;
+  --dialog-padding-inline: 18px;
+  --badge-column: 64px;
+  --capture-main-width: 128px;
+  --capture-chevron-width: 26px;
+  --capture-main-gap: 7px; /* Off-scale, kept from before T7: icon to label */
+  --capture-main-padding-x: 10px; /* Off-scale, kept from before T7 */
+  --source-name-min: 150px;
+  --source-name-max: 280px;
+  --field-width-frequency: 150px;
+  --field-width-inline: 130px;
+  --field-width-unit: 90px;
+  --field-width-param: 140px;
+  --field-padding-frequency: 7px; /* Off-scale, kept from before T7: frequency field inline padding */
+  --plot-chip-inset-top: 14px;
+  --plot-chip-inset-right: 22px;
+  --plot-tag-padding-x: 9px; /* Off-scale, kept from before 009: plot tag inline padding */
+  --notice-stack-max: 96px; /* Proposed (B6) */
+  --toolbar-gap: 18px;
+  --toolbar-padding-x: 12px;
+  --toolbar-group-gap: 8px;
+
+  /* 2.11 Radius */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-round: 50%;
+
+  /* 2.12 Elevation */
+  --elevation-none: none;
+  --elevation-popover: 0 12px 36px rgba(0, 0, 0, 0.5);
+  --elevation-modal: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  /* 2.13 Motion */
+  --motion-duration-instant: 0ms;
+  --motion-duration-fast: 150ms;
+  --motion-duration-pulse: 1000ms;
+  --motion-duration-spin: 1000ms;
+  --motion-duration-highlight: 3000ms;
+  --motion-pulse-opacity-min: 0.25;
+  --motion-ease-standard: ease-out;
+  --motion-ease-loop: ease-in-out;
+  --motion-ease-linear: linear;
+
+  /* 2.14 Z-index */
+  --z-base: 0;
+  --z-overlay: 10;
+  --z-popover: 20;
+  --z-modal: 40;
+  --z-tooltip: 60;
+
+  /* 2.15 Opacity states */
+  --opacity-unavailable: 0.6; /* Proposed (F9); today 0.45, 0.5, 0.55 */
+  --opacity-read-only: 0.75;
+}
+
+/* 2.10 Narrow window (range C, max-width 1180px, inclusive) */
+@media (max-width: 1180px) {
+  :root {
+    --toolbar-gap: 10px;
+    --toolbar-padding-x: 8px;
+    --toolbar-group-gap: 5px;
+    --field-width-frequency: 128px;
+  }
+}
+
+/* alias: migration only */
+/* Migration aliases (2.19). Remove in the release after the migration. */
+:root {
+  --bg: var(--color-surface-app);
+  --surface: var(--color-surface-panel);
+  --surface-2: var(--color-surface-raised);
+  --surface-3: var(--color-surface-control);
+  --border: var(--color-border-default);
+  --text: var(--color-text-primary);
+  --text-muted: var(--color-text-secondary);
+  --accent: var(--color-accent);
+  --accent-strong: var(--color-accent-hover);
+  --warn: var(--color-warn);
+  --danger: var(--color-danger);
+  --danger-strong: var(--color-danger-hover);
+  --danger-ink: var(--color-text-on-danger);
+  --info: var(--color-info);
+  --single: var(--color-capture-single);
+  --single-strong: var(--color-capture-single-hover);
+  --single-ink: var(--color-text-on-violet);
+  --radius: var(--radius-md);
+  --font: var(--font-family-ui);
+  --mono: var(--font-family-mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-pulse: 0ms;
+  }
+}
+/* DESIGN.md 4.7. Tokens only; the caller positions a tag over the canvas. */
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+.ui-badge[data-variant='chip'] {
+  background: var(--color-surface-control);
+  border-radius: var(--radius-sm);
+  letter-spacing: var(--letter-spacing-chip);
+}
+.ui-badge[data-variant='tag'] {
+  background: var(--color-scrim-chip);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-chip);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.ui-badge[data-tone='live'] {
+  color: var(--color-accent);
+}
+.ui-badge[data-tone='waiting'],
+.ui-badge[data-tone='warn'] {
+  color: var(--color-warn);
+}
+.ui-badge[data-tone='capturing'] {
+  color: var(--color-capture-single);
+}
+/* IconButton (DESIGN.md 4.2). Tokens only; ui- prefix. Minimum target 24 x 24 (F2). */
+.ui-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ui-icon-button--filled {
+  background: var(--color-surface-control);
+  border-color: var(--color-border-default);
+}
+
+.ui-icon-button:hover:not(.ui-icon-button--unavailable),
+.ui-icon-button:active:not(.ui-icon-button--unavailable) {
+  background: var(--color-surface-control-hover);
+  border-color: var(--color-border-hover);
+}
+
+.ui-icon-button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.ui-icon-button--unavailable {
+  opacity: var(--opacity-unavailable);
+  cursor: default;
+}
+/* Popover surface and list rows (DESIGN.md 3.8, 4.11). One surface for the source popover and the
+   capture mode menu (E5). Menu.css reuses the `.popover` surface. Only tokens here. */
+.popover {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  z-index: var(--z-popover);
+  box-sizing: border-box;
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-popover);
+}
+.popover:focus {
+  outline: none;
+}
+.popover-align-start {
+  left: 0;
+}
+.popover-align-end {
+  right: 0;
+}
+.popover-source {
+  width: var(--popover-width);
+  min-width: var(--popover-width-mode);
+  max-width: calc(100vw - 2 * var(--space-6));
+  max-height: 70vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.popover-mode {
+  width: var(--popover-width-mode);
+}
+
+/* Group heading: caps, on the glyph column. The 9px inset is the item border plus its padding. */
+.popover-group-divided {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-default);
+}
+.popover-heading {
+  margin: var(--space-4) 0 var(--space-2);
+  padding: 0 calc(1px + var(--space-4));
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--color-text-secondary);
+}
+.popover-group:first-child > .popover-heading {
+  margin-top: var(--space-1);
+}
+
+/* A row: the select button fills the line; actions sit over the badge column. */
+.list-row {
+  position: relative;
+}
+.list-row-select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--row-height);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  color: var(--color-text-primary);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.list-row-select.st-hover:not([aria-disabled='true']),
+.list-row-select:focus-visible {
+  background: var(--color-surface-control);
+}
+.list-row-select.st-hover:not([aria-disabled='true']) {
+  border-color: var(--color-border-hover);
+}
+.list-row-select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.list-row-select[aria-current='true'] {
+  border-color: var(--color-border-default);
+}
+.list-row-select[data-size='single'] {
+  height: var(--row-height-single);
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+.list-row-select.dimmed {
+  color: var(--color-text-secondary);
+}
+.list-row-select[aria-disabled='true'] {
+  opacity: var(--opacity-unavailable);
+  cursor: default;
+}
+.list-row-select[data-highlight] {
+  animation: list-row-fresh var(--motion-duration-highlight) var(--motion-ease-standard);
+}
+@keyframes list-row-fresh {
+  0%,
+  70% {
+    background: var(--color-tint-ok-strong);
+    border-color: var(--color-accent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .list-row-select[data-highlight] {
+    animation: none;
+    outline: var(--focus-ring-width) solid var(--color-accent);
+    outline-offset: calc(-1 * var(--focus-ring-width));
+  }
+}
+
+/* Second line, under the badge column: the badge sits on the row's first line, so the actions never
+   cover it (DESIGN.md 4.11). Hidden until the row is hovered or one of its actions has focus. Hidden
+   actions stay focusable (no visibility: hidden) but do not take the pointer, so clicks reach the
+   row. The row's height is `--row-height`, so the actions' bottom edge is fixed. */
+.list-row-actions {
+  position: absolute;
+  right: calc(1px + var(--space-4));
+  bottom: var(--space-1);
+  width: var(--badge-column);
+  height: var(--target-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  opacity: 0;
+  transform: translateX(calc(-1 * var(--space-3)));
+  pointer-events: none;
+  transition:
+    opacity var(--motion-duration-fast) var(--motion-ease-standard),
+    transform var(--motion-duration-fast) var(--motion-ease-standard);
+}
+.list-row.st-hover .list-row-actions,
+.list-row-actions.st-focus {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .list-row-actions {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* A list of rows: no bullets, no inset (the rows carry their own padding). */
+.popover-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* Source button (the toolbar trigger) and the source popover's feature layout: what a row shows, in
+   which grid cell. Surfaces, the popover, the rows' hover, the actions and the buttons are `ui/`
+   (Popover, ListRow, StatusDot, Badge, IconButton, Button). Fixed widths are tokens, pinned by
+   source.css.test.ts: the name column of every row is the same whatever its badge or status. */
+
+.source-control {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  min-width: var(--source-name-min);
+  max-width: var(--source-name-max);
+}
+.source-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 1 1 auto;
+  min-width: var(--source-name-min);
+  max-width: var(--source-name-max);
+  height: var(--control-height);
+}
+.source-button.attention {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.source-button.attention:focus-visible {
+  outline-color: var(--info);
+}
+
+/* Ellipsis for every name: the full name is in the tooltip and the accessible name. */
+.source-button-name,
+.source-row-name,
+.source-form-title,
+.source-toast-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-button-name {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.source-menu:focus {
+  outline: none;
+}
+.source-fixed {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-default);
+}
+
+/* A row's content, inside its select button. Line 1: glyph | name | badge (the badge column is
+   fixed). Line 2: status word and port, in the name column only, so the actions never cover it. */
+.source-row {
+  display: grid;
+  grid-template-columns: var(--glyph-cell) minmax(0, 1fr) var(--badge-column);
+  grid-template-rows: auto auto;
+  column-gap: var(--space-4);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+.source-row-single {
+  grid-template-rows: auto;
+}
+.source-row-dot,
+.source-row-glyph {
+  grid-column: 1;
+  grid-row: 1;
+}
+.source-row-name {
+  grid-column: 2;
+  grid-row: 1;
+  text-align: left;
+}
+.source-row-badge {
+  grid-column: 3;
+  grid-row: 1;
+  box-sizing: border-box;
+  width: var(--badge-column);
+  justify-content: center;
+  overflow: hidden;
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-standard);
+}
+.source-row-sub {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 17px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.source-row-status {
+  flex: none;
+  white-space: nowrap;
+}
+.source-row-status.ok {
+  color: var(--color-accent);
+}
+.source-row-status.bad {
+  color: var(--color-danger);
+}
+.source-row-status.busy {
+  color: var(--color-info);
+}
+.source-row-sep {
+  flex: none;
+}
+.source-row-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+}
+
+/* The badge fades out while the row is hovered or one of its actions has focus, so the actions read
+   clearly. Their position is in ui/Popover (second line). */
+.list-row.st-hover .source-row-badge,
+.list-row:has(.list-row-actions.st-focus) .source-row-badge {
+  opacity: 0;
+}
+
+.source-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--row-height-single);
+  padding: 0 var(--space-4);
+  color: var(--color-text-secondary);
+}
+.source-toast-text {
+  flex: 1 1 auto;
+}
+
+.source-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-1);
+}
+.source-form-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+.source-form-title {
+  flex: 1 1 auto;
+}
+.source-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* Still used by SourceDialog until its migration (T10); removed with it. */
+.spinner {
+  display: inline-block;
+}
+.spinner::before {
+  content: '⟳';
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner::before {
+    content: '…';
+    animation: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-row-badge {
+    transition: none;
+  }
+}
+
+.cell { position: relative; width: 360px; margin: 0 0 14px 0; }
+.popover { position: relative; top: auto; width: 360px; box-sizing: border-box; }
+.v-44 { --row-height: 44px; }
+.v-48 { --row-height: 48px; }
+.v-52 { --row-height: 52px; }
+.v-44c { --row-height: 44px; }
+.v-44c .list-row-actions { bottom: auto; top: calc(50% - var(--target-min) / 2); }
+.v-52c { --row-height: 52px; }
+.v-52c .list-row-actions { bottom: auto; top: calc(50% - var(--target-min) / 2); }
+
+</style></head><body>
+<div class="cell v-44" id="c1" data-variant="v-44" data-name="n60" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44" id="c2" data-variant="v-44" data-name="n60" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44" id="c3" data-variant="v-44" data-name="n60" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44" id="c4" data-variant="v-44" data-name="real" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44" id="c5" data-variant="v-44" data-name="real" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44" id="c6" data-variant="v-44" data-name="real" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-48" id="c7" data-variant="v-48" data-name="n60" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-48" id="c8" data-variant="v-48" data-name="n60" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-48" id="c9" data-variant="v-48" data-name="n60" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-48" id="c10" data-variant="v-48" data-name="real" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-48" id="c11" data-variant="v-48" data-name="real" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-48" id="c12" data-variant="v-48" data-name="real" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52" id="c13" data-variant="v-52" data-name="n60" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52" id="c14" data-variant="v-52" data-name="n60" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52" id="c15" data-variant="v-52" data-name="n60" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52" id="c16" data-variant="v-52" data-name="real" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52" id="c17" data-variant="v-52" data-name="real" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52" id="c18" data-variant="v-52" data-name="real" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44c" id="c19" data-variant="v-44c" data-name="n60" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44c" id="c20" data-variant="v-44c" data-name="n60" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44c" id="c21" data-variant="v-44c" data-name="n60" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44c" id="c22" data-variant="v-44c" data-name="real" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44c" id="c23" data-variant="v-44c" data-name="real" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-44c" id="c24" data-variant="v-44c" data-name="real" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52c" id="c25" data-variant="v-52c" data-name="n60" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52c" id="c26" data-variant="v-52c" data-name="n60" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52c" id="c27" data-variant="v-52c" data-name="n60" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>Bench analyser, 2.4 GHz survey, rig A, SA430 near the window</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52c" id="c28" data-variant="v-52c" data-name="real" data-state="rest">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52c" id="c29" data-variant="v-52c" data-name="real" data-state="hover">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row st-hover" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div>
+<div class="cell v-52c" id="c30" data-variant="v-52c" data-name="real" data-state="focus">
+ <div class="popover popover-source"><ul class="popover-list"><li>
+  <div class="list-row" data-list-row data-size="two-line">
+   <button type="button" class="list-row-select" data-list-item data-size="two-line" aria-label="x">
+    <span class="source-row">
+     <span class="ui-status-dot source-row-dot" data-status="connected" aria-hidden="true"></span>
+     <span class="source-row-name" data-name>SA430 08FF41E50F8B3A34</span>
+     <span class="ui-badge source-row-badge" data-variant="chip" data-tone="neutral" data-badge>USB</span>
+     <span class="source-row-sub" data-sub><span class="source-row-status ok">Connected</span><span class="source-row-sep">·</span><span class="source-row-detail">/dev/ttyACM0</span></span>
+    </span>
+   </button>
+   <span class="list-row-actions st-focus" data-actions>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>✎</button>
+    <button type="button" class="ui-icon-button ui-icon-button--filled" data-btn>×</button>
+   </span>
+  </div>
+ </li></ul></div>
+</div><pre id="out"></pre>
+<script>
+const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect();
+  return {l:+r.left.toFixed(2), r:+r.right.toFixed(2), t:+r.top.toFixed(2), b:+r.bottom.toFixed(2), w:+r.width.toFixed(2), h:+r.height.toFixed(2)}; };
+const out = [];
+for (const c of document.querySelectorAll('.cell')) {
+  const row = c.querySelector('[data-list-row]');
+  const sel = c.querySelector('[data-list-item]');
+  const badge = c.querySelector('[data-badge]');
+  const sub = c.querySelector('[data-sub]');
+  const acts = c.querySelector('[data-actions]');
+  const btns = [...c.querySelectorAll('[data-btn]')].map(box);
+  const cs = getComputedStyle(badge), ca = getComputedStyle(acts);
+  const rb = box(row), bb = box(badge), ab = box(acts);
+  out.push({ id: c.id, variant: c.dataset.variant, name: c.dataset.name, state: c.dataset.state,
+    row: rb, badge: bb, badgeOpacity: +cs.opacity, sub: box(sub), actions: ab, actionsOpacity: +ca.opacity,
+    btn0: btns[0], btn1: btns[1],
+    // vertical gap between badge bottom and actions top (negative = overlap), relative to row
+    gapBadgeToActions: bb && ab ? +(ab.t - bb.b).toFixed(2) : null,
+    overlapsSub: sub && ab ? (ab.l < box(sub).r && ab.r > box(sub).l && ab.t < box(sub).b && ab.b > box(sub).t) : null,
+  });
+}
+document.getElementById('out').textContent = JSON.stringify(out);
+</script></body></html>

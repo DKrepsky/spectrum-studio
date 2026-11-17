@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { buildLut, levelIndex } from '../plot/colormap';
 import { columnEnvelope } from '../plot/envelope';
-import { PLOT_INSETS, PLOT_THEME } from '../plot/theme';
+import { getPlotTheme, PLOT_INSETS } from '../plot/theme';
 import { frameStore } from '../state/frames';
 import { useView } from '../state/view';
 import { currentView } from './SpectrumView';
@@ -68,7 +68,7 @@ export function WaterfallView() {
 
     const times = rowTimes.current;
     const clear = () => {
-      ctx.fillStyle = PLOT_THEME.plotBackground;
+      ctx.fillStyle = getPlotTheme().plotBackground;
       ctx.fillRect(0, 0, width, height);
       times.length = 0;
     };

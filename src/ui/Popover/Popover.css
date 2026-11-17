@@ -1,0 +1,169 @@
+/* Popover surface and list rows (DESIGN.md 3.8, 4.11). One surface for the source popover and the
+   capture mode menu (E5). Menu.css reuses the `.popover` surface. Only tokens here. */
+.popover {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  z-index: var(--z-popover);
+  box-sizing: border-box;
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-popover);
+}
+.popover:focus {
+  outline: none;
+}
+.popover-align-start {
+  left: 0;
+}
+.popover-align-end {
+  right: 0;
+}
+.popover-source {
+  width: var(--popover-width);
+  min-width: var(--popover-width-mode);
+  max-width: calc(100vw - 2 * var(--space-6));
+  max-height: 70vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.popover-mode {
+  width: var(--popover-width-mode);
+}
+
+/* Group heading: caps, on the glyph column. The 9px inset is the item border plus its padding. The
+   space above and below matches the list before 009 (2px each side). */
+.popover-group-divided {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-default);
+}
+.popover-heading {
+  margin: var(--space-1) 0;
+  padding: 0 calc(1px + var(--space-4));
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--color-text-secondary);
+}
+
+/* A note inside a group (scanning, nothing found): the heading's inset, so its text lines up with the
+   heading and the glyph column (F3). The vertical padding is the list before 009 (6px). */
+.popover-note {
+  padding: var(--space-3) calc(1px + var(--space-4));
+}
+
+/* A row: the select button fills the line; actions sit over the badge column. Rows are separated by
+   --row-gap (the pitch is 47px for a 44px row, as before 009). */
+.list-row {
+  position: relative;
+  margin-bottom: var(--row-gap);
+}
+.list-row-select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--row-height);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  color: var(--color-text-primary);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.list-row-select:hover:not([aria-disabled='true']),
+.list-row-select:focus-visible {
+  background: var(--color-surface-control);
+}
+.list-row-select:hover:not([aria-disabled='true']) {
+  border-color: var(--color-border-hover);
+}
+/* The ring is drawn inside the row, as before 009: the list clips an outside ring at its edge, so
+   the row's own box is the place for it (the same inset as the reduced-motion highlight). */
+.list-row-select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+.list-row-select[aria-current='true'] {
+  border-color: var(--color-border-default);
+}
+.list-row-select[data-size='single'] {
+  height: var(--row-height-single);
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+.list-row-select.dimmed {
+  color: var(--color-text-secondary);
+}
+.list-row-select[aria-disabled='true'] {
+  opacity: var(--opacity-unavailable);
+  cursor: default;
+}
+.list-row-select[data-highlight] {
+  animation: list-row-fresh var(--motion-duration-highlight) var(--motion-ease-standard);
+}
+@keyframes list-row-fresh {
+  0%,
+  70% {
+    background: var(--color-tint-ok-strong);
+    border-color: var(--color-accent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .list-row-select[data-highlight] {
+    animation: none;
+    outline: var(--focus-ring-width) solid var(--color-accent);
+    outline-offset: calc(-1 * var(--focus-ring-width));
+  }
+}
+
+/* The actions sit centred vertically in the badge column (DESIGN.md 4.11). They are hidden until the
+   row is hovered or one of their buttons has focus; while shown, the source badge fades out, so the
+   actions replace it and never cover a visible badge. Hidden actions stay focusable (no
+   visibility: hidden) but do not take the pointer, so clicks reach the row. The row's height is
+   `--row-height` (44px), so the centre is fixed. */
+.list-row-actions {
+  position: absolute;
+  right: calc(1px + var(--space-4));
+  top: calc(50% - var(--target-min) / 2);
+  bottom: auto;
+  width: var(--badge-column);
+  height: var(--target-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  opacity: 0;
+  transform: translateX(calc(-1 * var(--space-3)));
+  pointer-events: none;
+  transition:
+    opacity var(--motion-duration-fast) var(--motion-ease-standard),
+    transform var(--motion-duration-fast) var(--motion-ease-standard);
+}
+.list-row:hover .list-row-actions,
+.list-row-actions:focus-within {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .list-row-actions {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* A list of rows: no bullets, no inset (the rows carry their own padding). */
+.popover-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

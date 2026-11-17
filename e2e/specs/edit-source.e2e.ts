@@ -1,7 +1,6 @@
 import { $, browser, expect } from '@wdio/globals';
 
 import {
-  sessionState,
   byTestId,
   closeSourceMenu,
   ensureDisconnected,
@@ -11,10 +10,12 @@ import {
   openSourceMenu,
   revealRowActions,
   selectSource,
+  sessionState,
   shot,
   sourceButtonText,
   textOf,
   waitForAppReady,
+  waitForGone,
   waitForLaunchSettled,
   waitForState,
 } from './helpers';
@@ -26,7 +27,7 @@ const SPARE = 'source-entry-edit-spare';
 
 async function saveDialog() {
   await (await byTestId('add-source-save')).click();
-  await byTestId('add-source-dialog').waitForExist({ reverse: true });
+  await waitForGone('add-source-dialog');
 }
 
 describe('Edit source', () => {
@@ -34,7 +35,7 @@ describe('Edit source', () => {
     await waitForLaunchSettled();
     await ensureDisconnected();
     await openEditDialog(SIM);
-    await expect($('.source-dialog h2')).toHaveText('Edit source');
+    await expect($('[data-testid="dialog-title"]')).toHaveText('Edit source');
     await expect(await byTestId('add-source-name')).toHaveValue('Bench simulator');
     await expect(await byTestId('add-source-driver')).toBeDisabled();
     await fillDialog({ name: 'Renamed bench sim' });
@@ -58,13 +59,13 @@ describe('Edit source', () => {
     await byTestId('add-source-dialog').waitForDisplayed();
     await expect(await byTestId('add-source-name')).toHaveValue('Renamed bench sim');
     await browser.keys(['Escape']);
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
   });
 
   it('forgets from the dialog and brings the source back with Undo', async () => {
     await openEditDialog(SPARE);
     await (await byTestId('edit-source-forget')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
     await expect(await byTestId(SPARE)).not.toBeExisting();
     await expect(await byTestId('source-forgot-toast')).toBeDisplayed();
     await (await byTestId('source-undo')).click();
@@ -82,7 +83,7 @@ describe('Edit source', () => {
 
     await openEditDialog(SIM);
     await expect(await byTestId('add-source-driver')).toBeDisabled();
-    await expect($('.source-dialog .dlg-note.info')).toHaveText(
+    await expect($('[data-testid="dialog-note-info"]')).toHaveText(
       expect.stringContaining('This source is connected'),
     );
     await expect(await byTestId('add-source-test')).not.toBeExisting();

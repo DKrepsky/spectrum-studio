@@ -9,3 +9,4 @@ package-lock.json
 .claude/team/work/**/prototype/
 .claude/team/work/**/evidence/
 .claude/team/work/**/screenshots/
+.claude/team/work/**/measure/

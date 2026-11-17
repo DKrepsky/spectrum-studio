@@ -1,0 +1,83 @@
+/* Add / Edit source dialog: the layout the dialog's own controls need. Fields, buttons, notes and
+   the dialog shell are src/ui/ (DESIGN.md 4.4, 4.10, 4.12). Tokens only. The parameter group has no
+   frame here (ParamForm framed={false}); the label tone is the ui field's own. */
+
+/* The connection fields of the source: one column. */
+.dialog-params {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The one polite container for the notes and the save error (DESIGN.md 9.6). It is always mounted;
+   when it is empty it takes no room, so the dialog's column gap does not show. */
+.dialog-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.dialog-notes:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Test connection: the button and the result box side by side; the box keeps its height. */
+.source-test {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--source-test-gap);
+}
+.source-test > .ui-button {
+  flex: none;
+}
+
+.source-test-result {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  /* Reserved for idle (3 lines) and ok (2 lines + wrap), so the dialog does not jump. */
+  min-height: var(--source-test-min-height);
+  padding: var(--source-test-padding-y) var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.source-test-result--idle {
+  color: var(--color-text-secondary);
+  border-style: dashed;
+}
+.source-test-result--run {
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+.source-test-result--run .ui-spinner {
+  color: inherit;
+}
+.source-test-result--ok {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-tint-ok);
+}
+.source-test-result--fail {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-tint-error-subtle);
+}
+.source-test-result__sub {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-text-secondary);
+}
+
+/* A connected source: its connection fields are read-only, not unavailable (DESIGN.md 9.10). */
+.source-locked .ui-field__input:disabled {
+  opacity: var(--opacity-read-only);
+}

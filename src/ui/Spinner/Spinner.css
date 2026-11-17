@@ -1,0 +1,32 @@
+/* Spinner (DESIGN.md 4.15). Tokens only; ui- prefix. */
+.ui-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.ui-spinner__glyph {
+  display: inline-block;
+  line-height: 1;
+}
+
+.ui-spinner__glyph::before {
+  content: '\27F3';
+  display: inline-block;
+  animation: ui-spinner-turn var(--motion-duration-spin) var(--motion-ease-linear) infinite;
+}
+
+@keyframes ui-spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-spinner__glyph::before {
+    content: '\2026';
+    animation: none;
+  }
+}

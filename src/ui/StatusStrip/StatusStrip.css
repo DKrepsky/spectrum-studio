@@ -1,0 +1,28 @@
+/* DESIGN.md 3.4. The strip's items; the footer landmark and its padding belong to the feature
+   container (`.status-bar` in app.css). */
+.ui-status-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+.ui-status-item {
+  flex: none;
+  white-space: nowrap;
+}
+.ui-status-item[data-align='end'] {
+  margin-inline-start: auto;
+}
+.ui-status-label {
+  font-family: var(--font-family-ui);
+  color: var(--color-text-secondary);
+}
+.ui-status-strip > :not(.ui-status-item) {
+  font-family: var(--font-family-ui);
+  color: var(--color-text-secondary);
+}

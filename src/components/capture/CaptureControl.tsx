@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { CaptureMode } from '../../bindings/CaptureMode';
 import type { SessionState } from '../../bindings/SessionState';
 import { frameStore } from '../../state/frames';
 import { useSession } from '../../state/session';
+import { LiveRegion } from '../../ui/LiveRegion';
+import { SplitButton } from '../../ui/SplitButton';
 import { CaptureModeMenu } from './CaptureModeMenu';
 
 const PLAY_ICON = (
@@ -25,20 +27,10 @@ const STOP_ICON = (
   </svg>
 );
 
-const CHEVRON_ICON = (
-  <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden focusable="false">
-    <path
-      d="M2.5 4.5L6 8l3.5-3.5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
 const MODE_LABEL: Record<CaptureMode, string> = { continuous: 'Continuous', single: 'Single' };
+
+const BUSY_REASON = 'Wait for the current change to finish';
+const LOCKED_REASON = 'Pause or cancel acquisition to change the mode';
 
 /** Why the source cannot start or change anything, in the words of the tooltip. */
 function noSourceTitle(state: SessionState): string {
@@ -84,8 +76,8 @@ function mainView(mode: CaptureMode, state: SessionState): MainView {
 
 /**
  * The toolbar capture control: a main button (mode label plus play, pause or cancel) and a chevron
- * that opens the mode menu. Everything shown comes from `SessionStatus`; the UI never assumes a
- * start, stop or single-capture completion succeeded.
+ * that opens the mode menu, both in one `SplitButton`. Everything shown comes from `SessionStatus`;
+ * the UI never assumes a start, stop or single-capture completion succeeded.
  */
 export function CaptureControl() {
   const status = useSession((s) => s.status);
@@ -110,12 +102,21 @@ export function CaptureControl() {
   const [seen, setSeen] = useState({ capturing, state, notice: lastNoticeKind });
   // The newest frame when this capture started: a newer one means the sweep was published.
   const [frameAtStart, setFrameAtStart] = useState<number | null>(null);
-  const control = useRef<HTMLDivElement>(null);
   const chevron = useRef<HTMLButtonElement>(null);
+  // The reasons the main and chevron are unavailable, read through aria-describedby (DESIGN.md 9.12).
+  const reasonId = useId();
+  const mainReason = !canAcquire ? noSourceTitle(state) : busyNow ? BUSY_REASON : undefined;
+  const chevronReason = !canAcquire
+    ? noSourceTitle(state)
+    : acquiring
+      ? LOCKED_REASON
+      : busyNow
+        ? BUSY_REASON
+        : undefined;
 
-  // Announce only a completed or cancelled single capture. A failure is not announced here: the
-  // role=alert notice already says it, and a second announcement would be read out twice. Continuous
-  // acquisition is not announced. Compares with the previous render (no effect), so an unchanged
+  // Announce only a completed or cancelled single capture. A failure is not announced here: the notice
+  // banner announces it (NoticeBanner: acquisitionFailed is role=alert), and a second announcement would
+  // be read out twice. Continuous acquisition is not announced. Compares with the previous render (no effect), so an unchanged
   // status never repeats an announcement.
   if (seen.capturing !== capturing || seen.state !== state || seen.notice !== lastNoticeKind) {
     setSeen({ capturing, state, notice: lastNoticeKind });
@@ -147,17 +148,6 @@ export function CaptureControl() {
       chevron.current?.focus();
     }
   }, [locked, menuOpen]);
-
-  // A press outside the control closes the menu without changing the mode.
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (control.current?.contains(e.target as Node)) return;
-      setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [menuOpen]);
 
   const onMain = () => {
     // A capture starts (status acquiring) before the start command resolves. Its Cancel/Pause label
@@ -205,63 +195,51 @@ export function CaptureControl() {
   };
 
   const main = mainView(mode, state);
-  const chevronTitle = !canAcquire
-    ? noSourceTitle(state)
-    : acquiring
-      ? 'Pause or cancel acquisition to change the mode'
-      : busyNow
-        ? 'Wait for the current change to finish'
-        : 'Choose capture mode';
 
   return (
-    <div
-      ref={control}
-      className="capture"
-      role="group"
-      aria-label="Capture"
-      data-mode={mode}
-      data-state={acquiring ? 'acquiring' : 'idle'}
+    <SplitButton
+      groupLabel="Capture"
+      tone={acquiring ? 'danger' : mode === 'single' ? 'violet' : 'accent'}
+      chevronRef={chevron}
+      main={{
+        label: MODE_LABEL[mode],
+        icon: main.icon === 'stop' ? STOP_ICON : main.icon === 'pause' ? PAUSE_ICON : PLAY_ICON,
+        ariaLabel: main.aria,
+        title: main.title,
+        disabled: !canAcquire,
+        busy: busyNow,
+        describedBy: mainReason ? `${reasonId}-main` : undefined,
+        dataMode: mode,
+        dataState: acquiring ? 'acquiring' : 'idle',
+        onPress: onMain,
+        testId: 'acquire-button',
+      }}
+      chevron={{
+        ariaLabel: `Capture mode: ${MODE_LABEL[mode]}`,
+        title: chevronReason ?? 'Choose capture mode',
+        disabled: !canAcquire,
+        locked,
+        describedBy: chevronReason ? `${reasonId}-chevron` : undefined,
+        expanded: menuOpen,
+        onPress: () => (menuOpen ? setMenuOpen(false) : openMenu()),
+        onKeyDown: onChevronKeyDown,
+        testId: 'capture-mode-button',
+      }}
     >
-      <button
-        type="button"
-        className="capture-main"
-        onClick={onMain}
-        disabled={!canAcquire}
-        aria-disabled={busyNow || undefined}
-        aria-label={main.aria}
-        title={main.title}
-        data-mode={mode}
-        data-state={acquiring ? 'acquiring' : 'idle'}
-        data-testid="acquire-button"
-      >
-        {main.icon === 'stop' ? STOP_ICON : main.icon === 'pause' ? PAUSE_ICON : PLAY_ICON}
-        <span className="capture-label">{MODE_LABEL[mode]}</span>
-      </button>
-      <button
-        ref={chevron}
-        type="button"
-        className="capture-chevron"
-        onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
-        onKeyDown={onChevronKeyDown}
-        disabled={!canAcquire}
-        aria-disabled={locked || undefined}
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-        aria-label={`Capture mode: ${MODE_LABEL[mode]}`}
-        title={chevronTitle}
-        data-testid="capture-mode-button"
-      >
-        {CHEVRON_ICON}
-      </button>
-      {menuOpen && <CaptureModeMenu mode={mode} onChoose={choose} onClose={closeMenu} />}
-      <span
-        role="status"
-        aria-live="polite"
-        className="visually-hidden"
-        data-testid="capture-live-region"
-      >
-        {announcement}
-      </span>
-    </div>
+      {mainReason && (
+        <span id={`${reasonId}-main`} className="visually-hidden">
+          {mainReason}
+        </span>
+      )}
+      {chevronReason && (
+        <span id={`${reasonId}-chevron`} className="visually-hidden">
+          {chevronReason}
+        </span>
+      )}
+      {menuOpen && (
+        <CaptureModeMenu mode={mode} anchorRef={chevron} onChoose={choose} onClose={closeMenu} />
+      )}
+      <LiveRegion message={announcement} data-testid="capture-live-region" />
+    </SplitButton>
   );
 }

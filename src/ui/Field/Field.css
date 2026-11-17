@@ -1,0 +1,148 @@
+/* Field family (DESIGN.md 4.4 to 4.6). Tokens only; ui- prefix. Shared by Field, TextField,
+   NumberField, FrequencyField, Select and Checkbox. */
+
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ui-field__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.ui-field--stacked .ui-field__row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.ui-field__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+}
+
+.ui-field--stacked .ui-field__label {
+  flex: 0 0 auto;
+  /* Secondary, beside or above the control (DESIGN.md 4.4): a stacked label is not a heading. */
+  color: var(--color-text-secondary);
+}
+
+.ui-field__control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ui-field--stacked .ui-field__control {
+  width: 100%;
+}
+
+.ui-field__input {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: var(--field-width-inline);
+  min-width: 0;
+  height: var(--field-height-compact);
+  margin: 0;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+}
+
+.ui-field__input--toolbar {
+  height: var(--control-height);
+}
+
+.ui-field__input--unit {
+  width: var(--field-width-unit);
+}
+
+.ui-field__input--frequency {
+  width: var(--field-width-param);
+  padding: 0 var(--field-padding-frequency);
+  font-family: var(--font-family-mono);
+  text-align: right;
+}
+
+.ui-field__input--frequency.ui-field__input--toolbar {
+  width: var(--field-width-frequency);
+}
+
+.ui-field--stacked .ui-field__input {
+  width: 100%;
+}
+
+.ui-field__input:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+}
+
+.ui-field__input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.ui-field__input--invalid,
+.ui-field__input--invalid:hover:not(:disabled) {
+  border-color: var(--color-danger);
+}
+
+.ui-field__input:disabled {
+  opacity: var(--opacity-unavailable);
+  cursor: default;
+}
+
+.ui-field__input[readonly] {
+  opacity: var(--opacity-read-only);
+}
+
+.ui-field__unit {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+}
+
+.ui-select {
+  padding-right: var(--space-5);
+}
+
+.ui-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--control-height-small);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+
+.ui-checkbox--disabled {
+  opacity: var(--opacity-unavailable);
+  cursor: default;
+}
+
+.ui-checkbox__input {
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.ui-checkbox__input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.ui-checkbox__adornment {
+  display: inline-flex;
+  align-items: center;
+}

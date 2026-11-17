@@ -88,6 +88,11 @@ function setup(
 
 const name = () => screen.getByTestId('add-source-name');
 const save = () => screen.getByTestId('add-source-save');
+/** Save is unavailable as `aria-disabled` (focusable, inert), not natively disabled (DESIGN.md 4.1). */
+const expectSaveUnavailable = () => expect(save()).toHaveAttribute('aria-disabled', 'true');
+const expectSaveAvailable = () => expect(save()).not.toHaveAttribute('aria-disabled');
+/** The one polite container of the notes and the save error (DESIGN.md 9.6). */
+const notes = () => screen.getByTestId('dialog-notes');
 const port = () => screen.getByLabelText('Serial port');
 const result = () => screen.getByTestId('add-source-test-result');
 const typeInto = async (el: HTMLElement, text: string) => {
@@ -103,6 +108,12 @@ describe('SourceDialog', () => {
   });
 
   describe('add', () => {
+    it('keeps one polite notes container mounted from the first render', () => {
+      setup({ mode: 'add' });
+      expect(notes()).toHaveAttribute('role', 'status');
+      expect(notes()).toBeEmptyDOMElement();
+    });
+
     it('opens empty with focus in Name, Save disabled, driver list and helper', () => {
       setup({ mode: 'add' });
       const dlg = screen.getByRole('dialog', { name: 'Add source' });
@@ -113,7 +124,7 @@ describe('SourceDialog', () => {
       expect(screen.getByRole('option', { name: 'SA430 spectrum analyzer' })).toBeInTheDocument();
       expect(screen.queryByRole('option', { name: /simulator/i })).not.toBeInTheDocument();
       expect(dlg).toHaveTextContent('Only sources that need manual setup are listed.');
-      expect(save()).toBeDisabled();
+      expectSaveUnavailable();
       expect(screen.queryByTestId('edit-source-forget')).not.toBeInTheDocument();
       expect(result()).toHaveTextContent(/^Not tested\./);
       expect(result()).toHaveAttribute('role', 'status');
@@ -122,9 +133,9 @@ describe('SourceDialog', () => {
     it('enables Save once the name and port are valid and saves untested', async () => {
       setup({ mode: 'add' });
       await userEvent.type(name(), 'Lab SA430');
-      expect(save()).toBeDisabled();
+      expectSaveUnavailable();
       await userEvent.type(port(), '/dev/ttyACM9');
-      expect(save()).toBeEnabled();
+      expectSaveAvailable();
       await userEvent.click(save());
       expect(apiMock.addSource).toHaveBeenCalledWith('Lab SA430', {
         driverId: 'sa430',
@@ -149,12 +160,12 @@ describe('SourceDialog', () => {
       expect(name()).toHaveAttribute('aria-invalid', 'true');
       await typeInto(name(), 'bench sa430');
       expect(screen.getByText('A source with this name already exists.')).toBeInTheDocument();
-      expect(save()).toBeDisabled();
+      expectSaveUnavailable();
       await typeInto(name(), 'x'.repeat(61));
       expect(screen.getByText('At most 60 characters.')).toBeInTheDocument();
       await typeInto(name(), 'Fresh');
       expect(screen.queryByText(/already exists/)).not.toBeInTheDocument();
-      expect(save()).toBeEnabled();
+      expectSaveAvailable();
     });
 
     it('pre-fills a blank name after a successful test and never overwrites typed text', async () => {
@@ -191,13 +202,14 @@ describe('SourceDialog', () => {
       await userEvent.type(name(), 'Offline');
       await userEvent.type(port(), '/dev/ttyUSB9');
       await test();
-      const alert = await screen.findByRole('alert');
-      expect(alert).toHaveTextContent(
+      const failed = await screen.findByText(/^✕ Test failed:/);
+      expect(failed).toHaveTextContent(
         'Test failed: Could not open /dev/ttyUSB9: No such file or directory (os error 2)',
       );
-      expect(alert).toBe(result());
+      expect(failed).toBe(result());
+      expect(failed).toHaveAttribute('role', 'status');
       expect(screen.getByText('You can still save an untested source.')).toBeInTheDocument();
-      expect(save()).toBeEnabled();
+      expectSaveAvailable();
     });
 
     it('editing a parameter resets the test to idle', async () => {
@@ -216,13 +228,37 @@ describe('SourceDialog', () => {
       await userEvent.type(port(), '/dev/ttyACM0');
       await test();
       expect(result()).toHaveTextContent('Testing connection…');
-      expect(screen.getByTestId('add-source-test')).toBeDisabled();
+      expect(screen.getByTestId('add-source-test')).toHaveAttribute('aria-busy', 'true');
+      expect(screen.getByTestId('add-source-test')).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByTestId('add-source-cancel')).toBeEnabled();
       await userEvent.type(port(), '1');
       await act(async () => {
         finish({ ok: true, message: 'late', deviceId: 'X', label: null, inUse: false });
         await Promise.resolve();
       });
       expect(result()).toHaveTextContent(/^Not tested\./);
+    });
+
+    it('while saving: Save is busy, Cancel is unavailable and Escape does nothing', async () => {
+      setup({ mode: 'add' });
+      let finish: (saved: SavedSource) => void = () => undefined;
+      apiMock.addSource.mockImplementationOnce(
+        () => new Promise<SavedSource>((res) => (finish = res)),
+      );
+      await userEvent.type(name(), 'Slow');
+      await userEvent.type(port(), '/dev/ttyACM9');
+      await userEvent.click(save());
+      expect(save()).toHaveAttribute('aria-busy', 'true');
+      expect(save()).toHaveAttribute('aria-disabled', 'true');
+      expect(save()).toHaveFocus(); // busy keeps focus; a native disabled Save would drop it in WebKit
+      expect(screen.getByTestId('add-source-cancel')).toBeDisabled();
+      await userEvent.keyboard('{Escape}');
+      expect(onClose).not.toHaveBeenCalled();
+      await act(async () => {
+        finish(savedSource({ id: 'slow', name: 'Slow' }));
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
     });
 
     it('keeps the dialog open and shows the backend error when add fails', async () => {
@@ -233,9 +269,10 @@ describe('SourceDialog', () => {
       await userEvent.type(name(), 'Another');
       await userEvent.type(port(), '/dev/ttyACM9');
       await userEvent.click(save());
-      const err = await screen.findByTestId('add-source-error');
+      const err = await screen.findByTestId('dialog-error');
       expect(err).toHaveTextContent('That name is already used by another source.');
-      expect(err).toHaveAttribute('role', 'alert');
+      expect(notes()).toContainElement(err);
+      expect(notes()).toHaveAttribute('role', 'status');
       expect(onClose).not.toHaveBeenCalled();
     });
   });
@@ -253,7 +290,7 @@ describe('SourceDialog', () => {
       expect(screen.getByRole('dialog')).toHaveTextContent('The driver cannot be changed.');
       expect(port()).toHaveValue('/dev/ttyACM0');
       expect(screen.getByTestId('edit-source-forget')).toBeInTheDocument();
-      expect(save()).toBeEnabled();
+      expectSaveAvailable();
     });
 
     it('renames only, keeping the stored identity', async () => {
@@ -274,7 +311,7 @@ describe('SourceDialog', () => {
       await userEvent.type(name(), '!');
       await userEvent.type(name(), '{Backspace}');
       expect(screen.queryByText(/already exists/)).not.toBeInTheDocument();
-      expect(save()).toBeEnabled();
+      expectSaveAvailable();
     });
 
     it('a port change without a test sends the port and keeps the identity', async () => {
@@ -309,13 +346,13 @@ describe('SourceDialog', () => {
       setup({ mode: 'edit', entry: bench }, { list: [bench] });
       await typeInto(port(), '/dev/ttyACM2');
       await test();
-      const note = await screen.findByText(/^⚠ Different device:/);
+      const note = await screen.findByTestId('dialog-note-warn');
       expect(note).toHaveTextContent(
         `Different device: serial ${OTHER_SA430_SERIAL}, this source is ${SA430_SERIAL}. ` +
           `Saving binds this source to serial ${OTHER_SA430_SERIAL}; its name and settings are kept.`,
       );
-      expect(note).toHaveAttribute('role', 'alert');
-      expect(save()).toBeEnabled();
+      expect(notes()).toContainElement(note);
+      expectSaveAvailable();
       await userEvent.click(save());
       await waitFor(() => expect(onClose).toHaveBeenCalled());
       expect(apiMock.updateSource).toHaveBeenCalledWith('bench', {
@@ -331,8 +368,8 @@ describe('SourceDialog', () => {
       await test();
       const note = await screen.findByText(/already in Your sources as/);
       expect(note).toHaveTextContent('This device is already in Your sources as "Spare".');
-      expect(note).toHaveAttribute('role', 'alert');
-      expect(save()).toBeDisabled();
+      expect(notes()).toContainElement(note);
+      expectSaveUnavailable();
     });
 
     it('shows the in-use message from the backend and still allows Save', async () => {
@@ -346,16 +383,16 @@ describe('SourceDialog', () => {
           'Test failed: /dev/ttyACM0 is in use by the active source. Stop and disconnect it first.',
         ),
       );
-      expect(save()).toBeEnabled();
+      expectSaveAvailable();
     });
 
     it('keeps the dialog open with the backend error from updateSource', async () => {
       setup({ mode: 'edit', entry: bench });
       apiMock.updateSource.mockRejectedValueOnce('Disk full');
       await userEvent.click(save());
-      expect(await screen.findByTestId('add-source-error')).toHaveTextContent('Disk full');
+      expect(await screen.findByTestId('dialog-error')).toHaveTextContent('Disk full');
       expect(onClose).not.toHaveBeenCalled();
-      expect(save()).toBeEnabled();
+      expectSaveAvailable();
       expect(name()).toHaveFocus();
     });
 

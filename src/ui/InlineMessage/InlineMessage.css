@@ -1,0 +1,19 @@
+/* InlineMessage (DESIGN.md 4.10). Tokens only; ui- prefix. One size for all variants (F8). */
+.ui-inline-message {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+}
+
+.ui-inline-message--info {
+  color: var(--color-info);
+}
+
+.ui-inline-message--warn {
+  color: var(--color-warn);
+}
+
+.ui-inline-message--error {
+  color: var(--color-danger);
+}

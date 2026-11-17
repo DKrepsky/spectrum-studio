@@ -1,0 +1,187 @@
+/* Source button (the toolbar trigger) and the source popover's feature layout: what a row shows, in
+   which grid cell. Surfaces, the popover, the rows' hover, the actions and the buttons are `ui/`
+   (Popover, ListRow, StatusDot, Badge, IconButton, Button). Fixed widths are tokens, pinned by
+   source.css.test.ts: the name column of every row is the same whatever its badge or status. */
+
+.source-control {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  min-width: var(--source-name-min);
+  max-width: var(--source-name-max);
+}
+.source-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-width: var(--source-name-min);
+  max-width: var(--source-name-max);
+  height: var(--control-height);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-control);
+  color: var(--color-text-primary);
+  font-size: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* The trigger is feature markup, not ui Button (DESIGN.md 10.2): its look is the control family's,
+   with the same hover and focus ring as the ui controls. */
+.source-button:hover {
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-control-hover);
+}
+.source-button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+/* No source chosen: a teal outline draws the eye. It is not the focus ring. */
+.source-button.attention {
+  outline: var(--focus-ring-width) solid var(--color-accent);
+  outline-offset: var(--focus-ring-offset);
+}
+.source-button.attention:focus-visible {
+  outline-color: var(--color-focus-ring);
+}
+
+.source-button-name,
+.source-row-name,
+.source-form-title,
+.source-toast-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-button-name {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.source-menu:focus {
+  outline: none;
+}
+.source-fixed {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-default);
+}
+
+/* A row's content, inside its select button. Line 1: glyph | name | badge (the badge column is
+   fixed). Line 2: status word and port, in the name column only, so the actions never cover it. */
+.source-row {
+  display: grid;
+  grid-template-columns: var(--glyph-cell) minmax(0, 1fr) var(--badge-column);
+  grid-template-rows: auto auto;
+  column-gap: var(--space-4);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+.source-row-single {
+  grid-template-rows: auto;
+}
+.source-row-dot,
+.source-row-glyph {
+  grid-column: 1;
+  grid-row: 1;
+}
+.source-row-name {
+  grid-column: 2;
+  grid-row: 1;
+  text-align: left;
+}
+/* Spans both lines, so it is centred on the row (as before 009). */
+.source-row-badge {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  box-sizing: border-box;
+  width: var(--badge-column);
+  justify-content: center;
+  overflow: hidden;
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-standard);
+}
+.source-row-sub {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: var(--source-row-sub-min-height);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.source-row-status {
+  flex: none;
+  white-space: nowrap;
+}
+.source-row-status.ok {
+  color: var(--color-accent);
+}
+.source-row-status.bad {
+  color: var(--color-danger);
+}
+.source-row-status.busy {
+  color: var(--color-info);
+}
+.source-row-sep {
+  flex: none;
+}
+.source-row-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+}
+
+/* The badge fades out while the row is hovered or one of its actions has focus, so the actions read
+   clearly. Their position is in ui/Popover (centred in the badge column). */
+.list-row:hover .source-row-badge,
+.list-row:has(.list-row-actions:focus-within) .source-row-badge {
+  opacity: 0;
+}
+
+.source-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--row-height);
+  padding: 0 var(--space-4);
+  color: var(--color-text-secondary);
+}
+.source-toast-text {
+  flex: 1 1 auto;
+}
+
+.source-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-1);
+}
+.source-form-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+.source-form-title {
+  flex: 1 1 auto;
+}
+.source-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-row-badge {
+    transition: none;
+  }
+}

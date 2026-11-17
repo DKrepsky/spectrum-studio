@@ -1,0 +1,251 @@
+/* tokens.css. Normative: DESIGN.md Appendix A. Define tokens here only. */
+:root {
+  /* 2.2 Primitives: colour */
+  --palette-night-900: #0b1018;
+  --palette-night-850: #0e1520;
+  --palette-night-800: #121a26;
+  --palette-night-750: #182233;
+  --palette-night-700: #1f2b3f;
+  --palette-night-650: #25344c;
+  --palette-night-600: #26344a;
+  --palette-night-550: #3a4d6b;
+  --palette-slate-600: #5b6f8f; /* Approved (F15): input boundary */
+  --palette-slate-500: #7a8799;
+  --palette-slate-400: #8a9ab1;
+  --palette-slate-350: #8ea0b8; /* canvas axis text */
+  --palette-slate-100: #dbe4f0;
+  --palette-slate-050: #e6edf6; /* canvas readout text */
+  --palette-teal-400: #3ee0b5;
+  --palette-teal-500: #2bc79e;
+  --palette-ink-teal: #062018;
+  --palette-amber-400: #ffb547;
+  --palette-red-400: #ff6b6b;
+  --palette-red-500: #f04848;
+  --palette-blue-400: #5aa9ff;
+  --palette-violet-400: #a47cff;
+  --palette-violet-500: #9166f5;
+  --palette-ink-dark: #120a24;
+  --palette-orange-400: #ff9f43;
+  --palette-magenta-400: #ff6bcb;
+  --palette-yellow-300: #ffd166;
+  --palette-white: #ffffff;
+
+  /* 2.3 Semantic colour */
+  --color-surface-app: var(--palette-night-900);
+  --color-surface-panel: var(--palette-night-800);
+  --color-surface-raised: var(--palette-night-750);
+  --color-surface-control: var(--palette-night-700);
+  --color-surface-control-hover: var(--palette-night-650);
+  --color-surface-plot: var(--palette-night-850);
+  --color-border-default: var(--palette-night-600);
+  --color-border-hover: var(--palette-night-550);
+  --color-border-input: var(--palette-slate-600); /* Approved (F15) */
+  --color-text-primary: var(--palette-slate-100);
+  --color-text-secondary: var(--palette-slate-400);
+  --color-text-on-accent: var(--palette-ink-teal);
+  --color-text-on-violet: var(--palette-ink-dark);
+  --color-text-on-danger: var(--palette-ink-dark);
+  --color-accent: var(--palette-teal-400);
+  --color-accent-hover: var(--palette-teal-500);
+  --color-warn: var(--palette-amber-400);
+  --color-danger: var(--palette-red-400);
+  --color-danger-hover: var(--palette-red-500);
+  --color-info: var(--palette-blue-400);
+  --color-focus-ring: var(--palette-blue-400);
+  --color-capture-continuous: var(--color-accent);
+  --color-capture-continuous-hover: var(--color-accent-hover);
+  --color-capture-single: var(--palette-violet-400);
+  --color-capture-single-hover: var(--palette-violet-500);
+  --color-capture-stop: var(--color-danger);
+  --color-capture-stop-hover: var(--color-danger-hover);
+
+  /* 2.4 Derived colour (explicit values) */
+  --color-tint-ok: rgba(62, 224, 181, 0.08);
+  --color-tint-ok-strong: rgba(62, 224, 181, 0.16);
+  --color-tint-warn: rgba(255, 181, 71, 0.12);
+  --color-tint-error: rgba(255, 107, 107, 0.12);
+  --color-tint-error-subtle: rgba(255, 107, 107, 0.08);
+  --color-halo-ok: rgba(62, 224, 181, 0.28);
+  --color-halo-info: rgba(90, 169, 255, 0.35);
+  --halo-ok: 0 0 0 2px var(--color-halo-ok);
+  --halo-info: 0 0 0 2px var(--color-halo-info);
+  --color-border-danger-muted: rgba(255, 107, 107, 0.45);
+  --color-divider-on-teal: rgba(6, 32, 24, 0.35);
+  --color-divider-on-violet: rgba(18, 10, 36, 0.35);
+  --color-scrim-modal: rgba(5, 8, 14, 0.6);
+  --color-scrim-chip: rgba(8, 12, 18, 0.8);
+  --color-scrim-readout: rgba(8, 12, 18, 0.88);
+
+  /* 2.6 and 6.3 Data colour (canvas and DOM twins) */
+  --color-trace-live: var(--palette-teal-400);
+  --color-trace-live-fill: rgba(62, 224, 181, 0.1);
+  --color-trace-stale: var(--palette-slate-500);
+  --color-trace-max-hold: var(--palette-orange-400);
+  --color-trace-min-hold: var(--palette-blue-400);
+  --color-marker: var(--palette-magenta-400);
+  --color-marker-active: var(--palette-white);
+  --color-peak: var(--palette-yellow-300);
+  --color-grid: rgba(120, 150, 190, 0.14);
+  --color-grid-strong: rgba(120, 150, 190, 0.28);
+  --color-crosshair: rgba(220, 230, 245, 0.45);
+  --color-text-axis: var(--palette-slate-350);
+  --color-text-readout: var(--palette-slate-050);
+
+  /* 2.7 Focus */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 1px;
+  --focus-ring-offset-group: 2px;
+
+  /* 2.8 Typography */
+  --font-family-ui: 'Inter', 'Cantarell', 'Ubuntu', system-ui, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 15px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --letter-spacing-caps: 0.06em;
+  --letter-spacing-chip: 0.05em;
+  --letter-spacing-brand: 0.02em;
+  --line-height-body: 1.4;
+  --line-height-title: 1.3;
+
+  /* 2.9 Spacing */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 24px;
+
+  /* 2.10 Geometry */
+  --control-height: 30px;
+  --control-height-small: 24px;
+  --target-min: 24px;
+  --field-height-compact: 28px;
+  --glyph-cell: 18px;
+  --glyph-dot: 10px;
+  --row-height: 44px;
+  --row-height-single: 30px;
+  --row-gap: 3px; /* Off-scale, as before 009: space between popover rows (pitch 47px) */
+  --panel-width: 330px;
+  --popover-width: 360px;
+  --popover-width-mode: 280px;
+  --dialog-width: 440px;
+  --dialog-offset-top: 90px;
+  --dialog-padding-inline: 18px;
+  --badge-column: 64px;
+  --capture-main-width: 128px;
+  --capture-chevron-width: 26px;
+  --capture-main-gap: 7px; /* Off-scale, kept from before T7: icon to label */
+  --capture-main-padding-x: 10px; /* Off-scale, kept from before T7 */
+  --source-name-min: 150px;
+  --source-name-max: 280px;
+  --field-width-frequency: 150px;
+  --field-width-inline: 130px;
+  --field-width-unit: 90px;
+  --field-width-param: 140px;
+  --field-padding-frequency: 7px; /* Off-scale, kept from before T7: frequency field inline padding */
+  --plot-chip-inset-top: 14px;
+  --plot-chip-inset-right: 22px;
+  --plot-tag-padding-x: 9px; /* Off-scale, kept from before 009: plot tag inline padding */
+  --notice-stack-max: 96px; /* Deferred (B6): not used in 009 */
+  --source-test-min-height: 62px; /* Off-scale, as before 009: test result box, reserved for idle and ok */
+  --source-test-gap: 10px; /* Off-scale, as before 009: Test connection button to result box */
+  --source-test-padding-y: 5px; /* Off-scale, as before 009: test result box vertical padding */
+  --toolbar-gap: 18px;
+  --toolbar-padding-x: 12px;
+  --toolbar-group-gap: 8px;
+  --toolbar-padding-y: 7px; /* Off-scale, kept from before 009: toolbar vertical padding */
+  --toolbar-field-gap: var(--space-3); /* Gap inside a toolbar field (5px at max-width 1180px) */
+  --plot-zoom-reset-inset-left: 76px; /* Zoom reset, from the left of the plot */
+  --plot-hint-padding-x: 40px; /* Plot hint: horizontal inset, so the text wraps clear of the plot edges */
+  --waterfall-tick-gap: 3px; /* Off-scale, kept from before 009: waterfall tick label to its mark */
+  --legend-swatch-width: 10px; /* Off-scale, kept from before 009: legend swatch of a hold trace */
+  --legend-swatch-height: 3px; /* Off-scale, kept from before 009: legend swatch of a hold trace */
+  --button-icon-slot: 12px; /* Button icon slot: the icon and the spinner take the same box */
+  --menu-end-column: 16px; /* Menu item: the trailing column (shortcut or mark) */
+  --status-dot-ring-width: 2px; /* Absent status dot: the ring width */
+  --source-row-sub-min-height: 17px; /* Source row line 2: keeps its line when empty */
+
+  /* 2.11 Radius */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-round: 50%;
+
+  /* 2.12 Elevation */
+  --elevation-none: none;
+  --elevation-popover: 0 12px 36px rgba(0, 0, 0, 0.5);
+  --elevation-modal: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  /* 2.13 Motion */
+  --motion-duration-instant: 0ms;
+  --motion-duration-fast: 150ms;
+  --motion-duration-pulse: 1000ms;
+  --motion-duration-spin: 1000ms;
+  --motion-duration-highlight: 3000ms;
+  --motion-pulse-opacity-min: 0.25;
+  --motion-ease-standard: ease-out;
+  --motion-ease-loop: ease-in-out;
+  --motion-ease-linear: linear;
+
+  /* 2.14 Z-index */
+  --z-base: 0;
+  --z-overlay: 10;
+  --z-popover: 20;
+  --z-modal: 40;
+  --z-tooltip: 60;
+
+  /* 2.15 Opacity states */
+  --opacity-unavailable: 0.6; /* Approved (F9); before 009: 0.45, 0.5, 0.55 */
+  --opacity-read-only: 0.75;
+}
+
+/* 2.10 Narrow window (range C, max-width 1180px, inclusive) */
+@media (max-width: 1180px) {
+  :root {
+    --toolbar-gap: 10px;
+    --toolbar-padding-x: 8px;
+    --toolbar-group-gap: 5px;
+    --toolbar-field-gap: 5px;
+    --field-width-frequency: 128px;
+  }
+}
+
+/* alias: migration only */
+/* Migration aliases (2.19). Defined for one release, then removed. No CSS outside this file may use
+   them (tokens.test.ts). */
+:root {
+  --bg: var(--color-surface-app);
+  --surface: var(--color-surface-panel);
+  --surface-2: var(--color-surface-raised);
+  --surface-3: var(--color-surface-control);
+  --border: var(--color-border-default);
+  --text: var(--color-text-primary);
+  --text-muted: var(--color-text-secondary);
+  --accent: var(--color-accent);
+  --accent-strong: var(--color-accent-hover);
+  --warn: var(--color-warn);
+  --danger: var(--color-danger);
+  --danger-strong: var(--color-danger-hover);
+  --danger-ink: var(--color-text-on-danger);
+  --info: var(--color-info);
+  --single: var(--color-capture-single);
+  --single-strong: var(--color-capture-single-hover);
+  --single-ink: var(--color-text-on-violet);
+  --radius: var(--radius-md);
+  --font: var(--font-family-ui);
+  --mono: var(--font-family-mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-pulse: 0ms;
+  }
+}

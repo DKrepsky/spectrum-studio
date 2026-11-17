@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -5,6 +6,51 @@ import { $, $$, browser, expect } from '@wdio/globals';
 import type { ChainablePromiseElement } from 'webdriverio';
 
 export const byTestId = (id: string) => $(`[data-testid="${id}"]`);
+
+/**
+ * Waits until no element with this test id is in the page. The check runs in the page, not as a
+ * WebDriver element lookup: WebKitWebDriver can fail a lookup with "Stale element found" when the
+ * element is removed during the search (the dialog and the menus unmount on Save, Forget, Escape),
+ * so a reverse `waitForExist` is flaky on HEAD too. Same assertion, no node handle.
+ */
+export async function waitForGone(testId: string, timeout = 10_000) {
+  await browser.waitUntil(
+    () =>
+      browser.execute((sel) => document.querySelector(sel) === null, `[data-testid="${testId}"]`),
+    { timeout, timeoutMsg: `${testId} is still in the page` },
+  );
+}
+
+/**
+ * The focus tests need `wmctrl` to raise the window. Without it they fail at the start with this
+ * message; they never skip (work 009 T11). Called from the `before` of each focus describe.
+ */
+export function requireWmctrl() {
+  try {
+    execSync('which wmctrl', { stdio: 'ignore' });
+  } catch {
+    throw new Error('wmctrl is required for focus tests; install it, see docs/testing.md');
+  }
+}
+
+/**
+ * `:focus-within` and `:focus` match only while the page has OS focus (WebKit: `document.hasFocus()`).
+ * The WebDriver window is often behind another window, so a focus-dependent check first raises it
+ * with `wmctrl` (the same way the focus-ring screenshots do). Fails with a message if it stays unfocused.
+ */
+export async function ensureWindowFocus() {
+  if (await browser.execute(() => document.hasFocus())) return;
+  try {
+    execSync('wmctrl -a "Spectrum Studio"');
+  } catch {
+    // Checked below: without wmctrl the window may stay unfocused.
+  }
+  await browser.waitUntil(() => browser.execute(() => document.hasFocus()), {
+    timeout: 3000,
+    timeoutMsg:
+      'the app window has no OS focus (focus checks need wmctrl: wmctrl -a "Spectrum Studio")',
+  });
+}
 
 /**
  * Waits for the failure banner of a failed pick and returns it. The backend reports a failed connect
@@ -60,12 +106,12 @@ export async function closeSourceMenu() {
   if (await byTestId('source-menu').isExisting()) {
     await browser.keys(['Escape']);
     try {
-      await byTestId('source-menu').waitForExist({ reverse: true, timeout: 1500 });
+      await waitForGone('source-menu', 1500);
     } catch {
       // Escape is handled inside the menu; after Undo focus is on the page body, so close it
       // with the button instead.
       await (await byTestId('source-button')).click();
-      await byTestId('source-menu').waitForExist({ reverse: true });
+      await waitForGone('source-menu');
     }
   }
 }
@@ -98,7 +144,7 @@ export async function sourceButtonText(): Promise<string> {
   return (await byTestId('source-button')).getAttribute('aria-label').then((v) => v ?? '');
 }
 
-/** The Play/Pause toggle: `idle` (Play, "Start acquisition") or `acquiring` (Pause). */
+/** The capture button: `idle` (start) or `acquiring` (pause or cancel). */
 export async function acquireState(): Promise<string | null> {
   return (await byTestId('acquire-button')).getAttribute('data-state');
 }
@@ -122,7 +168,7 @@ export async function chooseMode(mode: CaptureModeName) {
   await browser.waitUntil(async () => (await captureMode()) === mode, {
     timeoutMsg: `the capture mode did not become ${mode}`,
   });
-  await byTestId('capture-mode-menu').waitForExist({ reverse: true });
+  await waitForGone('capture-mode-menu');
 }
 
 /** The frame sequence number shown in the status bar (`Frame #<seq>`), or null without data. */
@@ -132,20 +178,20 @@ export async function frameSeq(): Promise<number | null> {
 }
 
 /**
- * Picks the Signal simulator (when not connected yet) and presses Play: the new first-run journey.
+ * Picks the Signal simulator (when not connected yet) and presses the capture button: the first-run journey.
  * Once the simulator has been remembered it is listed under Your sources instead of the fixed
  * "Signal simulator" row, so either is accepted.
  */
 export async function runSimulator() {
   // An attached analyzer may have connected at launch (ADR 0014): release it before picking the
-  // simulator, or Play would acquire from the wrong source.
+  // simulator, or the capture button would acquire from the wrong source.
   await ensureDisconnected();
   await openSourceMenu();
   const fixed = await byTestId('source-simulator');
   if (await fixed.isExisting()) {
     await fixed.click();
   } else {
-    const own = await $('[data-testid^="source-entry-"][data-label*="imulator"]');
+    const own = await $('[data-testid^="source-entry-"][aria-label*="imulator"]');
     await own.click();
   }
   await waitForState('Connected');
@@ -217,12 +263,32 @@ export async function openAddSourceDialog() {
 }
 
 /**
+ * Waits until the row's box stops moving: two reads 100 ms apart are equal. A pointer placed on a row
+ * while the list still moves ends up beside it when the list stops, and the hover actions stay hidden
+ * ("the row actions did not appear", a full-run flake of the visual guard). Waiting for the layout is
+ * not a retry: the hover is taken once, on a settled row.
+ */
+export async function waitForRowStill(entryTestId: string) {
+  let previous = '';
+  await browser.waitUntil(
+    async () => {
+      const now = JSON.stringify(await boxOf(`[data-testid="${entryTestId}"]`));
+      const still = now === previous;
+      previous = now;
+      return still;
+    },
+    { timeout: 5000, interval: 100, timeoutMsg: `the row ${entryTestId} kept moving` },
+  );
+}
+
+/**
  * Makes the hover actions of a row clickable (they are transparent and non-interactive until the
  * row is hovered or one of them has focus). Hovers first; focusing the button is the fallback.
  */
 export async function revealRowActions(entryTestId: string) {
   const row = await sourceRow(entryTestId.replace(/^source-entry-/, ''));
   const edit = await row.$('[data-testid="source-edit"]');
+  await waitForRowStill(entryTestId);
   await (await byTestId(entryTestId)).moveTo();
   if (!(await edit.isDisplayed())) {
     await browser.execute((id) => {
@@ -233,11 +299,24 @@ export async function revealRowActions(entryTestId: string) {
   return row;
 }
 
+/**
+ * Clicks one hover action (`source-edit` or `source-forget`) of a remembered row. The actions take
+ * the pointer only while the row is hovered, and WebDriver does not move the pointer before a click:
+ * if the list moved under a stationary pointer, the action stays non-interactive and the click fails
+ * ("did not become interactable"). So the row is hovered again right before the click.
+ */
+export async function clickRowAction(entryTestId: string, action: 'source-edit' | 'source-forget') {
+  const row = await revealRowActions(entryTestId);
+  const button = await row.$(`[data-testid="${action}"]`);
+  await (await byTestId(entryTestId)).moveTo();
+  await button.waitForDisplayed({ timeoutMsg: `the ${action} action did not appear` });
+  await button.click();
+}
+
 /** Opens the menu and the Edit dialog of one remembered row, via its `✎` button. */
 export async function openEditDialog(entryTestId: string) {
   await openSourceMenu();
-  const row = await revealRowActions(entryTestId);
-  await row.$('[data-testid="source-edit"]').click();
+  await clickRowAction(entryTestId, 'source-edit');
   await byTestId('add-source-dialog').waitForDisplayed({
     timeoutMsg: 'the Edit dialog did not open',
   });
@@ -274,7 +353,9 @@ export async function runTestConnection(): Promise<string> {
 
 /** Looks a menu row up by the name it shows. */
 export async function entryByName(name: string) {
-  return $(`[data-testid^="source-entry-"][data-label="${name}"]`);
+  return $(
+    `[data-testid^="source-entry-"][aria-label="${name}"], [data-testid^="source-entry-"][aria-label^="${name}, "]`,
+  );
 }
 
 // ---- Layout measurements and screenshots --------------------------------------------------------

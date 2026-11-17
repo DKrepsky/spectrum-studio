@@ -11,6 +11,8 @@ import { useLiveness, type LivenessKind } from '../state/liveness';
 import { useSession } from '../state/session';
 import { useSources } from '../state/sources';
 import { useView, type FrequencyView } from '../state/view';
+import { Badge, type BadgeTone } from '../ui/Badge';
+import { Button } from '../ui/Button';
 import { useCanvasSize } from './useCanvasSize';
 
 const FALLBACK_VIEW: FrequencyView = { startHz: 0, endHz: 1e6 };
@@ -34,8 +36,18 @@ function minViewWidth(): number {
   return frame ? frame.header.binHz * 8 : 1;
 }
 
+/** The state tag's tone per liveness kind (DESIGN.md 4.7): live accent, waiting and stale warn. */
+const TAG_TONE: Record<LivenessKind, BadgeTone> = {
+  live: 'live',
+  waiting: 'waiting',
+  stale: 'warn',
+  stopped: 'neutral',
+  noSource: 'neutral',
+  capturing: 'capturing',
+};
+
 /** The empty-plot hint: only while there is no trace yet (design.md 5, copy). */
-function plotHint(
+export function plotHint(
   noSource: boolean,
   state: SessionState | undefined,
   mode: CaptureMode | undefined,
@@ -47,8 +59,8 @@ function plotHint(
   if (kind === 'capturing') return 'Capturing one sweep…';
   if (state !== 'connected') return null;
   return mode === 'single'
-    ? 'No trace yet. Press Play for one sweep.'
-    : 'No trace yet. Press Play to start continuous acquisition.';
+    ? 'No trace yet. Press Single for one sweep.'
+    : 'No trace yet. Press Continuous to start acquisition.';
 }
 
 export function SpectrumView() {
@@ -208,22 +220,29 @@ export function SpectrumView() {
         }}
         onDoubleClick={() => useView.getState().setZoom(null)}
       />
-      <div
-        className={`plot-badge liveness-${live.kind}`}
+      <Badge
+        variant="tag"
+        tone={TAG_TONE[live.kind]}
+        className="plot-tag"
         data-testid="plot-liveness"
         data-kind={live.kind}
       >
         {live.label}
-      </div>
+      </Badge>
       {hint && (
         <p className="plot-hint" data-testid="plot-hint">
           {hint}
         </p>
       )}
       {view && (
-        <button className="plot-zoom-reset" onClick={() => useView.getState().setZoom(null)}>
+        <Button
+          size="small"
+          className="plot-zoom-reset"
+          data-testid="plot-zoom-reset"
+          onClick={() => useView.getState().setZoom(null)}
+        >
           Zoom: {formatFrequency(view.endHz - view.startHz, 100)} · reset
-        </button>
+        </Button>
       )}
     </div>
   );

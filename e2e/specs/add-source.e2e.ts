@@ -1,24 +1,25 @@
 import { $, $$, browser, expect } from '@wdio/globals';
 
 import {
-  sessionState,
   byTestId,
   closeSourceMenu,
   ensureDisconnected,
   entryByName,
+  failureBanner,
   fillDialog,
   openAddSourceDialog,
   openSourceMenu,
   revealRowActions,
   runTestConnection,
-  sourceButtonText,
+  sessionState,
   shot,
+  sourceButtonText,
   sourceRow,
   testResultText,
   textOf,
+  waitForGone,
   waitForLaunchSettled,
   waitForState,
-  failureBanner,
 } from './helpers';
 
 // No seed: this is the first launch (nothing remembered). An attached analyzer is connected and
@@ -51,7 +52,7 @@ describe('Add source', () => {
     await openAddSourceDialog();
     await fillDialog({ name: 'Discard me', port: BAD_PORT });
     await (await byTestId('add-source-cancel')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
     await openSourceMenu();
     await expect(await entryByName('Discard me')).not.toBeExisting();
     await closeSourceMenu();
@@ -59,7 +60,7 @@ describe('Add source', () => {
     await openAddSourceDialog();
     await fillDialog({ name: 'Discard me too' });
     await browser.keys(['Escape']);
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
     await openSourceMenu();
     await expect(await entryByName('Discard me too')).not.toBeExisting();
     await closeSourceMenu();
@@ -67,19 +68,19 @@ describe('Add source', () => {
 
   it('Test connection shows the backend failure and the source can still be saved untested', async () => {
     await openAddSourceDialog();
-    await expect(await byTestId('add-source-save')).toBeDisabled(); // no name yet
+    await expect(await byTestId('add-source-save')).toHaveAttribute('aria-disabled', 'true'); // no name yet
     await fillDialog({ name: 'Bench rig', port: BAD_PORT });
     expect(await testResultText()).toContain('Not tested');
     const text = await runTestConnection();
     expect(text).toContain('Test failed:');
     expect(text.length).toBeGreaterThan('✕ Test failed: '.length + 5);
-    await expect($('.source-dialog .dlg-note')).toHaveText(
+    await expect($('[data-testid="dialog-note-note"]')).toHaveText(
       expect.stringContaining('You can still save an untested source.'),
     );
     await shot('add-dialog-failed-{w}-badport');
-    await expect(await byTestId('add-source-save')).toBeEnabled();
+    await expect(await byTestId('add-source-save')).not.toHaveAttribute('aria-disabled');
     await (await byTestId('add-source-save')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
 
     // Saving remembers, it never connects.
     expect(await sessionState()).toBe('Disconnected');
@@ -98,7 +99,8 @@ describe('Add source', () => {
 
     await openSourceMenu();
     const row = await entryByName('Bench rig');
-    expect(await row.$('.src-dot').getAttribute('data-status')).toBe('failed');
+    const status = await (await sourceRow(await rowId(row))).$('[data-testid^="source-status-"]');
+    expect(await status.getAttribute('data-status')).toBe('failed');
     expect(await textOf(await sourceRow(await rowId(row)))).toContain('Failed');
     await shot('failed-row-{w}-untested');
     await closeSourceMenu();
@@ -107,12 +109,14 @@ describe('Add source', () => {
   it('rejects a duplicate name, case-insensitively', async () => {
     await openAddSourceDialog();
     await fillDialog({ name: 'bench RIG', port: BAD_PORT });
-    await expect($('.source-dialog .err')).toHaveText('A source with this name already exists.');
-    await expect(await byTestId('add-source-save')).toBeDisabled();
+    await expect($('[data-testid="dialog-error"]')).toHaveText(
+      'A source with this name already exists.',
+    );
+    await expect(await byTestId('add-source-save')).toHaveAttribute('aria-disabled', 'true');
     await fillDialog({ name: 'Bench rig 2' });
-    await expect(await byTestId('add-source-save')).toBeEnabled();
+    await expect(await byTestId('add-source-save')).not.toHaveAttribute('aria-disabled');
     await (await byTestId('add-source-cancel')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
   });
 
   it('forgetting the selected, not connected source clears the toolbar button (R2-3)', async () => {
@@ -143,7 +147,7 @@ describeHardware('Add source with the real SA430', () => {
     // detected, not yet remembered state this test is about (the device is released first).
     await ensureDisconnected();
     await openSourceMenu();
-    const remembered = await $('[data-testid^="source-entry-"][data-label*="SA430"]');
+    const remembered = await $('[data-testid^="source-entry-"][aria-label*="SA430"]');
     if (await remembered.isExisting()) {
       const id = (await remembered.getAttribute('data-testid'))!.replace('source-entry-', '');
       await revealRowActions(`source-entry-${id}`);
@@ -157,11 +161,11 @@ describeHardware('Add source with the real SA430', () => {
     await openAddSourceDialog();
     await fillDialog({ name: 'Untested Bench SA430', port: '/dev/ttyACM0' });
     await (await byTestId('add-source-save')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
 
     await openSourceMenu();
     await browser.pause(3500); // two discovery polls
-    const rows = await $$('[data-testid^="source-entry-"][data-label="Untested Bench SA430"]');
+    const rows = await $$('[data-testid^="source-entry-"][aria-label^="Untested Bench SA430"]');
     expect(rows).toHaveLength(1);
     await expect(await $('[data-testid^="source-detected-sa430-"]')).not.toBeExisting();
     const saved = await rows[0]!.getAttribute('data-testid');
@@ -181,11 +185,11 @@ describeHardware('Add source with the real SA430', () => {
     expect(text).toMatch(/Serial number [0-9A-F]{8,}/);
     await shot('add-dialog-ok-{w}-sa430');
     await (await byTestId('add-source-save')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
 
     // It is also detected, but the menu shows one row for the physical device.
     await browser.pause(1500); // let the discovery poll run
-    const rows = await $$('[data-testid^="source-entry-"][data-label="E2E Bench SA430"]');
+    const rows = await $$('[data-testid^="source-entry-"][aria-label^="E2E Bench SA430"]');
     expect(rows).toHaveLength(1);
     await expect(await $('[data-testid^="source-detected-sa430-"]')).not.toBeExisting();
     await closeSourceMenu();

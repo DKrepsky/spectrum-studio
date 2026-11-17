@@ -28,8 +28,3 @@ export function activeStatus(
   if (state === 'connected' || state === 'acquiring') return state;
   return lost ? 'absent' : 'idle';
 }
-
-/** One CSS-drawn 10px circle (a cross for `failed`) in an 18px cell; the text next to it says the same. */
-export function StatusGlyph({ status }: { status: EntryStatus }) {
-  return <span className="src-dot" data-status={status} aria-hidden="true" />;
-}

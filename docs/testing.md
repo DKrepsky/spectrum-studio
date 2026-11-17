@@ -8,6 +8,7 @@
 | Integration (Rust) | `crates/spectrum-core/tests/` | `cargo test` | Full sessions: lifecycle, switching, settings validation, device loss and reconnect, read errors |
 | Contract | `frame.rs` ↔ `src/ipc/frame.test.ts` | both | Binary frame encoding/decoding with a shared fixture; generated TS types keep IPC shapes in sync |
 | Unit/component (UI) | `src/**/*.test.ts(x)` | Vitest, Testing Library, jsdom | Formatting/parsing, scales, envelopes, colour maps, markers, liveness, stores, toolbar, notices, forms, source button/menu (IPC mocked) |
+| Guards (UI) | `src/styles/tokens.test.ts`, `src/ui/boundary.test.ts`, `src/ui/cssImport.test.ts` | Vitest (reads the source files) | Every token used is defined; no colour, radius, shadow or z-index literal outside the token file; no pixel size or spacing literal (padding, margin, gap, inset, width, height, min and max, font size, outline and border width) outside the hairlines `0`, `1px`, `-1px`; the contrast pairs of DESIGN.md 9.3 and 9.4; the token file equals DESIGN.md Appendix A; `src/ui/` imports no IPC, state, bindings, plot, feature, Tauri or zustand module and no `toFixed` or `toLocaleString`; every `src/ui/` stylesheet is imported by its component |
 | End-to-end | `e2e/specs/` | WebdriverIO + tauri-driver + WebKitWebDriver | The real binary: simulator workflow, continuous and single capture (mode menu, one sweep then stop), settings, markers, failures and recovery, planned drivers hidden, removed drivers' entries hidden, remembered sources, Add/Edit source dialog, persistence across restart (including the capture mode), `sources.json` migration (v1 and the duplicated-SA430 store), real-pixel layout guard |
 
 Rules: every bug fix gets a regression test; tests assert user-visible outcomes and numeric
@@ -26,7 +27,7 @@ npm test               # UI only
 Prerequisites (once):
 
 ```sh
-sudo apt install webkit2gtk-driver   # provides WebKitWebDriver
+sudo apt install webkit2gtk-driver wmctrl   # WebKitWebDriver; wmctrl for the focus checks
 cargo install tauri-driver --locked
 ```
 
@@ -45,6 +46,12 @@ npm run e2e        # builds target/debug/spectrum-studio (no bundle) and runs al
 npm run e2e:run    # reuse the existing debug binary
 SPECTRUM_E2E_SA430=1 npm run e2e:run -- --spec e2e/specs/sa430.e2e.ts   # real TI SA430 on USB (skipped by default)
 ```
+
+The focus checks (`:focus-within` of a row's actions) need the app window to have OS focus.
+`ensureWindowFocus` (`e2e/specs/helpers.ts`) raises it with `wmctrl -a "Spectrum Studio"`. `wmctrl`
+is required on an X11 desktop (`sudo apt install wmctrl`): without it on `PATH` the focus tests fail
+with a message that names it, and they never skip silently. Dialogs and menus are awaited with
+`waitForGone(testId)` (the same helper file), not with fixed sleeps.
 
 Each spec file starts the app through `tauri-driver` with `XDG_CONFIG_HOME` pointing to a fresh
 temporary directory, so preferences are isolated; the persistence spec restarts the app within the
@@ -96,7 +103,22 @@ clamped and logged) it asserts:
 It fails if the 64 px column or the button's 280 px maximum is reverted (checked by hand when the
 guard was written). Screenshots of the key states are written to `e2e/logs/visual/<state>-<width>-<data>.png`
 (or the directory in `SPECTRUM_E2E_SHOTS`). The guard supplements looking at them; open the images
-when the UI changes. One known defect is recorded as a skipped test in that file.
+when the UI changes. The hardware-only cases are skipped unless `SPECTRUM_E2E_SA430=1` is set.
+
+### Visual before and after (UI changes)
+
+A change that touches a screen is checked against the base revision (DESIGN.md 10.4):
+
+1. Check out the base revision in a git worktree and build it there (`npm run e2e` builds the debug
+   binary). Run `SPECTRUM_E2E_SHOTS=<dir>/before npm run e2e:run -- --spec e2e/specs/visual.e2e.ts`
+   from that worktree.
+2. On the change, run the same command with `SPECTRUM_E2E_SHOTS=<dir>/after`.
+3. Open the pairs with the Read tool, one state at a time (the popover, the mode menu, the Add/Edit
+   dialog in its states, the capture control, the banners, the status bar, the side panel, 1440 and
+   1024 px and a narrow window). List each difference and tie it to the item that asked for it. Any
+   other difference is a regression.
+
+Passing assertions do not replace this look.
 
 ### Auto-connect on real hardware (manual QA)
 
@@ -113,12 +135,12 @@ Log lines to look for (stderr): `auto-connected`, `source connected`, `source di
 log excerpt in the work item's `dev-T3.md` (or the QA report).
 
 1. **Launch with the device attached**, nothing selected: the source button shows the SA430 serial,
-   the status is Stopped (paused), and Play is not pressed. No notice.
+   the status is Stopped (paused), and the capture button is not pressed. No notice.
 2. **Unplug while paused**: a `DeviceLost` notice "SA430 … was unplugged." appears and the source
    button shows no connection promptly (within a few seconds). No crash, no hang.
 3. **Plug back in while nothing is connected**: the device connects by itself, paused, within a few
    seconds. The notice stays until dismissed or the next status change, as for any notice.
-4. **Unplug while acquiring** (Play pressed): the trace stops with the same notice; replug connects
+4. **Unplug while acquiring** (capture pressed in Continuous): the trace stops with the same notice; replug connects
    paused (acquisition is not restarted).
 5. **Re-enumeration**: `Sa430::reboot()` (the `reboot_then_connect_*` tests in
    `crates/spectrum-driver-sa430/tests/hardware.rs`, run while the app is closed because the app holds

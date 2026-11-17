@@ -46,7 +46,7 @@ describe('CaptureControl', () => {
   });
 
   describe('labels, colours and names per state', () => {
-    it('shows Continuous, a Play icon and the start name when connected and idle', () => {
+    it('shows Continuous, a start icon and the start name when connected and idle', () => {
       push({ state: 'connected', source: activeSimulator, captureMode: 'continuous' });
       render(<CaptureControl />);
       expect(main()).toHaveTextContent('Continuous');
@@ -70,8 +70,31 @@ describe('CaptureControl', () => {
       expect(main()).toHaveAttribute('aria-label', 'Start single capture');
       expect(main()).toHaveAttribute('title', 'Start single capture: one sweep, then stop');
       expect(main()).toHaveAttribute('data-mode', 'single');
-      expect(main().closest('.capture')).toHaveAttribute('data-mode', 'single');
       expect(chevron()).toHaveAttribute('aria-label', 'Capture mode: Single');
+    });
+
+    it('draws every capture glyph inside the 12px icon slot, in every state (no state widens it)', () => {
+      const states = [
+        { state: 'connected', captureMode: 'continuous' },
+        { state: 'acquiring', captureMode: 'continuous' },
+        { state: 'connected', captureMode: 'single' },
+        { state: 'acquiring', captureMode: 'single' },
+      ] as const;
+      for (const next of states) {
+        const { unmount } = (() => {
+          push({ source: activeSimulator, ...next });
+          return render(<CaptureControl />);
+        })();
+        const glyphs = [...main().querySelectorAll('svg'), ...chevron().querySelectorAll('svg')];
+        expect(glyphs.length).toBeGreaterThan(1);
+        for (const glyph of glyphs) {
+          expect(Number(glyph.getAttribute('width')), JSON.stringify(next)).toBeLessThanOrEqual(12);
+          expect(Number(glyph.getAttribute('height')), JSON.stringify(next)).toBeLessThanOrEqual(
+            12,
+          );
+        }
+        unmount();
+      }
     });
 
     it('shows Pause while continuous acquisition runs and locks the chevron', () => {
@@ -85,15 +108,13 @@ describe('CaptureControl', () => {
       expect(chevron()).toHaveAttribute('title', 'Pause or cancel acquisition to change the mode');
     });
 
-    it('marks the whole control as acquiring so the stop fill is red, and idle otherwise', () => {
+    it('marks the main button acquiring or idle from the backend state', () => {
       push({ state: 'acquiring', source: activeSimulator, captureMode: 'continuous' });
       const { unmount } = render(<CaptureControl />);
-      expect(main().closest('.capture')).toHaveAttribute('data-state', 'acquiring');
       expect(main()).toHaveAttribute('data-state', 'acquiring');
       unmount();
       push({ state: 'connected', source: activeSimulator, captureMode: 'continuous' });
       render(<CaptureControl />);
-      expect(main().closest('.capture')).toHaveAttribute('data-state', 'idle');
       expect(main()).toHaveAttribute('data-state', 'idle');
     });
 
@@ -138,6 +159,36 @@ describe('CaptureControl', () => {
       expect(main()).toHaveAttribute('aria-disabled', 'true');
       expect(chevron()).toHaveAttribute('aria-disabled', 'true');
       expect(chevron()).toHaveAttribute('title', 'Wait for the current change to finish');
+    });
+  });
+
+  describe('accessibility (B7)', () => {
+    it('is a group labelled Capture', () => {
+      push({ state: 'connected', source: activeSimulator });
+      render(<CaptureControl />);
+      expect(screen.getByRole('group', { name: 'Capture' })).toBeInTheDocument();
+    });
+
+    it('describes the unavailable main and chevron by their reason, and an available one by nothing', () => {
+      push({ state: 'connected', source: activeSimulator });
+      const { unmount } = render(<CaptureControl />);
+      expect(main()).not.toHaveAttribute('aria-describedby');
+      expect(chevron()).not.toHaveAttribute('aria-describedby');
+      unmount();
+
+      push({ state: 'acquiring', source: activeSimulator, captureMode: 'continuous' });
+      render(<CaptureControl />);
+      expect(chevron()).toHaveAccessibleDescription(
+        'Pause or cancel acquisition to change the mode',
+      );
+      expect(main()).not.toHaveAttribute('aria-describedby');
+    });
+
+    it('describes the main button while a command is in flight', () => {
+      push({ state: 'connected', source: activeSimulator });
+      useSession.setState({ busy: 'starting' });
+      render(<CaptureControl />);
+      expect(main()).toHaveAccessibleDescription('Wait for the current change to finish');
     });
   });
 
@@ -299,8 +350,7 @@ describe('CaptureControl', () => {
     it('opens on click with focus on the checked item, which is the only checked one', async () => {
       render(<CaptureControl />);
       await userEvent.click(chevron());
-      const menu = screen.getByTestId('capture-mode-menu');
-      expect(menu).toHaveAttribute('role', 'menu');
+      expect(screen.getByRole('menu', { name: 'Capture mode' })).toBeInTheDocument();
       expect(chevron()).toHaveAttribute('aria-expanded', 'true');
       const items = screen.getAllByRole('menuitemradio');
       expect(items.map((i) => i.getAttribute('aria-checked'))).toEqual(['true', 'false']);

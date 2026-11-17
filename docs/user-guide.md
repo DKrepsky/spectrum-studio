@@ -3,7 +3,7 @@
 ## First run
 
 1. Start Spectrum Studio. The source button at the left of the toolbar reads **Choose a source**
-   and the Play button is disabled until you pick one.
+   and the capture button is disabled until you pick one.
 2. Click the source button (or press **Ctrl+K**) and choose **Signal simulator**. Picking a source
    connects to it; the source button then reads **… Connected** (its status circle shows the state).
 3. Press the main capture button (▶ **Continuous**). It turns red and becomes Pause (❚❚), the source button
@@ -23,7 +23,8 @@
 
 There is no separate connect step: **picking a source in the menu connects to it** (the previous
 source is stopped and released first). Open the menu by clicking the source button or with
-**Ctrl+K**; navigate with the arrow keys, Home/End and Enter, close it with Escape.
+**Ctrl+K**; navigate with the arrow keys (Up and Down move between rows), Home/End and Enter, close it with
+Escape, or leave it with Tab (which closes it).
 
 ![The source menu with the simulator connected, a remembered SA430 and the fixed entries](images/source-menu.png)
 
@@ -48,7 +49,7 @@ ellipsis; hover the row for the full name and its details.
 - **Add source…:** adds a source you set up by hand, for example an SA430 on a serial port you
   name (see *Add and edit a source*). Nothing is connected until you pick the new row.
 - **Disconnect:** releases the current source but keeps it selected. Connect it again by picking it
-  in the menu; Play does not connect by itself.
+  in the menu; the capture button does not connect by itself.
 
 ### Status circles
 
@@ -101,6 +102,7 @@ Details:
 
 ## Reading the display
 
+- **Before the first frame:** a connected source with no data yet shows *press Continuous to start acquisition* (or *press Single for one sweep* in Single mode) on the plot and in the status bar.
 - **Spectrum:** frequency on the horizontal axis, level on the vertical axis in the unit printed
   on the axis and in the status bar. Live trace in green, max hold orange, min hold blue.
 - **Liveness badge** (top right): `LIVE` while frames arrive; `Waiting for data…`; `No data for
@@ -111,7 +113,9 @@ Details:
   colour scale changes, so rows always match the axis above.
 - **Status bar:** the settings that produced the frame on screen — centre, span, RBW (equivalent
   noise bandwidth of one bin), FFT size and window, averaging progress, estimated noise floor per
-  bin, unit, frame rate and timestamp. **Uncalibrated** is shown for dBFS/dB data.
+  bin, unit, frame rate and timestamp. **Uncalibrated** is shown for dBFS/dB data at every window
+  width: when the window is narrow, the other items are removed first (frame, rate, noise floor,
+  FFT, averaging, RBW), never the unit or the calibration state.
 
 ### Mouse
 

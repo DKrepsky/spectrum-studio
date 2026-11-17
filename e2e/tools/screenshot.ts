@@ -20,7 +20,7 @@ describe('documentation screenshot', () => {
     await $('summary=Source settings').click();
     await $('#averaging').click();
     await setInput('#averaging', '4');
-    await $('input[type="checkbox"] + .swatch.max-hold').click();
+    await $('.ui-checkbox__adornment .swatch.max-hold').click();
     await (await byTestId('peak-search')).waitForEnabled();
     await (await byTestId('peak-search')).click();
     // Let the waterfall fill and the averages settle.

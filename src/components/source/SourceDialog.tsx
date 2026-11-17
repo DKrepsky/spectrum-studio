@@ -9,7 +9,6 @@ import {
   type RefObject,
   type SyntheticEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
 
 import type { DeviceDescriptor } from '../../bindings/DeviceDescriptor';
 import type { DriverInfo } from '../../bindings/DriverInfo';
@@ -22,8 +21,12 @@ import { toParamMap } from '../../state/sourceConfig';
 import { defaultName, dialogDrivers, isActiveBusy, rowTitle } from '../../state/sourceEntries';
 import { useSources } from '../../state/sources';
 import { ParamForm } from '../ParamForm';
-import { useFocusTrap } from './useFocusTrap';
-import '../../styles/sourceDialog.css';
+import { Button } from '../../ui/Button';
+import { Dialog, DialogFooter } from '../../ui/Dialog';
+import { Field, Select, TextField, type SelectOption } from '../../ui/Field';
+import { InlineMessage } from '../../ui/InlineMessage';
+import { Spinner } from '../../ui/Spinner';
+import './SourceDialog.css';
 
 export type DialogTarget =
   | { mode: 'add' }
@@ -90,8 +93,7 @@ export function SourceDialog({ target, onClose, returnFocusTo }: SourceDialogPro
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const titleId = useId();
-  const dialogRef = useRef<HTMLFormElement>(null);
+  const formId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
   const testToken = useRef(0);
   const savingRef = useRef(false);
@@ -143,8 +145,8 @@ export function SourceDialog({ target, onClose, returnFocusTo }: SourceDialogPro
 
   const canSave = nameError == null && paramsValid && owner == null && !saving;
 
+  // The Dialog focuses the name field on open (`initialFocus`); Edit also selects its text.
   useEffect(() => {
-    nameRef.current?.focus();
     if (!adding) nameRef.current?.select();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, when the dialog opens
   }, []);
@@ -158,7 +160,6 @@ export function SourceDialog({ target, onClose, returnFocusTo }: SourceDialogPro
   const cancel = useCallback(() => {
     if (!savingRef.current) onClose({ saved: null, forgotten: false });
   }, [onClose]);
-  useFocusTrap(dialogRef, { onEscape: cancel, returnFocusTo });
 
   const resetTest = () => {
     testToken.current += 1;
@@ -201,7 +202,7 @@ export function SourceDialog({ target, onClose, returnFocusTo }: SourceDialogPro
   const save = async (e: SyntheticEvent) => {
     e.preventDefault();
     setNameTouched(true);
-    if (!canSave || !driver) return;
+    if (!canSave || !driver || savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
     setSaveError(null);
@@ -240,37 +241,57 @@ export function SourceDialog({ target, onClose, returnFocusTo }: SourceDialogPro
     onClose({ saved: null, forgotten: true });
   };
 
-  const showNameError = nameTouched && nameError != null;
-  const nameErrorId = `${titleId}-name-err`;
-  const driverHelpId = `${titleId}-driver-help`;
+  const shownNameError = nameTouched && nameError != null ? nameError : undefined;
   const driverOptions = adding ? addable : driver ? [driver] : [];
   const driverLabel = (d: DriverInfo) =>
     !adding && d.transport === 'internal' ? `${d.name} (built-in)` : d.name;
+  const driverChoices: SelectOption[] = driverOptions.map((d) => ({
+    value: d.id,
+    label: driverLabel(d),
+  }));
+  if (driver == null) driverChoices.push({ value: driverId, label: driverId });
 
+  // The test result box is always mounted; it is the polite live region of the test (DESIGN.md 9.6).
   const testResult = () => {
     if (test.st === 'idle')
       return (
-        <div className="test-result idle" role="status" data-testid="add-source-test-result">
+        <div
+          className="source-test-result source-test-result--idle"
+          role="status"
+          data-testid="add-source-test-result"
+        >
           {IDLE_TEXT}
         </div>
       );
     if (test.st === 'run')
       return (
-        <div className="test-result run" role="status" data-testid="add-source-test-result">
-          <span className="spinner" aria-hidden="true" /> Testing connection…
+        <div
+          className="source-test-result source-test-result--run"
+          role="status"
+          data-testid="add-source-test-result"
+        >
+          <Spinner label="Testing connection…" />
         </div>
       );
     if (!test.result.ok)
       return (
-        <div className="test-result fail" role="alert" data-testid="add-source-test-result">
+        <div
+          className="source-test-result source-test-result--fail"
+          role="status"
+          data-testid="add-source-test-result"
+        >
           ✕ Test failed: {test.result.message}
         </div>
       );
     return (
-      <div className="test-result ok" role="status" data-testid="add-source-test-result">
+      <div
+        className="source-test-result source-test-result--ok"
+        role="status"
+        data-testid="add-source-test-result"
+      >
         ✓ {test.result.message}
         {testedSerial && (
-          <span className="sub">
+          <span className="source-test-result__sub">
             Serial number {testedSerial}
             {matches ? ' (matches this source)' : ''}
           </span>
@@ -279,168 +300,172 @@ export function SourceDialog({ target, onClose, returnFocusTo }: SourceDialogPro
     );
   };
 
-  const dialog = (
-    <div className="dialog-backdrop">
-      <form
-        ref={dialogRef}
-        className="source-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="add-source-dialog"
-        noValidate
-        onSubmit={(e) => void save(e)}
+  return (
+    <Dialog
+      title={adding ? 'Add source' : 'Edit source'}
+      onClose={cancel}
+      returnFocusTo={returnFocusTo}
+      initialFocus={nameRef}
+      onSubmit={(e) => void save(e)}
+      testId="add-source-dialog"
+      titleTestId="dialog-title"
+    >
+      <Field
+        label="Name"
+        className="source-field"
+        error={shownNameError}
+        errorTestId="dialog-error"
       >
-        <h2 id={titleId}>{adding ? 'Add source' : 'Edit source'}</h2>
-
-        <div className="form-row">
-          <label htmlFor={`${titleId}-name`}>Name</label>
-          <input
+        {(c) => (
+          <TextField
             ref={nameRef}
-            id={`${titleId}-name`}
-            type="text"
+            id={c.id}
+            aria-describedby={c.describedBy}
+            invalid={c.invalid}
             value={name}
             placeholder="e.g. Bench SA430"
             spellCheck={false}
             autoComplete="off"
-            aria-invalid={showNameError}
-            aria-describedby={showNameError ? nameErrorId : undefined}
             data-testid="add-source-name"
-            onChange={(e) => {
-              setName(e.target.value);
+            onChange={(value) => {
+              setName(value);
               setNameTouched(true);
               setSaveError(null);
             }}
           />
-          {showNameError && (
-            <span className="err" id={nameErrorId}>
-              {nameError}
-            </span>
+        )}
+      </Field>
+
+      <Field
+        label="Driver"
+        className={adding ? 'source-field' : 'source-field source-locked'}
+        hint={
+          adding
+            ? 'Only sources that need manual setup are listed. USB devices that are detected automatically do not need this.'
+            : 'The driver cannot be changed. To use another, forget this source and add a new one.'
+        }
+      >
+        {(c) => (
+          <Select
+            id={c.id}
+            aria-describedby={c.describedBy}
+            label="Driver"
+            value={driverId}
+            options={driverChoices}
+            disabled={!adding || saving}
+            data-testid="add-source-driver"
+            onChange={changeDriver}
+          />
+        )}
+      </Field>
+
+      {editableParams && (
+        <div className={locked ? 'dialog-params source-locked' : 'dialog-params'}>
+          <ParamForm
+            idPrefix={`${formId}-p`}
+            specs={specs}
+            values={values}
+            disabled={paramsDisabled}
+            onChange={changeValue}
+            framed={false}
+          />
+          {(locked || specs.some((p) => p.help)) && (
+            <InlineMessage variant="hint">
+              {locked
+                ? 'In use by the active connection. Disconnect to change the port.'
+                : specs
+                    .map((p) => p.help)
+                    .filter(Boolean)
+                    .join(' ')}
+            </InlineMessage>
           )}
         </div>
+      )}
+      {noParams && (
+        <InlineMessage variant="hint">
+          The simulator has no settings; only its name can be changed.
+        </InlineMessage>
+      )}
 
-        <div className="form-row">
-          <label htmlFor={`${titleId}-driver`}>Driver</label>
-          <select
-            id={`${titleId}-driver`}
-            className={adding ? undefined : 'locked'}
-            value={driverId}
-            disabled={!adding || saving}
-            aria-describedby={driverHelpId}
-            data-testid="add-source-driver"
-            onChange={(e) => changeDriver(e.target.value)}
+      {canTest && (
+        <div className="source-test">
+          <Button
+            busy={test.st === 'run'}
+            disabled={!paramsValid || saving}
+            data-testid="add-source-test"
+            onClick={() => void runTest()}
           >
-            {driverOptions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {driverLabel(d)}
-              </option>
-            ))}
-            {driver == null && <option value={driverId}>{driverId}</option>}
-          </select>
-          <span className="help" id={driverHelpId}>
-            {adding
-              ? 'Only sources that need manual setup are listed. USB devices that are detected automatically do not need this.'
-              : 'The driver cannot be changed. To use another, forget this source and add a new one.'}
-          </span>
+            Test connection
+          </Button>
+          {testResult()}
         </div>
+      )}
 
-        {editableParams && (
-          <div className={`dialog-params${locked ? ' locked' : ''}`}>
-            <ParamForm
-              idPrefix={`${titleId}-p`}
-              specs={specs}
-              values={values}
-              disabled={paramsDisabled}
-              onChange={changeValue}
-            />
-            {(locked || specs.some((p) => p.help)) && (
-              <span className="help">
-                {locked
-                  ? 'In use by the active connection. Disconnect to change the port.'
-                  : specs
-                      .map((p) => p.help)
-                      .filter(Boolean)
-                      .join(' ')}
-              </span>
-            )}
-          </div>
-        )}
-        {noParams && (
-          <span className="help">The simulator has no settings; only its name can be changed.</span>
-        )}
-
-        {canTest && (
-          <div className="test-row">
-            <button
-              type="button"
-              disabled={test.st === 'run' || !paramsValid || saving}
-              data-testid="add-source-test"
-              onClick={() => void runTest()}
-            >
-              Test connection
-            </button>
-            {testResult()}
-          </div>
-        )}
-
+      {/* One always-mounted polite container for the notes and the save error (DESIGN.md 9.6). The
+          messages inside carry no role of their own. */}
+      <div role="status" className="dialog-notes" data-testid="dialog-notes">
         {detected && (
-          <div className="dlg-note info">
+          <InlineMessage variant="info" data-testid="dialog-note-info">
             New device, not remembered yet. Save remembers it; it does not connect.
-          </div>
+          </InlineMessage>
         )}
         {locked && (
-          <div className="dlg-note info">
+          <InlineMessage variant="info" data-testid="dialog-note-info">
             This source is connected. The name changes now; connection settings are locked until you
             disconnect.
-          </div>
+          </InlineMessage>
         )}
         {owner && (
-          <div className="dlg-note warn" role="alert">
-            ⚠ This device is already in Your sources as &quot;{rowTitle(owner, drivers)}&quot;.
-          </div>
+          <InlineMessage variant="warn" data-testid="dialog-note-warn">
+            This device is already in Your sources as &quot;{rowTitle(owner, drivers)}&quot;.
+          </InlineMessage>
         )}
         {mismatch && (
-          <div className="dlg-note warn" role="alert">
-            ⚠ Different device: serial {testedSerial}, this source is {storedSerial}. Saving binds
+          <InlineMessage variant="warn" data-testid="dialog-note-warn">
+            Different device: serial {testedSerial}, this source is {storedSerial}. Saving binds
             this source to serial {testedSerial}; its name and settings are kept.
-          </div>
+          </InlineMessage>
         )}
         {canTest && result && !result.ok && (
-          <div className="dlg-note">You can still save an untested source.</div>
+          <InlineMessage variant="note" data-testid="dialog-note-note">
+            You can still save an untested source.
+          </InlineMessage>
         )}
         {saveError && (
-          <p className="dlg-error" role="alert" data-testid="add-source-error">
+          <InlineMessage variant="error" data-testid="dialog-error">
             {saveError}
-          </p>
+          </InlineMessage>
         )}
+      </div>
 
-        <div className="button-row">
-          {entry && (
-            <button
-              type="button"
-              className="forget"
+      <DialogFooter
+        start={
+          entry ? (
+            <Button
+              variant="destructive"
               disabled={saving}
               data-testid="edit-source-forget"
               onClick={() => void forget()}
             >
               Forget
-            </button>
-          )}
-          <span className="spacer" />
-          <button type="button" disabled={saving} data-testid="add-source-cancel" onClick={cancel}>
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="primary"
-            disabled={!canSave}
-            data-testid="add-source-save"
-          >
-            Save
-          </button>
-        </div>
-      </form>
-    </div>
+            </Button>
+          ) : null
+        }
+      >
+        <Button disabled={saving} data-testid="add-source-cancel" onClick={cancel}>
+          Cancel
+        </Button>
+        {/* Busy keeps focus (native disabled would drop it in WebKit); an invalid form is inert but focusable. */}
+        <Button
+          type="submit"
+          variant="primary"
+          busy={saving}
+          unavailable={!canSave && !saving}
+          data-testid="add-source-save"
+        >
+          Save
+        </Button>
+      </DialogFooter>
+    </Dialog>
   );
-  return createPortal(dialog, document.body);
 }

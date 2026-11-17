@@ -10,7 +10,7 @@
  * 22-char and a 60-char SA430 name (fake serials, so they are Not detected), a failing simulator,
  * an SA430 with a long serial-port path and the simulator.
  */
-import { browser, expect as wdioExpect } from '@wdio/globals';
+import { $, $$, browser, expect as wdioExpect } from '@wdio/globals';
 
 import {
   assertNoOverflow,
@@ -18,20 +18,26 @@ import {
   chooseMode,
   closeSourceMenu,
   ensureDisconnected,
+  ensureWindowFocus,
   entryByName,
+  failureBanner,
   fillDialog,
   findOverflow,
   livenessKind,
   openAddSourceDialog,
   openEditDialog,
   openSourceMenu,
+  clickRowAction,
+  revealRowActions,
   runTestConnection,
   selectSource,
+  setInput,
   shot,
   sourceButtonText,
-  waitForState,
   type Box,
-  failureBanner,
+  waitForGone,
+  waitForLaunchSettled,
+  waitForState,
 } from './helpers';
 
 const REAL = 'SA430 08FF41E50F8B3A34';
@@ -65,11 +71,296 @@ function expect(actual: unknown, message?: string) {
   >;
 }
 
+// ---- States of the T0 baseline (plan 11): panels, banners, status bar, plot tags, capture ------
+// Every shot here is a state the real app reaches with the seeded simulator. Names are stable so
+// the before and after sets pair by file name; `{real}` is the innerWidth the web view really got.
+
+const SIM = 'source-entry-vis-sim';
+const STATE_WIDTHS = [1440, 1257, 1180, 1024];
+const WIDE = [1440, 1024];
+
+/** Dismisses every notice banner, so a shot shows only the state it is about. */
+async function dismissBanners() {
+  await browser.execute(() =>
+    document
+      .querySelectorAll<HTMLButtonElement>('.ui-banner button[aria-label="Dismiss"]')
+      .forEach((b) => b.click()),
+  );
+  await browser.pause(200);
+}
+
+/** Connects the seeded simulator and starts acquisition; returns once frames reach the plot. */
+async function simulatorLive() {
+  await ensureDisconnected();
+  await dismissBanners();
+  await selectSource(SIM);
+  await waitForState('Connected');
+  await (await byTestId('acquire-button')).click();
+  await waitForState('Acquiring');
+  await browser.waitUntil(async () => (await livenessKind()) === 'live', {
+    timeoutMsg: 'plot did not become live',
+  });
+}
+
+/** Pauses acquisition (the trace stays on screen as HOLD). */
+async function pauseAcquisition() {
+  await (await byTestId('acquire-button')).click();
+  await waitForState('Connected');
+}
+
+/** Scrolls the side panel so that the section with this title starts at its top. */
+async function showSection(title: string) {
+  await browser.execute((t) => {
+    const summary = Array.from(document.querySelectorAll<HTMLElement>('.side-panel summary')).find(
+      (el) => el.textContent?.trim() === t,
+    );
+    if (!summary) throw new Error(`no side panel section "${t}"`);
+    summary.scrollIntoView({ block: 'start' });
+  }, title);
+  await browser.pause(200);
+}
+
+/** Number of peak rows (the table shows a hint row instead while there are none). */
+async function peakRowCount(): Promise<number> {
+  return browser.execute(
+    () =>
+      Array.from(document.querySelectorAll('[data-testid="peak-table"] tbody tr')).filter(
+        (r) => !r.classList.contains('ui-table-empty'),
+      ).length,
+  );
+}
+
+/**
+ * Injects a status the simulator cannot produce on its own (a stale trace, a single capture in
+ * progress, a warning, a lost device). The UI drops out-of-order statuses, so the revision is set
+ * far above the backend's. The backend stays unchanged, so the injected status is what is shown.
+ * Frames are cleared on `connecting`, so that state is injected last (see its describe block).
+ */
+let injections = 0;
+async function injectStatus(patch: Record<string, unknown>) {
+  injections += 1;
+  const step = injections;
+  await browser.execute(
+    async (p: Record<string, unknown>, n: number) => {
+      const tauri = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (cmd: string, args?: unknown) => Promise<any> };
+        }
+      ).__TAURI_INTERNALS__;
+      const current = await tauri.invoke('get_status');
+      await tauri.invoke('plugin:event|emit', {
+        event: 'session-status',
+        payload: { ...current, ...p, revision: current.revision + 1000 + n },
+      });
+    },
+    patch,
+    step,
+  );
+  await browser.pause(300);
+}
+
+describe('Visual guard: panels, banners, status bar, plot tags and capture control', () => {
+  after(async () => {
+    await resizeTo(1440, 900);
+  });
+
+  for (const w of WIDE) {
+    it(`side panel sections with a live simulator at ${w}px`, async () => {
+      const real = await resize(w);
+      await simulatorLive();
+      await browser.waitUntil(async () => (await peakRowCount()) > 0, {
+        timeoutMsg: 'the simulator produced no peaks',
+      });
+      await showSection('Measurement');
+      await shot(`panel-measurement-${real}-sim`);
+
+      await (await $('button=+ Marker')).click();
+      await (await $('button=+ Marker')).click();
+      await browser.waitUntil(
+        async () => (await $$('[data-testid="marker-table"] tbody tr')).length === 2,
+        { timeoutMsg: 'two markers were not placed' },
+      );
+      await showSection('Markers');
+      await shot(`panel-markers-two-${real}-sim`);
+      await browser.execute(() =>
+        document
+          .querySelectorAll<HTMLButtonElement>(
+            '[data-testid="marker-table"] button[title="Remove marker"]',
+          )
+          .forEach((b) => b.click()),
+      );
+
+      await showSection('Peaks');
+      await shot(`panel-peaks-rows-${real}-sim`);
+
+      const maxPeaks = await $('input[aria-label="Maximum peaks"]');
+      const original = await maxPeaks.getValue();
+      await maxPeaks.click();
+      await browser.keys(['Control', 'a']);
+      await browser.keys(['Backspace']);
+      await maxPeaks.addValue('99');
+      expect(
+        await maxPeaks.getAttribute('aria-invalid'),
+        'the out-of-range peak count is flagged',
+      ).toBe('true');
+      await shot(`panel-invalid-field-${real}-sim`);
+      await setInput('input[aria-label="Maximum peaks"]', original);
+
+      await showSection('Display');
+      await shot(`panel-display-${real}-sim`);
+
+      await (await $('summary=Source settings')).click();
+      await showSection('Source settings');
+      await shot(`panel-source-settings-${real}-sim`);
+      await (await $('summary=Source settings')).click();
+    });
+
+    it(`source menu: Undo toast and keyboard focus at ${w}px`, async () => {
+      const real = await resize(w);
+      await dismissBanners();
+      await closeSourceMenu();
+      await openSourceMenu();
+      await clickRowAction('source-entry-vis-port', 'source-forget');
+      await byTestId('source-forgot-toast').waitForDisplayed({
+        timeoutMsg: 'the Undo toast did not appear',
+      });
+      await shot(`menu-undo-toast-${real}`);
+      await (await byTestId('source-undo')).click();
+      await waitForGone('source-forgot-toast');
+      await closeSourceMenu();
+
+      await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+      for (let i = 0; i < 10; i += 1) {
+        if (
+          (await browser.execute(() => document.activeElement?.getAttribute('data-testid'))) ===
+          'source-button'
+        )
+          break;
+        await browser.keys(['Tab']);
+      }
+      await browser.keys(['ArrowDown']);
+      await byTestId('source-menu').waitForDisplayed();
+      // The focus ring of a popover row is drawn inside the row (as before 009), so it is not clipped
+      // by the list edge. The ring applies only while the window has OS focus.
+      await ensureWindowFocus();
+      await browser.pause(200);
+      const ring = await browser.execute(() => {
+        const el = document.activeElement as HTMLElement;
+        return {
+          row: el.getAttribute('data-testid'),
+          focusVisible: el.matches(':focus-visible'),
+          offset: getComputedStyle(el).outlineOffset,
+        };
+      });
+      expect(ring.focusVisible, `the focused row ${ring.row} shows its focus ring`).toBe(true);
+      expect(ring.offset, `the focus ring of ${ring.row} is inside the row`).toBe('-2px');
+      await shot(`menu-keyboard-focus-${real}`);
+      await closeSourceMenu();
+    });
+
+    it(`zoomed plot shows the zoom reset control at ${w}px`, async () => {
+      const real = await resize(w);
+      await simulatorLive();
+      await browser.execute(() => {
+        const canvas = document.querySelector<HTMLCanvasElement>(
+          '[data-testid="spectrum-canvas"]',
+        )!;
+        const r = canvas.getBoundingClientRect();
+        canvas.dispatchEvent(
+          new WheelEvent('wheel', {
+            deltaY: -120,
+            clientX: r.left + r.width / 2,
+            clientY: r.top + r.height / 2,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+      await (await $('.plot-zoom-reset')).waitForDisplayed({ timeoutMsg: 'no zoom reset control' });
+      await shot(`plot-zoom-reset-${real}`);
+      await (await $('.plot-zoom-reset')).click();
+      await (await $('.plot-zoom-reset')).waitForExist({ reverse: true });
+      await pauseAcquisition();
+    });
+
+    it(`capture control: unavailable, idle teal and violet, acquiring and keyboard focus at ${w}px`, async () => {
+      const real = await resize(w);
+      await ensureDisconnected();
+      await dismissBanners();
+      await shot(`capture-unavailable-${real}`);
+
+      await selectSource(SIM);
+      await waitForState('Connected');
+      await chooseMode('continuous');
+      await shot(`capture-idle-continuous-${real}`);
+      await chooseMode('single');
+      await shot(`capture-idle-single-${real}`);
+      await chooseMode('continuous');
+
+      await (await byTestId('acquire-button')).click();
+      await waitForState('Acquiring');
+      await browser.pause(400);
+      await shot(`capture-acquiring-continuous-${real}`);
+      await pauseAcquisition();
+
+      await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+      for (let i = 0; i < 10; i += 1) {
+        if (
+          (await browser.execute(() => document.activeElement?.getAttribute('data-testid'))) ===
+          'acquire-button'
+        )
+          break;
+        await browser.keys(['Tab']);
+      }
+      await shot(`capture-focus-keyboard-${real}`);
+    });
+
+    it(`connect failure banner with Reconnect at ${w}px`, async () => {
+      const real = await resize(w);
+      await ensureDisconnected();
+      await dismissBanners();
+      await selectSource('source-entry-vis-fail');
+      await (await failureBanner()).waitForDisplayed();
+      await (await byTestId('reconnect-button')).waitForDisplayed();
+      await shot(`banner-connect-failed-reconnect-${real}`);
+      await dismissBanners();
+    });
+  }
+
+  for (const w of STATE_WIDTHS) {
+    it(`status bar and plot tag: no source, no frame, live and hold at ${w}px`, async () => {
+      const real = await resize(w);
+      await ensureDisconnected();
+      await dismissBanners();
+      await shot(`statusbar-no-source-${real}`);
+
+      await selectSource(SIM);
+      await waitForState('Connected');
+      await browser.pause(400);
+      await shot(`statusbar-no-frame-${real}`);
+
+      await (await byTestId('acquire-button')).click();
+      await waitForState('Acquiring');
+      await browser.waitUntil(async () => (await livenessKind()) === 'live', {
+        timeoutMsg: 'plot did not become live',
+      });
+      await browser.pause(700);
+      await shot(`statusbar-live-${real}`);
+
+      await pauseAcquisition();
+      await browser.pause(400);
+      await shot(`statusbar-hold-${real}`);
+    });
+  }
+});
+
 const describeHardware = process.env.SPECTRUM_E2E_SA430 === '1' ? describe : describe.skip;
 
 interface Row {
   testId: string;
   label: string;
+  /** The visible name (the accessible label also carries a status word). */
+  nameText: string;
   twoLine: boolean;
   item: Box;
   name: Box;
@@ -82,11 +373,31 @@ interface Row {
   hasTitle: boolean;
 }
 
-/** Resizes the window and reports the width the web view really got (a minimum may clamp it). */
-async function resize(width: number): Promise<number> {
-  await browser.setWindowSize(width, HEIGHT);
-  await browser.pause(250);
-  return browser.execute(() => window.innerWidth);
+/**
+ * Resizes the window and returns the width the web view settled at (a minimum may clamp it). A read
+ * taken straight after the resize can still show the previous width (QA: 51 of 88 shots were named
+ * with the wrong width), so the width counts only when two reads 100 ms apart agree. A short pause
+ * then lets the new frame paint before a shot is taken.
+ */
+async function resizeTo(width: number, height: number): Promise<number> {
+  await browser.setWindowSize(width, height);
+  let previous = -1;
+  let settled = -1;
+  await browser.waitUntil(
+    async () => {
+      const now = await browser.execute(() => window.innerWidth);
+      if (now === previous) settled = now;
+      previous = now;
+      return settled === now;
+    },
+    { timeout: 5000, interval: 100, timeoutMsg: `the window did not settle at ${width}px` },
+  );
+  await browser.pause(150);
+  return settled;
+}
+
+function resize(width: number): Promise<number> {
+  return resizeTo(width, HEIGHT);
 }
 
 /**
@@ -97,8 +408,8 @@ async function waitForActionsSettled(testId: string) {
   await browser.waitUntil(
     async () =>
       browser.execute((t) => {
-        const row = document.querySelector(`[data-testid="${t}"]`)?.closest('.source-row');
-        const actions = row?.querySelector<HTMLElement>('.source-actions');
+        const row = document.querySelector(`[data-testid="${t}"]`)?.closest('[data-list-row]');
+        const actions = row?.querySelector<HTMLElement>('[data-row-action]')?.parentElement;
         if (!actions) return false;
         return (
           getComputedStyle(actions).transform === 'none' && actions.getAnimations().length === 0
@@ -108,7 +419,7 @@ async function waitForActionsSettled(testId: string) {
   );
 }
 
-/** Layout of every item in the open menu, in real pixels. */
+/** Layout of every remembered or detected row in the open menu, in real pixels. */
 async function measureRows(): Promise<Row[]> {
   return browser.execute(() => {
     const box = (el: Element | null): Box | null => {
@@ -125,25 +436,29 @@ async function measureRows(): Promise<Row[]> {
     };
     const out: Row[] = [];
     for (const item of Array.from(
-      document.querySelectorAll<HTMLElement>('[data-testid="source-menu"] .source-item'),
+      document.querySelectorAll<HTMLElement>('[data-testid="source-menu"] [data-list-item]'),
     )) {
-      const name = item.querySelector<HTMLElement>('.src-name');
+      // Each part of a row has its own test id: `source-name-<rest>` for `source-entry-<rest>`.
+      const rest = (item.getAttribute('data-testid') ?? '').replace(/^source-/, '');
+      const name = document.querySelector<HTMLElement>(`[data-testid="source-name-${rest}"]`);
       if (!name) continue;
-      const badge = item.querySelector<HTMLElement>('.src-badge');
-      const row = item.closest('.source-row');
+      const badge = document.querySelector<HTMLElement>(`[data-testid="source-badge-${rest}"]`);
+      const sub = document.querySelector<HTMLElement>(`[data-testid="source-sub-${rest}"]`);
+      const row = item.closest('[data-list-row]');
       out.push({
-        testId: item.dataset['testid'] ?? '',
-        label: item.dataset['label'] ?? '',
-        twoLine: item.querySelector('.row-sub') !== null,
+        testId: item.getAttribute('data-testid') ?? '',
+        label: item.getAttribute('aria-label') ?? '',
+        nameText: name.textContent ?? '',
+        twoLine: sub !== null,
         item: box(item)!,
         name: box(name)!,
         badge: box(badge),
         badgeText: badge?.textContent ?? null,
-        sub: box(item.querySelector('.row-sub')),
-        actions: box(row?.querySelector('.source-actions') ?? null),
+        sub: box(sub),
+        actions: box(row?.querySelector('[data-row-action]')?.parentElement ?? null),
         nameScroll: name.scrollWidth,
         nameClient: name.clientWidth,
-        hasTitle: (item.getAttribute('title') ?? '').includes(item.dataset['label'] ?? '\u0000'),
+        hasTitle: (item.getAttribute('title') ?? '').includes(name.textContent ?? '\u0000'),
       });
     }
     return out;
@@ -243,7 +558,7 @@ describe('Visual guard: source button, menu and dialog', () => {
   });
 
   after(async () => {
-    await browser.setWindowSize(1440, 900);
+    await resizeTo(1440, 900);
   });
 
   for (const w of WIDTHS) {
@@ -255,11 +570,11 @@ describe('Visual guard: source button, menu and dialog', () => {
       const rows = await measureRows();
       assertRowLayout(rows, where);
       // The real 22-char device name is shown in full; the 60-char one only truncates with a title.
-      const realRow = rows.find((r) => r.label === REAL)!;
+      const realRow = rows.find((r) => r.nameText === REAL)!;
       expect(realRow.nameScroll, `${where}: ${REAL} must not be truncated`).toBeLessThanOrEqual(
         realRow.nameClient + 1,
       );
-      const n60 = rows.find((r) => r.label === N60)!;
+      const n60 = rows.find((r) => r.nameText === N60)!;
       expect(
         n60.nameScroll,
         `${where}: the 60-char name does not fit and is ellipsised`,
@@ -311,30 +626,67 @@ describe('Visual guard: source button, menu and dialog', () => {
     });
   }
 
-  // KNOWN DEFECT (reported to the staff engineer, see the T16 handoff): on a two-line row the hover
-  // actions start 5.5px above the bottom of the badge pill (actions top 181 vs badge bottom 186.5
-  // at 1180px), so they cover its lower edge. Design 2.1 puts them on line 2 under the badge.
-  // The assertion is real and fails today; enable this test once source.css is fixed.
-  it('hover actions sit below the badge pill instead of covering it', async () => {
-    await resize(1180);
+  // Work 009 T9 (ruling 0198): the row stays 44px. The actions are centred vertically in the badge
+  // column, and while they show the badge fades out: they replace it and never cover a visible one.
+  it('hover actions replace the badge: the badge fades, the actions are centred in its column', async () => {
+    const real = await resize(1180);
     await openSourceMenu();
     const id = (await (await entryByName(N60)).getAttribute('data-testid'))!;
-    await browser.execute(
-      (t) => (document.querySelector(`[data-testid="${t}"]`) as HTMLElement).focus(),
-      id,
+    await revealRowActions(id);
+    const badgeId = `source-badge-${id.replace(/^source-/, '')}`;
+    await browser.waitUntil(
+      async () =>
+        browser.execute(
+          (t) => getComputedStyle(document.querySelector(`[data-testid="${t}"]`)!).opacity === '0',
+          badgeId,
+        ),
+      { timeoutMsg: `the badge of ${id} did not fade while its actions show` },
     );
+    await waitForActionsSettled(id);
     const row = (await measureRows()).find((r) => r.testId === id)!;
+    const a = row.actions!;
+    const b = row.badge!;
+    const item = row.item;
+    const buttons = await browser.execute((t) => {
+      const actions = document
+        .querySelector(`[data-testid="${t}"]`)
+        ?.closest('[data-list-row]')
+        ?.querySelector<HTMLElement>('[data-row-action]')?.parentElement;
+      return Array.from(actions?.querySelectorAll<HTMLElement>('button') ?? []).map((el) => {
+        const r = el.getBoundingClientRect();
+        return { width: r.width, height: r.height };
+      });
+    }, id);
+    expect(close(item.height, 44), `row height ${item.height} (the row stays 44px)`).toBe(true);
+    expect(a.width, 'the actions are shown').toBeGreaterThan(0);
     expect(
-      row.actions!.top,
-      `actions top ${row.actions!.top} vs badge bottom ${row.badge!.bottom}`,
-    ).toBeGreaterThanOrEqual(row.badge!.bottom - TOL);
+      close(a.left + a.width / 2, b.left + b.width / 2),
+      'actions centred on the badge column',
+    ).toBe(true);
+    expect(
+      close((a.top + a.bottom) / 2, (item.top + item.bottom) / 2),
+      `actions centred on the row (${a.top}-${a.bottom} in ${item.top}-${item.bottom})`,
+    ).toBe(true);
+    expect(
+      a.left >= b.left - TOL && a.right <= b.right + TOL,
+      'actions inside the badge column',
+    ).toBe(true);
+    expect(a.top >= item.top && a.bottom <= item.bottom, 'actions inside the row').toBe(true);
+    expect(buttons.length, 'Edit and Forget').toBe(2);
+    for (const size of buttons) {
+      expect(
+        close(size.width, 24) && close(size.height, 24),
+        `action ${size.width}x${size.height}`,
+      ).toBe(true);
+    }
+    await shot(`hover-actions-replace-badge-${real}-long-name`);
     await closeSourceMenu();
   });
 
   it('status circles differ by more than colour: connected, idle, absent and failed', async () => {
     await openSourceMenu();
-    const idle = await glyph('[data-testid="source-entry-vis-fail"] .src-dot');
-    const absent = await glyph('[data-testid="source-entry-vis-22"] .src-dot');
+    const idle = await glyph('[data-testid="source-status-entry-vis-fail"]');
+    const absent = await glyph('[data-testid="source-status-entry-vis-22"]');
     expect(idle?.background).not.toBe('rgba(0, 0, 0, 0)');
     expect(absent?.background, 'absent is an empty ring').toBe('rgba(0, 0, 0, 0)');
     expect(absent?.borderWidth).toBe('2px');
@@ -347,7 +699,7 @@ describe('Visual guard: source button, menu and dialog', () => {
     await selectSource('source-entry-vis-60');
     await (await failureBanner()).waitForDisplayed();
     await openSourceMenu();
-    const failed = await glyph('[data-testid="source-entry-vis-60"] .src-dot');
+    const failed = await glyph('[data-testid="source-status-entry-vis-60"]');
     expect(failed?.content).toContain('✕');
     expect(failed?.color).not.toBe(idle?.color);
     await shot(`failed-row-${w1180}-long-name`);
@@ -357,14 +709,14 @@ describe('Visual guard: source button, menu and dialog', () => {
     await selectSource('source-entry-vis-sim');
     await waitForState('Connected');
     await openSourceMenu();
-    const connected = await glyph('[data-testid="source-entry-vis-sim"] .src-dot');
+    const connected = await glyph('[data-testid="source-status-entry-vis-sim"]');
     expect(connected?.background).not.toBe(idle?.background);
     expect(connected?.background).not.toBe('rgba(0, 0, 0, 0)');
     expect(connected?.borderWidth).toBe('0px');
     const halo = await browser.execute(
       () =>
         getComputedStyle(
-          document.querySelector('[data-testid="source-entry-vis-sim"] .src-dot')!,
+          document.querySelector('[data-testid="source-status-entry-vis-sim"]')!,
           '::before',
         ).boxShadow,
     );
@@ -384,11 +736,11 @@ describe('Visual guard: source button, menu and dialog', () => {
     await openSourceMenu();
     await browser.execute(() => {
       document
-        .querySelector('[data-testid="source-entry-vis-sim"] .src-dot')!
+        .querySelector('[data-testid="source-status-entry-vis-sim"]')!
         .setAttribute('data-status', 'connecting');
     });
-    const g = await glyph('[data-testid="source-entry-vis-sim"] .src-dot');
-    const idle = await glyph('[data-testid="source-entry-vis-fail"] .src-dot');
+    const g = await glyph('[data-testid="source-status-entry-vis-sim"]');
+    const idle = await glyph('[data-testid="source-status-entry-vis-fail"]');
     expect(g?.background).not.toBe(idle?.background);
     await shot(`connecting-forced-menu-${real}-sim`);
     await closeSourceMenu();
@@ -404,13 +756,15 @@ describe('Visual guard: source button, menu and dialog', () => {
       ] as const) {
         await closeSourceMenu();
         await selectSource(id);
+        // A failed connect is still Connecting… for a moment: wait for it before the next pick.
+        await waitForLaunchSettled();
         await browser.waitUntil(async () => (await sourceButtonText()).includes(label), {
           timeoutMsg: `the source button never showed ${label}`,
         });
         await browser.pause(300);
         const m = await browser.execute(() => {
           const b = document.querySelector<HTMLElement>('[data-testid="source-button"]')!;
-          const n = b.querySelector<HTMLElement>('.src-name')!;
+          const n = b.querySelector<HTMLElement>('[data-testid="source-button-name"]')!;
           const r = b.getBoundingClientRect();
           return {
             w: r.width,
@@ -454,7 +808,10 @@ describe('Visual guard: source button, menu and dialog', () => {
     const real = await resize(1180);
     await openSourceMenu();
     const row = await entryByName(N22);
-    expect(await row.$('.src-dot').getAttribute('data-status')).toBe('absent');
+    const id = (await row.getAttribute('data-testid'))!.replace(/^source-/, '');
+    expect(await (await byTestId(`source-status-${id}`)).getAttribute('data-status')).toBe(
+      'absent',
+    );
     await shot(`absent-device-menu-${real}-seeded`);
     await closeSourceMenu();
   });
@@ -469,7 +826,7 @@ describe('Visual guard: source button, menu and dialog', () => {
     await assertNoOverflow('[data-testid="add-source-dialog"]');
     await shot(`edit-connected-lock-${w}-sim`);
     await (await byTestId('add-source-cancel')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
     await ensureDisconnected();
   });
 
@@ -492,7 +849,7 @@ describe('Visual guard: source button, menu and dialog', () => {
       await assertNoOverflow('[data-testid="add-source-dialog"]');
       await shot(`add-dialog-failed-${real}-long-port`);
       await (await byTestId('add-source-cancel')).click();
-      await byTestId('add-source-dialog').waitForExist({ reverse: true });
+      await waitForGone('add-source-dialog');
     });
   }
 
@@ -554,7 +911,7 @@ async function assertChromeFits(where: string) {
 async function assertNameVisible(where: string, name: string, minChars: number) {
   const m = await browser.execute(() => {
     const btn = document.querySelector('[data-testid="source-button"]')!;
-    const el = btn.querySelector('.src-name')!;
+    const el = btn.querySelector('[data-testid="source-button-name"]')!;
     return {
       sw: el.scrollWidth,
       cw: el.clientWidth,
@@ -563,7 +920,7 @@ async function assertNameVisible(where: string, name: string, minChars: number) 
     };
   });
   const center = await browser.execute(() => {
-    const el = document.querySelector<HTMLInputElement>('.toolbar .freq-input')!;
+    const el = document.querySelector<HTMLInputElement>('[data-testid="center-frequency"]')!;
     return { sw: el.scrollWidth, cw: el.clientWidth };
   });
   expect(center.sw, `${where}: Center frequency text is clipped`).toBeLessThanOrEqual(center.cw);
@@ -587,7 +944,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
   const longSim = `Sim ${N60}`.slice(0, 60);
 
   after(async () => {
-    await browser.setWindowSize(1440, 900);
+    await resizeTo(1440, 900);
   });
 
   // Idle: the seeded SA430 entries cannot connect here (or the real one is not attached), so the
@@ -621,7 +978,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
     await waitForState('Connected');
     const capture = () =>
       browser.execute(() => {
-        const r = document.querySelector('.capture')!.getBoundingClientRect();
+        const r = document.querySelector('.split-button')!.getBoundingClientRect();
         return { w: r.width, h: r.height, right: r.right };
       });
     for (const w of FIT_WIDTHS) {
@@ -650,7 +1007,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
       await byTestId('capture-mode-menu').waitForDisplayed();
       const menu = await browser.execute(() => {
         const r = document
-          .querySelector('[data-testid="capture-mode-popover"]')!
+          .querySelector('[data-testid="capture-mode-menu"]')!
           .getBoundingClientRect();
         return { left: r.left, right: r.right, iw: window.innerWidth };
       });
@@ -660,10 +1017,10 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
       expect(menu.right, `capture menu ends past the window at ${real}`).toBeLessThanOrEqual(
         menu.iw + 0.5,
       );
-      await assertNoOverflow('[data-testid="capture-mode-popover"]');
+      await assertNoOverflow('[data-testid="capture-mode-menu"]');
       await shot(`capture-menu-open-${real}`);
       await browser.keys(['Escape']);
-      await byTestId('capture-mode-menu').waitForExist({ reverse: true });
+      await waitForGone('capture-mode-menu');
     }
     await chooseMode('continuous');
     await ensureDisconnected();
@@ -677,7 +1034,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
       await openEditDialog(SIM_ID);
       await fillDialog({ name });
       await (await byTestId('add-source-save')).click();
-      await byTestId('add-source-dialog').waitForExist({ reverse: true });
+      await waitForGone('add-source-dialog');
       await closeSourceMenu();
       await selectSource(SIM_ID);
       await waitForState('Connected');
@@ -746,7 +1103,82 @@ describeHardware('Visual guard with the real SA430', () => {
     await assertNoOverflow('[data-testid="add-source-dialog"]');
     await shot('add-dialog-ok-1180-sa430');
     await (await byTestId('add-source-cancel')).click();
-    await byTestId('add-source-dialog').waitForExist({ reverse: true });
+    await waitForGone('add-source-dialog');
+  });
+});
+
+// States the simulator cannot reach on its own. This block runs last: an injected status is
+// newer than the backend's, so the UI would drop the backend's later statuses. Any injected status
+// with a source also clears the frame store (the UI treats it as a source switch), so every shot
+// here is a state without a frame; `connecting` is injected last of all.
+describe('Visual guard: injected states (waiting, single capture, warning, lost device, connecting)', () => {
+  after(async () => {
+    await resizeTo(1440, 900);
+  });
+
+  it('setup: a connected simulator', async () => {
+    await resize(1440);
+    await simulatorLive();
+    await pauseAcquisition();
+  });
+
+  for (const w of WIDE) {
+    it(`waiting plot tag while acquiring without a frame at ${w}px`, async () => {
+      const real = await resize(w);
+      await injectStatus({ state: 'acquiring', captureMode: 'continuous', lastNotice: null });
+      await browser.waitUntil(async () => (await livenessKind()) === 'waiting', {
+        timeoutMsg: 'the plot tag did not show the waiting state',
+      });
+      await shot(`plot-tag-waiting-${real}`);
+    });
+
+    it(`single capture in progress at ${w}px`, async () => {
+      const real = await resize(w);
+      await injectStatus({ state: 'acquiring', captureMode: 'single', lastNotice: null });
+      await browser.waitUntil(async () => (await livenessKind()) === 'capturing', {
+        timeoutMsg: 'the plot tag did not show CAPTURING',
+      });
+      await shot(`capture-single-capturing-${real}`);
+    });
+
+    it(`warning banner (acquisition failed) at ${w}px`, async () => {
+      const real = await resize(w);
+      await injectStatus({
+        state: 'connected',
+        captureMode: 'continuous',
+        lastNotice: {
+          kind: 'acquisitionFailed',
+          message: 'Acquisition stopped: the source returned no data.',
+          timestampMs: Date.now(),
+        },
+      });
+      await (await byTestId('session-notice')).waitForDisplayed();
+      await shot(`banner-warning-${real}`);
+    });
+
+    it(`lost device banner with Reconnect at ${w}px`, async () => {
+      const real = await resize(w);
+      await injectStatus({
+        state: 'disconnected',
+        source: null,
+        captureMode: 'continuous',
+        lastNotice: {
+          kind: 'deviceLost',
+          message: 'Signal simulator was unplugged.',
+          timestampMs: Date.now(),
+        },
+      });
+      await (await byTestId('reconnect-button')).waitForDisplayed();
+      await shot(`banner-device-lost-${real}`);
+    });
+  }
+
+  it('status bar while connecting (injected last: it clears the frame store)', async () => {
+    for (const w of STATE_WIDTHS) {
+      const real = await resize(w);
+      await injectStatus({ state: 'connecting', captureMode: 'continuous', lastNotice: null });
+      await shot(`statusbar-connecting-${real}`);
+    }
   });
 });
 
