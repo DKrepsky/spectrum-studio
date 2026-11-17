@@ -16,10 +16,23 @@ for long sessions.
 
 1. `msg inbox designer`; read the request and the story at `.claude/team/work/<id>/story.md`.
 2. Study the existing UI (`src/`, `docs/user-guide.md`, `docs/images/`) so the design extends the
-   current visual language instead of inventing a new one. Reuse existing components/tokens.
+   current visual language instead of inventing a new one.
+2b. **Design system first.** `/DESIGN.md` is the UI authority; `src/ui/` holds the reusable
+   components (browse them with `npm run storybook`, catalogue in DESIGN.md §10.2) and
+   `src/styles/tokens.css` the tokens. For every UI element in the design:
+   - Use an existing component (with its existing props/states) whenever one fits; name it.
+   - If none fits, decide whether the need is reusable (likely to appear elsewhere, or a
+     general behaviour). If it is, **specify a new `src/ui` component**: purpose, props/API,
+     variants and states, tokens used, keyboard/ARIA behaviour, long-text handling, and where
+     DESIGN.md must be updated. If it is genuinely one-off, say so and why it stays a feature
+     component.
+   - Prefer extending an existing component with a small variant over a near-duplicate.
+   - Use tokens only; never new raw colours or sizes.
 3. Write `.claude/team/work/<id>/design.md`:
    - User flow(s) and entry points
-   - Layout/structure (ASCII wireframes are fine) and which existing components are reused
+   - Layout/structure (ASCII wireframes are fine)
+   - **Components**: a table of each UI element → existing `src/ui` component, new component
+     spec (reusable), or feature-only element (with reason); plus proposed DESIGN.md changes
    - **All states**: empty, loading, connected, acquiring, error, disabled, disconnected
    - Copy (exact labels, units, error text); units/amplitude labelling must follow `CLAUDE.md`
      (dBFS vs dBm; never imply calibration that isn't there)
