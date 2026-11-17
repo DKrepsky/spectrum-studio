@@ -44,3 +44,17 @@ non-trivial changes; `docs/architecture.md` explains module boundaries.
 - Change a Rust type exposed to the UI → run `npm run bindings` and commit the regenerated files.
 - Keep dependencies minimal; justify new ones in the PR/commit message or an ADR.
 - Record significant technical decisions as a new ADR in `docs/adr/`.
+
+## Roadmap, backlog and bugs
+
+- The roadmap, backlog and bug reports live **only in GitHub issues**
+  (`DKrepsky/spectrum-studio`, use the `gh` CLI). Never add a roadmap, backlog, TODO list or
+  "known issues" list to the repo (no `docs/roadmap.md`); docs may link to issues by number.
+- Write issues with the templates in `.github/ISSUE_TEMPLATE/`, keeping their sections exactly:
+  `user-story.md` for features (Story, Context, Resources, Acceptance Criteria) and
+  `bug-report.md` for defects (Description, Steps to reproduce, Expected behavior, Evidence).
+- Check `gh issue list --state all` before opening one. Closed issues were closed on purpose
+  (often "not going to be implemented"): don't reopen or recreate them.
+- Work that is deferred or found but not fixed in a change becomes an issue; reference it in the
+  commit or work notes. In the agent team, only the product manager opens, edits or closes issues;
+  other agents report candidates to the product manager.
