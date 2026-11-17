@@ -35,9 +35,8 @@
   justify-content: center;
   margin-top: 1px;
 }
-.menu-item-icon:empty {
-  display: none;
-}
+/* No `:empty { display: none }` here: an item without an icon keeps its 18px first track, so the
+   name, the description and the check mark stay in their columns (DESIGN.md 4.11). */
 .menu-item-name {
   display: block;
   font-weight: var(--font-weight-semibold);

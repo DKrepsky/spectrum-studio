@@ -1,0 +1,19 @@
+/*
+ * Storybook only. src/styles/app.css makes html, body and #root a fixed-height app shell
+ * (height 100%, overflow hidden, no text selection). A story page is a document that must scroll
+ * (the tokens page is long), so the iframe is released here. Only the viewport scrolls: html is the
+ * scroll container and body is not. With body also scrolling, its box is only as tall as its
+ * in-flow content, so an absolutely positioned popover that overflows it makes the browser scroll
+ * the body whenever a control inside gets focus, which pushes the trigger out of the frame.
+ * Nothing else is overridden: a story that looks right only with another rule here is a wrong story.
+ */
+html {
+  height: auto;
+  overflow: auto;
+}
+body,
+#root {
+  height: auto;
+  overflow: visible;
+  user-select: auto;
+}

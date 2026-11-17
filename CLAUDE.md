@@ -24,6 +24,8 @@ non-trivial changes; `docs/architecture.md` explains module boundaries.
 | All checks (format, lint, types, tests) | `npm run check` |
 | Rust tests only | `cargo test --workspace` |
 | Frontend unit tests | `npm test` |
+| Storybook: browse `src/ui` and the tokens page (dev only) | `npm run storybook` |
+| Storybook static build (`storybook-static/`, not part of `check`) | `npm run build-storybook` |
 | Regenerate TS bindings | `npm run bindings` |
 | End-to-end tests | `npm run e2e` (needs `webkit2gtk-driver`, see `docs/testing.md`) |
 | Release bundles (.deb, AppImage) | `npm run tauri build` |

@@ -9,3 +9,4 @@
 - [CSS not imported is silent](css-import-silent.md) — a ui .css that its .tsx never imports ships with no styles; contract tests reading the file still pass
 - [Dialog busy/error probes](dialog-busy-error-probes.md) — invoke is not patchable; FIFO at sources.json.tmp holds a save busy, a directory there gives a save error
 - [CSS geometry probes](css-geometry-probes.md) — pixel-literal guard, computed-style dump before/after, why an outside focus ring looked inside
+- [Storybook a11y checks](storybook-a11y-checks.md) — jsdom axe vs real-Chrome run recipe, button/form/row-name gotchas from 010 rework 2

@@ -1,15 +1,24 @@
 /* DESIGN.md 4.7. Tokens only; the caller positions a tag over the canvas. Text keeps its case: the
-   state word is typed in capitals where it is meant to be (LIVE, CAPTURING, HOLD), not by CSS. */
+   state word is typed in capitals where it is meant to be (LIVE, CAPTURING, HOLD), not by CSS. The
+   text is one line; the label ellipsises inside the pill when the pill is narrower (5.9). */
 .ui-badge {
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
+  min-width: 0;
   max-width: 100%;
   padding: var(--space-1) var(--space-4);
   font-size: var(--font-size-xs);
   line-height: 1.2;
   white-space: nowrap;
   color: var(--color-text-secondary);
+}
+.ui-badge-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ui-badge[data-variant='chip'] {
   background: var(--color-surface-control);

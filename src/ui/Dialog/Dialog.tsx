@@ -35,7 +35,7 @@ interface DialogProps {
 /**
  * A modal dialog (DESIGN.md 4.12): portal, backdrop, `role="dialog"` with `aria-modal`, the title as
  * its name. Focus is trapped inside, goes to the first control (or `initialFocus`) on open, and
- * returns to `returnFocusTo` on close. It is a form, so Enter in a field submits.
+ * returns to `returnFocusTo` on close. Its body is a form, so Enter in a field submits.
  */
 export function Dialog({
   title,
@@ -49,40 +49,48 @@ export function Dialog({
   children,
 }: DialogProps) {
   const titleId = useId();
-  const form = useRef<HTMLFormElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const escape = useCallback(() => {
     if (dismissable) onClose();
   }, [dismissable, onClose]);
-  useFocusTrap(form, { onEscape: escape, returnFocusTo });
+  useFocusTrap(dialogRef, { onEscape: escape, returnFocusTo });
 
   // Focus on open only (the dialog mounts when it opens).
   useLayoutEffect(() => {
-    const target = initialFocus?.current ?? (form.current ? tabbables(form.current)[0] : undefined);
+    const target =
+      initialFocus?.current ?? (dialogRef.current ? tabbables(dialogRef.current)[0] : undefined);
     target?.focus();
   }, [initialFocus]);
 
+  // The dialog is a div: `form` may not carry `role="dialog"` (axe, aria-allowed-role). The form
+  // inside holds the body and footer, so Enter in a field submits; `display: contents` keeps the
+  // layout of the dialog's own column.
   const dialog = (
     <div className="dialog-backdrop">
-      <form
-        ref={form}
+      <div
+        ref={dialogRef}
         className="dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         data-testid={testId}
-        noValidate
-        onSubmit={
-          onSubmit ??
-          ((e) => {
-            e.preventDefault();
-          })
-        }
       >
         <h2 id={titleId} className="dialog-title" data-testid={titleTestId}>
           {title}
         </h2>
-        {children}
-      </form>
+        <form
+          className="dialog-form"
+          noValidate
+          onSubmit={
+            onSubmit ??
+            ((e) => {
+              e.preventDefault();
+            })
+          }
+        >
+          {children}
+        </form>
+      </div>
     </div>
   );
   return createPortal(dialog, document.body);

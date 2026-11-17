@@ -8,6 +8,7 @@
 | Integration (Rust) | `crates/spectrum-core/tests/` | `cargo test` | Full sessions: lifecycle, switching, settings validation, device loss and reconnect, read errors |
 | Contract | `frame.rs` ↔ `src/ipc/frame.test.ts` | both | Binary frame encoding/decoding with a shared fixture; generated TS types keep IPC shapes in sync |
 | Unit/component (UI) | `src/**/*.test.ts(x)` | Vitest, Testing Library, jsdom | Formatting/parsing, scales, envelopes, colour maps, markers, liveness, stores, toolbar, notices, forms, source button/menu (IPC mocked) |
+| Stories (UI) | `src/ui/stories.test.tsx` | Vitest, Storybook portable stories, axe-core (jsdom) | Every `src/ui` component folder has a stories file; every story renders, runs its play function without a thrown error or a `console.error`, and has no axe violation (`region` off, as in the addon; a story narrows rules with `parameters.a11y.config`); no app file imports Storybook or a stories module (ADR 0016) |
 | Guards (UI) | `src/styles/tokens.test.ts`, `src/ui/boundary.test.ts`, `src/ui/cssImport.test.ts` | Vitest (reads the source files) | Every token used is defined; no colour, radius, shadow or z-index literal outside the token file; no pixel size or spacing literal (padding, margin, gap, inset, width, height, min and max, font size, outline and border width) outside the hairlines `0`, `1px`, `-1px`; the contrast pairs of DESIGN.md 9.3 and 9.4; the token file equals DESIGN.md Appendix A; `src/ui/` imports no IPC, state, bindings, plot, feature, Tauri or zustand module and no `toFixed` or `toLocaleString`; every `src/ui/` stylesheet is imported by its component |
 | End-to-end | `e2e/specs/` | WebdriverIO + tauri-driver + WebKitWebDriver | The real binary: simulator workflow, continuous and single capture (mode menu, one sweep then stop), settings, markers, failures and recovery, planned drivers hidden, removed drivers' entries hidden, remembered sources, Add/Edit source dialog, persistence across restart (including the capture mode), `sources.json` migration (v1 and the duplicated-SA430 store), real-pixel layout guard |
 
@@ -70,6 +71,21 @@ to inspect files the app wrote read `SPECTRUM_E2E_APP_CONFIG`. Note that WebKitW
 `textOf()` (textContent) or the button's `aria-label`.
 
 Failed E2E tests save a screenshot to `e2e/logs/` (git-ignored).
+
+### Accessibility of the stories
+
+`npm test` runs axe-core (the engine of `@storybook/addon-a11y`) on every story after it renders,
+so `npm run check` fails on a new violation. jsdom does not lay out, so `color-contrast` is not
+judged there (it reports "incomplete"); the contrast pairs are guarded by the token tests (DESIGN.md
+9.3, 9.4). For the rest, run the real browser:
+
+```sh
+npm run storybook            # then open the Accessibility panel of each story (addon-a11y)
+npm run build-storybook      # static copy in storybook-static/, for a browser run with axe
+```
+
+The panel runs axe in the browser with the same rules. A story that needs an exception sets it on
+the story (`parameters.a11y.config.rules`), not globally, and says why in a comment there.
 
 Hardware specs: with a TI SA430 on `/dev/ttyACM0` and `SPECTRUM_E2E_SA430=1`, `sa430.e2e.ts`
 (the launch auto-connect connects it paused and remembers one row, Add source… with the real port

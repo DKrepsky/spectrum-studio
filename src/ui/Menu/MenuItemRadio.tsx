@@ -18,7 +18,10 @@ interface MenuItemRadioProps {
   name: string;
   /** Second line, secondary text. */
   description?: string;
-  /** Icon in the first column, decorative (aria-hidden). The caller sets its colour. */
+  /**
+   * Icon in the first column, decorative (aria-hidden). The caller sets its colour. Without one the
+   * column stays empty and reserved, so the names of all items line up.
+   */
   icon?: ReactNode;
   /** This is the current choice: `aria-checked`, and the check mark shows. */
   checked: boolean;

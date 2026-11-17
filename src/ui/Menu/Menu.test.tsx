@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import userEvent from '@testing-library/user-event';
 import { useRef, useState } from 'react';
 
+import { cssRules } from '../../test/css';
 import { Menu } from './Menu';
 import { MenuItemRadio } from './MenuItemRadio';
 
@@ -48,7 +51,37 @@ function Harness({
   );
 }
 
+const css = readFileSync(resolve(__dirname, 'Menu.css'), 'utf8');
+
 describe('Menu', () => {
+  it('keeps the icon column of an item without an icon: the cell is there and empty, not hidden', () => {
+    render(
+      <Menu label="Capture mode" anchorRef={{ current: null }} onClose={() => undefined}>
+        <MenuItemRadio
+          name="Continuous"
+          description="Frames until stopped"
+          checked
+          onSelect={() => undefined}
+        />
+        <MenuItemRadio name="Single" checked={false} onSelect={() => undefined} />
+      </Menu>,
+    );
+    const item = screen.getByRole('menuitemradio', { name: 'Single' });
+    const cell = item.querySelector('.menu-item-icon');
+    expect(cell).toBeInTheDocument();
+    expect(cell).toBeEmptyDOMElement();
+    expect(item.querySelector('.menu-item-name')).toHaveTextContent('Single');
+  });
+
+  it('never hides the icon column with CSS (the track must stay for items without an icon)', () => {
+    const hidden = cssRules(css).filter(
+      (r) => /menu-item-icon/.test(r.selector) && /display:\s*none/.test(r.body),
+    );
+    expect(hidden).toEqual([]);
+    const planted = cssRules('.menu-item-icon:empty { display: none; }');
+    expect(planted.some((r) => /display:\s*none/.test(r.body))).toBe(true);
+  });
+
   it('is a menu with a radio item per choice, the current one checked and named by its text', () => {
     render(<Harness checked="Single" />);
     expect(screen.getByRole('menu', { name: 'Capture mode' })).toBeInTheDocument();

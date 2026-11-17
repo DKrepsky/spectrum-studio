@@ -12,6 +12,7 @@ export default tseslint.config(
       'crates',
       'src/bindings',
       'e2e',
+      'storybook-static',
       'node_modules',
       '.claude/team/work/**/evidence/**',
     ],

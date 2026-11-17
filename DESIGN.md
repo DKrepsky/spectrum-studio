@@ -792,6 +792,7 @@ Entries removed from draft 1: `EmptyState` (no definition existed; the empty sta
 - **Purpose:** a short fact about an object or the view.
 - **Variants:** `chip` (control fill, secondary text, 11px, `--radius-sm`; transport: USB, Serial, Built-in); `tag` (over the canvas, `--color-scrim-chip` fill, border, 11px semibold, caps tracking: LIVE, CAPTURING, HOLD); tones `live` (accent), `waiting` and `stale` (warn), `capturing` (violet), `stopped` and `noSource` (secondary).
 - **Sizes:** one. Transport chips use a fixed 64px column; they never grow the row.
+- **Long text (work 010):** the text stays on one line. The label ends in an ellipsis inside the pill (`overflow: hidden`, `text-overflow: ellipsis`), never wraps and never runs out of the pill. When the text is cut, the full text is the pill's native `title` (5.9 rule 2); the accessible name is always the full text. A caller's `title` wins.
 - **States:** none (a badge is not interactive). Over the canvas it has `pointer-events: none`.
 - **ARIA:** text is read as is. The tag is not a live region (9.6).
 - **Do:** write the state in words ("No data for 4 s", "HOLD · last data 13:44:46").
@@ -831,6 +832,7 @@ Two different things. Draft 1 used one name for both, which is why the source se
 **Menu** (command-style choice, `role="menu"`). Used for the capture mode only.
 
 - Anatomy: Popover > heading (caps) > `role="menu"` > items. An item: 18px icon | name (semibold) and description (secondary) | 16px check, visible only on the current item.
+- An item without an icon keeps the 18px icon column, empty, so its name, description and check mark stay aligned with the other items (work 010). The column is never hidden.
 - Items: `menuitemradio` with `aria-checked`, one checked (the current mode). Names are `aria-labelledby` the name, descriptions `aria-describedby`.
 - Keyboard: on open, focus goes to the checked item. Up and Down move with wrap; Home and End go to the first and last item; Enter and Space activate; type-ahead moves to the next item starting with the typed text; Escape closes and returns focus to the trigger; Tab closes and focus continues (5.1).
 - Choosing a mode never starts a capture; the store updates when the backend reports the new mode.
@@ -855,7 +857,7 @@ Two different things. Draft 1 used one name for both, which is why the source se
 
 - **Purpose:** a short, modal task (Add / Edit source).
 - **Anatomy:** backdrop (`--color-scrim-modal`; a click on it does nothing, so the dialog closes only through Cancel, Escape, Save or Forget, Implemented); dialog (raised surface, `--radius-lg`, `--elevation-modal`, padding 16px vertical (`--space-6`) and `--dialog-padding-inline` inline, gap 12px). Title (lg, bold), fields (stacked), notes, test result, error, footer (Forget at the left; Cancel and the primary action at the right).
-- **States:** idle; validating (field error); testing (busy; Cancel stays enabled and discards the result); saving (fields unavailable; Save is busy: `aria-disabled` with its spinner and label, at full strength (busy is not unavailable, U1), focus kept, not the native `disabled`; Cancel and Forget are native-disabled while saving, and the busy Save on the same screen is the visible reason, 9.10); error (message above the footer, in the dialog's polite region, 9.6); locked (read-only fields for the connected source, with a note).
+- **States:** idle; validating (field error); testing (busy; Cancel stays enabled and discards the result); saving (fields unavailable; Save is busy: `aria-disabled` with its spinner shown and its label kept transparent, so the width is unchanged and the name stays for assistive technology (4.1), at full strength (busy is not unavailable, U1), focus kept, not the native `disabled`; Cancel and Forget are native-disabled while saving, and the busy Save on the same screen is the visible reason, 9.10); error (message above the footer, in the dialog's polite region, 9.6); locked (read-only fields for the connected source, with a note).
 - **Keyboard:** focus is trapped inside (modal). Initial focus: the name field (Edit: its text is selected). Escape cancels (not while saving). Enter in a field submits. When closed, focus returns to the element that opened it (the source button).
 - **ARIA:** `role="dialog"`, `aria-modal="true"`, `aria-labelledby` the title. Field errors through `aria-invalid` and `aria-describedby`. Notes, owner and mismatch warnings and the save error sit in one always-mounted polite region (`role="status"`, 9.6 rule 1); a warning is never `role="alert"`. The test-result box is always mounted.
 - **Do:** footer order: destructive at the left, Cancel, primary at the right. Reserve the height of the test result so nothing jumps.
@@ -1819,6 +1821,7 @@ Not verified. The focus ring is an outline (survives forced colours). Status gly
 4. Each component has unit tests covering render, variants, states, and keyboard or ARIA where relevant (`docs/guidelines.md`).
 5. Feature code uses the component. Duplicated markup or CSS for the same element is removed in the same change.
 6. A visual change to a component is shown as before and after in the work item.
+7. Every component has stories (`<Name>.stories.tsx` in its folder) for each state it documents (ADR 0016). `src/ui/stories.test.tsx` fails the check when a folder has no stories file or a story throws.
 
 ### 10.3 Guards (Approved; written in 009)
 
@@ -1826,6 +1829,7 @@ Not verified. The focus ring is an outline (survives forced colours). Status gly
 - The token tests in 2.18 (variables defined, no literals, contrast, canvas map).
 - A grep test forbids `toFixed` and `toLocaleString` in `src/ui/` (formatting goes through `src/format/`, 7.5).
 - The contract tests (`src/ui/SplitButton/SplitButton.geometry.test.ts`, `src/components/source/source.css.test.ts`) read geometry by token name (12.3, E4).
+- `src/ui/stories.test.tsx`: every component folder has a stories file, every story renders, runs its play function and has no axe violation (work 010), and no app file imports Storybook (ADR 0016).
 
 ### 10.4 Visual check (Approved)
 

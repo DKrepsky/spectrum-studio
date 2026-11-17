@@ -46,6 +46,8 @@ docs/                      documentation and ADRs
 | `npm run bindings` | Regenerate TypeScript bindings only |
 | `npm run e2e` | Build a debug binary and run the end-to-end suite (see testing.md) |
 | `npm run docs:screenshot` | Regenerate `docs/images/main-window.png` via WebDriver |
+| `npm run storybook` | Storybook on :6006: every `src/ui` component and state, and the tokens page (ADR 0016) |
+| `npm run build-storybook` | Static Storybook in `storybook-static/` (not part of `check`); the Accessibility panel (addon-a11y) runs axe on each story, see `docs/testing.md` |
 | `npm run tauri build` | Release build and bundles |
 
 ### TypeScript bindings

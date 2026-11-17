@@ -11,3 +11,4 @@
 
 # Large local QA evidence (raw before/after screenshot sets); summaries live in screenshots/ and qa.md
 .claude/team/work/*/evidence/
+/storybook-static
