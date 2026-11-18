@@ -111,6 +111,52 @@ describe('ParamForm', () => {
     expect(container.querySelectorAll('.param-group--bare')).toHaveLength(2); // every group, the unnamed one too
   });
 
+  it('is read-only while applying: no control is disabled, focus stays and changes are ignored', async () => {
+    const onChange = vi.fn();
+    const all: ParamSpec[] = [
+      ...specs,
+      {
+        id: 'on',
+        label: 'Enabled',
+        group: null,
+        help: null,
+        kind: { type: 'bool' },
+        default: false,
+        required: false,
+      },
+      {
+        id: 'name',
+        label: 'Name',
+        group: null,
+        help: null,
+        kind: { type: 'text', maxLength: 16 },
+        default: 'bench',
+        required: false,
+      },
+    ];
+    render(<ParamForm idPrefix="t" specs={all} values={{}} onChange={onChange} readOnly />);
+
+    for (const label of ['Frequency', 'Level', 'Name']) {
+      const field = screen.getByLabelText(label);
+      expect(field).not.toBeDisabled();
+      expect(field).toHaveAttribute('readonly');
+    }
+    expect(screen.getByLabelText('Mode')).not.toBeDisabled();
+    expect(screen.getByLabelText('Mode')).toHaveAttribute('aria-readonly', 'true');
+    const enabled = screen.getByLabelText('Enabled');
+    expect(enabled).not.toBeDisabled();
+    await userEvent.click(enabled);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(enabled).not.toBeChecked();
+
+    // Enter on a frequency keeps focus in the field (DESIGN.md 9.8).
+    const freq = screen.getByLabelText('Frequency');
+    freq.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(freq).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('removes the padding and the border of a bare group in its stylesheet', () => {
     expect(rule(css, '.param-group--bare')).toContain('padding: 0');
     expect(rule(css, '.param-group--bare')).toContain('border: 0');

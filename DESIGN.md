@@ -336,7 +336,7 @@ Base unit 2px. Use the scale. A value outside it needs a reason (2.17).
 Existing off-scale values (10px notice gap, 14px checkbox group gap, 5px row padding, 7px toolbar
 padding) are kept where a test pins them (`src/components/source/source.css.test.ts`, `src/ui/SplitButton/SplitButton.geometry.test.ts`). New code uses the scale.
 
-Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` (3px), `--capture-main-gap` (7px), `--capture-main-padding-x` (10px), `--field-padding-frequency` (7px), `--plot-tag-padding-x` (9px), `--source-test-min-height` (62px), `--source-test-gap` (10px), `--source-test-padding-y` (5px), `--toolbar-group-gap` (5px in the narrow window, 8px above 1180px), `--toolbar-padding-y` (7px), `--toolbar-field-gap` (5px in the narrow window), `--waterfall-tick-gap` (3px), `--legend-swatch-width` (10px) and `--legend-swatch-height` (3px). The next visual pass may snap them to the scale. That is a visible change and needs the before and after check of 10.4.
+Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` (3px), `--capture-main-gap` (7px), `--capture-main-padding-x` (10px), `--field-padding-frequency` (7px), `--plot-tag-padding-x` (9px), `--source-test-min-height` (62px), `--source-test-gap` (10px), `--source-test-padding-y` (5px), `--toolbar-group-gap` (5px in the narrow window, 8px above 1180px), `--toolbar-padding-y` (7px), `--waterfall-tick-gap` (3px), `--legend-swatch-width` (10px) and `--legend-swatch-height` (3px). The next visual pass may snap them to the scale. That is a visible change and needs the before and after check of 10.4.
 
 **Every pixel value in a spacing or size property is a token** (work 009 QA fix, BUG-3). The token guard (`src/styles/tokens.test.ts`, "pixel sizes and spacing") checks `padding`, `margin`, `gap`, the inset sides, `width`, `height`, `min-*`, `max-*`, the grid and flex sizes, `font-size` and the outline and border widths in every component and feature stylesheet. Only the hairlines stay literal: `0` and `1px` (and `-1px` for the visually hidden box), as 2.17 allows. A value that is on the scale uses the scale token; an off-scale value gets a named token in `tokens.css` and a row in 2.10 and Appendix A.
 
@@ -344,7 +344,7 @@ Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` 
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--control-height` | 30px | Every toolbar control (source button, capture control, Center field, Span select) |
+| `--control-height` | 30px | Toolbar controls (source button, capture control) and the toolbar size of a field or select (4.4, 4.5) |
 | `--field-height-compact` | 28px | Fields and selects in the side panel and the dialog (number inputs measure 28.2px; side-panel selects measure 26px today: F1) |
 | `--control-height-small` | 24px | Minimum height of a small button, an icon button and a checkbox label (WCAG 2.2 target, 9.9) |
 | `--target-min` | 24px | The minimum for every interactive target (9.9) |
@@ -366,8 +366,7 @@ Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` 
 | `--capture-main-padding-x` | 10px | Capture control main segment: inline padding (off-scale, as before 009) |
 | `--source-name-min` | 150px | Minimum width of the source button (3.3) |
 | `--source-name-max` | 280px | Maximum width of the source button (3.3) |
-| `--field-width-frequency` | 150px (128px at max-width 1180px) | Center field in the toolbar |
-| `--field-width-inline` | 130px | Side panel select and number |
+| `--field-width-inline` | 140px | Side panel control column: select, number and frequency (Center, Span). One width so the rows align; fits `5.999000000 GHz` (3.6) |
 | `--field-width-unit` | 90px | Number with a unit suffix (side panel) |
 | `--field-width-param` | 140px | Frequency parameter in a connect form |
 | `--field-padding-frequency` | 7px | Frequency field inline padding (off-scale, as before 009) |
@@ -380,9 +379,8 @@ Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` 
 | `--source-test-padding-y` | 5px (off-scale, as before 009) | Vertical padding of the test connection result box |
 | `--toolbar-gap` | 18px (10px at max-width 1180px) | Gap between the toolbar groups (3.3) |
 | `--toolbar-padding-x` | 12px (8px at max-width 1180px) | Toolbar horizontal padding (3.3) |
-| `--toolbar-group-gap` | 8px (5px at max-width 1180px, off-scale) | Gap inside the toolbar source and field groups |
+| `--toolbar-group-gap` | 8px (5px at max-width 1180px, off-scale) | Gap inside the toolbar source group |
 | `--toolbar-padding-y` | 7px (off-scale, as before 009) | Toolbar vertical padding |
-| `--toolbar-field-gap` | 6px (`--space-3`; 5px at max-width 1180px, off-scale) | Gap inside a toolbar field (Center, Span) |
 | `--plot-zoom-reset-inset-left` | 76px | Zoom reset control, from the left of the plot |
 | `--plot-hint-padding-x` | 40px | Plot hint: horizontal inset, so its text wraps clear of the plot edges |
 | `--waterfall-tick-gap` | 3px (off-scale, as before 009) | Waterfall tick label to its mark |
@@ -562,32 +560,30 @@ The review's wording (1180 to 1439 and 1024 to 1179) is kept; the one-pixel boun
 
 | Range (window width, CSS px) | Toolbar | Status bar (fallback fonts) | Side panel | Plot column |
 | --- | --- | --- | --- | --- |
-| **A: 1440 and above** (default 1440 x 900) | Gap 18px, padding 12px, Center 150px. 489px spare at 1440. | All 10 items, `Uncalibrated` visible. Shown from 1258px. | 330px | Width minus 330px (1110px at 1440) |
-| **B: 1181 to 1439** | Gap 18px, Center 150px | 10 items from 1258px. 9 items (no `Frame`) from 1181 to 1257px. `Uncalibrated` hidden today; visible with F0. | 330px | 851 to 1109px |
-| **C: 1024 to 1180** (minimum 1024 x 640) | Gap 10px, padding 8px, Center 128px. 115px spare at 1024. | 9 items (no `Frame`) from 1078 to 1180px. 8 items (no `Frame`, no `Rate`) from 1024 to 1077px. `Uncalibrated` hidden today in all of C; visible with F0. | 330px | 694 to 850px |
+| **A: 1440 and above** (default 1440 x 900) | Gap 18px, padding 12px. Brand and source group only (Center and Span moved to the side panel in 038; spare width measured below). | All 10 items, `Uncalibrated` visible. Shown from 1258px. | 330px | Width minus 330px (1110px at 1440) |
+| **B: 1181 to 1439** | Gap 18px | 10 items from 1258px. 9 items (no `Frame`) from 1181 to 1257px. `Uncalibrated` hidden today; visible with F0. | 330px | 851 to 1109px |
+| **C: 1024 to 1180** (minimum 1024 x 640) | Gap 10px, padding 8px. Brand and source group only. | 9 items (no `Frame`) from 1078 to 1180px. 8 items (no `Frame`, no `Rate`) from 1024 to 1077px. `Uncalibrated` hidden today in all of C; visible with F0. | 330px | 694 to 850px |
 
-Measured with the real CSS (re-measure in WebKitGTK):
+Measured with the real CSS in WebKitGTK (work 012, QA, after 038):
 
 - The source button is 280px wide at all three widths (`--source-name-max`); with the 60-character example, 213px of the name is visible at 1024px and at 1440px (measured); the rest is truncated with an ellipsis. The full name is in the tooltip and the accessible name.
-- The toolbar content ends at 951px at 1440 and at 901px at 1024 and 1180. It fits with room to spare at every width in A, B and C.
-- The toolbar is intact down to about 780 CSS px. Below that the source group runs out of room and the capture control overlaps the field group (3.9, Q-5).
-- The side panel's rows have 305px of usable width. The longest label ("Reference level") is 91px wide, so label and 130px control fit.
+- Toolbar spare width, measured in WebKitGTK after 038 (work 012, QA), with the source group and capture control. Spare width is the room to the right padding (12px at 1440, 8px at 1024). With a 22-character name (source button 224.6px) the content ends at 538.5px (1440) and 523.5px (1024), so the spare width is **889.5px** at 1440 and **492.5px** at 1024. With a 60-character name (button 280px) it ends at 593.9px and 578.9px, so the spare width is **834.1px** at 1440 and **437.1px** at 1024.
+- The toolbar does not overlap anything down to 465 CSS px (simulated enlargement, 3.9). At about 427 CSS px the capture control's chevron passes the window edge, so the toolbar clips; the threshold lies between 465 and 427 px (3.9, Q-5).
+- The side panel's rows have 305px of usable width. The longest label ("Reference level") is 91px wide, so label and 140px control fit.
 
 ### 3.3 Toolbar (Approved)
 
-Left to right: brand, source group (source button, capture control), field group (Center, Span).
+Left to right: brand, source group (source button, capture control). Center and Span are not in the toolbar: they are the first rows of the side panel's Measurement group (3.6, since work 012, issue 38).
 
 | Element | Width rule | Shrinks? | Visible at every supported width |
 | --- | --- | --- | --- |
 | Brand (`Spectrum Studio`, mark) | Content width (125px) | No | Yes |
 | Source button | 150px to 280px (`--source-name-min` to `--source-name-max`) | **Yes, first.** Its name is truncated with an ellipsis. | Yes, with its state glyph |
 | Capture control | 154px fixed (128px main, 26px chevron) | No | Yes |
-| Center field | 150px (128px in range C) | No | Yes |
-| Span select | Content width (98px measured with `2.048 MHz`) | No | Yes |
 
 Rules:
 
-1. Priority when room runs out: the source button shrinks first (down to 150px). Nothing else shrinks. The brand, the capture control and the fields never shrink.
+1. Priority when room runs out: the source button shrinks first (down to 150px). Nothing else shrinks. The brand and the capture control never shrink.
 2. The source name is truncated with an ellipsis. The full name is in the `title` and in the accessible name (`Source: <name>, <state>`).
 3. The capture control's width does not change with mode, state or label.
 4. **No overflow menu.** The toolbar has no overflow menu and no collapsing controls. It fits at 1024px with its fixed items and a 60-character name without one. An overflow menu would be a new feature (Deferred).
@@ -642,7 +638,8 @@ Other rules:
 
 - A stack of collapsible sections (`details` and `summary`). Default open: Measurement, Markers, Peaks, Display. Default closed: Source settings.
 - Width is 330px at every supported width (`--panel-width`). The panel never shrinks and never grows, so its minimum and maximum are both 330px. The plot takes the rest.
-- Section body padding `0 12px 12px`, gap 8px. Label column to the left of the control; label in secondary text; control right aligned at a fixed width (130px select and number; 90px with a unit suffix).
+- Section body padding `0 12px 12px`, gap 8px. Label column to the left of the control; label in secondary text; control right aligned at a fixed width (140px select, number and frequency, the same in every row so they align; 90px with a unit suffix).
+- **Measurement (since 038)** starts with Center (frequency) and Span (select), then FFT size, Window, Averaging and the Max hold, Min hold and Reset row. Center and Span are rendered, disabled with their reasons, while no source is connected; the FFT rows appear once the processing settings are known. Center and Span use the same `inline` field layout and non-toolbar sizes as the other rows. With no source, Center shows an em dash (`—`) and is disabled, as Span does; it never shows `0 Hz`. The widest frequency shown is `5.999000000 GHz` (15 characters, the simulator's range up to 6 GHz); it fits the 140px control with its padding, and the visual guard checks it at 1440, 1180 and 1024.
 - A row whose label and control do not fit is a bug. At 330px the widest row has 305px of room (3.2).
 - The panel scrolls vertically inside itself. Sections never hide controls.
 - **Growth of the peak table** pushes the sections below it down, which is a layout shift (7.4). **Deferred (B5; backlog):** the peak table body has a maximum height of eight rows and scrolls inside.
@@ -671,12 +668,15 @@ Two different things are called "scaling". They are tested separately.
 | 100%, 1180 | 1180 x 900 | Range C. Measured. | Required |
 | **Desktop display scale 125%, 150%, 200%** (the desktop's scale factor, logical window size unchanged) | Unchanged | Layout identical. The device pixel ratio rises (1.25 to 2); the canvas uses `devicePixelRatio`. 1px borders and 2px focus rings are rendered at fractional device pixels and may look soft. | Required: identical layout. **Re-measure**: crispness of 1px lines and the focus ring in WebKitGTK. |
 | **Webview text enlargement 125%** of the minimum window (CSS viewport 819px) | 819 x 640 | Toolbar fits (source name about 123px). Status bar: `Unit` and `Uncalibrated` are cut today; with the F0 mechanism they stay and whole items are removed. | Follows F0 (implemented). Not a commitment: zoom is unsupported (Q-5). |
-| **Webview text enlargement 150%** (CSS viewport 683px) | 683 x 640 | **Toolbar broken today**: the capture control overlaps the Center field (measured). | Unsupported (Q-5) |
-| **Webview text enlargement 200%** (CSS viewport 512px) | 512 x 640 | **Toolbar broken today** (measured). Status bar cuts most items. | Unsupported (Q-5) |
+| **Webview text enlargement 150%** (CSS viewport 683px) | 683 x 640 | Toolbar fits: no overlap, the source name is truncated with an ellipsis. Status bar drops three items (Noise floor, Rate, Frame) and keeps 7. Side panel intact. Measured by simulation (below). | Unsupported (Q-5) |
+| **Webview text enlargement 200%** (CSS viewport 512px) | 512 x 640 | Toolbar fits (brand to source gap 20px). Status bar drops FFT and Avg as well and keeps 5 items (Center, Span, RBW, Unit, Uncalibrated). Side panel intact. Measured by simulation (below). | Unsupported (Q-5) |
 
 Note: in a webview, enlargement changes the CSS viewport, so the 819, 683 and 512 rows are exactly what the
-user gets at 125%, 150% and 200% of a 1024px window. Whether the webview responds to the zoom shortcuts
-at all is not verified (Q-5).
+user gets at 125%, 150% and 200% of a 1024px window. The 683 and 512 rows were measured by simulation in WebKitGTK
+(work 012, QA round 2): the root element was given a CSS `zoom` at a 1024px window. This is not webview zoom, and
+the media queries were not re-evaluated (they still saw 1024px; the only breakpoint that applies is 1180px, already
+on at 1024px). Webview zoom keys (Ctrl+=, Ctrl+Shift+=, Ctrl+0) do nothing in this build, so the webview cannot be
+enlarged from the keyboard (Q-5).
 
 ### 3.10 Rhythm (Approved)
 
@@ -756,12 +756,13 @@ Entries removed from draft 1: `EmptyState` (no definition existed; the empty sta
 
 - **Purpose:** enter one value.
 - **Anatomy:** label (left in the side panel, above the control in dialogs), control, optional unit suffix (muted, after the control), optional hint (below, secondary, 12px), optional error (below, danger, 12px, associated with the control, 5.7).
-- **Variants:** `inline` (side panel, label left, 130px control, 90px with unit); `stacked` (dialog and connect form: label above, in the secondary colour, full width; D1); `frequency` (mono, right aligned, SI suffix accepted, 150px in the toolbar, 128px in range C, 140px in a parameter form).
+- **Variants:** `inline` (side panel, label left, 140px control, 90px with unit); `stacked` (dialog and connect form: label above, in the secondary colour, full width; D1); `frequency` (mono, right aligned, SI suffix accepted, 140px inline in the side panel and in a parameter form).
 - **Sizes:** toolbar `--control-height` (30px); panel and dialog `--field-height-compact` (28px).
 - **Value text (F17):** the Center and Span values use `--color-text-primary` (they were not primary before 009).
 - **Boundary:** `1px solid var(--color-border-input)` (3:1 on every surface it sits on; F15). Focus-visible replaces the border with the ring, offset 1px.
-- **States:** default; hover (border `--color-border-hover`); focus-visible (ring); invalid (border `--color-danger` plus the message; never colour alone); unavailable (`--opacity-unavailable`, reason in the description); read-only in use (`--opacity-read-only`, value visible); empty (placeholder in secondary text, e.g. "e.g. Bench SA430"; a placeholder is never the label).
-- **Commit rules** (all numeric and frequency fields): Enter commits; blur commits; Escape reverts to the stored value. An invalid entry is not sent: Enter keeps it visible so it can be corrected; blur reverts it. Commit only when the value changed.
+- **States:** default; hover (border `--color-border-hover`); focus-visible (ring); invalid (border `--color-danger` plus the message; never colour alone); unavailable (`--opacity-unavailable`, reason in the description); read-only in use (`--opacity-read-only`, value visible); empty (placeholder in secondary text, e.g. "e.g. Bench SA430"; a placeholder is never the label); no value (Center with no source: the em dash `—`, disabled).
+- **Commit rules** (all numeric and frequency fields): Enter commits and keeps focus in the field (9.8); blur commits; Escape reverts to the stored value. An invalid entry is not sent: Enter keeps it visible so it can be corrected; blur reverts it. Commit only when the value changed.
+- **While a commit applies** (Source settings parameters in the side panel, Center, Span): the control is read-only (`readonly` on inputs, `aria-readonly` on selects and checkboxes), not native-disabled, so focus stays on it (9.8). ParamForm passes this for every control type (number, frequency, choice, bool, text).
 - **Stepping:** ArrowUp and ArrowDown step the value (frequency: a tenth of the span; number: its step). Stepping works only when the field has no draft.
 - **Range message:** the tooltip and the inline text say the allowed range in the field's units (for example "Allowed range: 70 MHz – 6 GHz").
 - **ARIA:** `aria-label` or a `<label for>`; `aria-invalid` when invalid; `aria-describedby` pointing to the hint or error.
@@ -772,8 +773,8 @@ Entries removed from draft 1: `EmptyState` (no definition existed; the empty sta
 
 - **Purpose:** choose one of a short fixed list.
 - **Anatomy:** label, native `<select>`, native chevron.
-- **Variants:** inline (panel, 28px); toolbar (Span, 30px).
-- **States:** as Field. Unavailable with the reason in the description (for example "This source has a fixed span").
+- **Variants:** inline (panel, 28px); toolbar (30px; no instance since 038, when Span moved to the side panel).
+- **States:** as Field. Unavailable with the reason in the description (for example "This source has a fixed span"). While a pick is applying, Span is read-only (`aria-readonly`, 4.4), not native-disabled, so focus stays on it (9.8).
 - **Keyboard:** native. Do not replace it with a custom listbox unless the list must show more than a line per item.
 - **ARIA:** labelled; the current value is the visible text.
 
@@ -1708,7 +1709,7 @@ Implementation rules:
 ### 9.8 Focus (Approved)
 
 - Visible focus on every focusable element with the ring from 2.7. Never `outline: none` without a replacement.
-- Focus order follows the visual order: toolbar (source, capture, Center, Span), notice stack (recovery, dismiss), side panel (sections in order), status bar (not focusable).
+- Focus order follows the visual order: toolbar (source, capture), notice stack (recovery, dismiss), side panel (sections in order; Measurement starts with Center, then Span), status bar (not focusable).
 - A popover receives focus on open and returns it on close (Escape). A popover that closes because focus left it does not move focus back (5.1).
 - Focus is never lost. A removed element hands focus to the nearest remaining item (for example Forget moves focus to Undo; when Undo expires, focus goes to the first row).
 - The plot is not focusable today. Keyboard use of the plot is Deferred (6.10).
@@ -1722,9 +1723,9 @@ WCAG 2.2 2.5.8 (AA) requires **24 by 24 CSS px** for pointer targets, with one e
 | Source button | 280 x 30 | 24 x 24 | Pass | |
 | Capture main | 128 x 30 | 24 x 24 | Pass | |
 | Capture chevron | 26 x 30 | 24 x 24 | Pass | |
-| Center field | 150 x 28.2 | 24 x 24 | Pass (height below the 30px control height) | F1 |
-| Span select | 98 x 26 | 24 x 24 | Pass (below control height) | F1 |
-| Side panel select | 130 x 26 | 24 x 24 | Pass (below field height) | F1 |
+| Center field (side panel since 038) | 140 x 28 in the panel (1440 and 1024, measured in WebKitGTK) | 24 x 24 | Pass (height 28, below the 30px control height) | F1 |
+| Span select (side panel since 038) | 140 x 28 in the panel (1440 and 1024, measured in WebKitGTK) | 24 x 24 | Pass (height 28, below the 30px control height) | F1 |
+| Side panel select (FFT size) | 140 x 28 (1440 and 1024, measured in WebKitGTK) | 24 x 24 | Pass (height 28, below the 30px control height) | F1 |
 | `button.small` (Peak search) | 81.5 x 22.8 | 24 x 24 | **Fail** | F2 |
 | Marker × (table) | 23 x 20 | 24 x 24 | **Fail** | F2 |
 | Notice dismiss × | 22.5 x 20 | 24 x 24 | **Fail** | F2 |
@@ -1973,7 +1974,7 @@ The designer's recommendation is kept for the record. The last column is the PM'
 | Q-2 | Copy: "press Play" to "press Continuous" / "press Single" (C1)? | Yes. It matches the button. | Human | Accepted; implemented in 009 (C1) |
 | Q-3 | Unavailable opacity: 0.6 (proposed) or another value? | 0.6. It is the lowest value, in steps of 0.05, where the primary label reaches 4.5:1 on the control fill. | Human | Accepted: 0.6; implemented in 009 (F9) |
 | Q-4 | Status bar removal order (3.4): Frame, Rate, Noise floor, FFT, Avg, RBW? | Yes. Frame and Rate are the least needed while the plot tag shows data age. | Human | Accepted; implemented in 009 (F0) |
-| Q-5 | Is in-app text enlargement (zoom) a requirement? Today the toolbar overlaps below about 780 CSS px and the status bar cuts items. If yes: a toolbar second row below 780 px (Proposed) and the status bar mechanism. Whether the webview responds to Ctrl+= and Ctrl+- is not verified. | Not in work 009. Record zoom as unsupported until decided; QA checks whether the shortcuts zoom the webview. | Human | Unsupported. Not a requirement in 009. QA checks whether Ctrl+= and Ctrl+- zoom the webview and reports it (T13). Backlog: zoom support |
+| Q-5 | Is in-app text enlargement (zoom) a requirement? The toolbar does not overlap down to 465 CSS px (it clips at about 427 CSS px, 3.2 and 3.9), so no toolbar second row is proposed. The status bar drops items at 683 and 512 CSS px (3.9). Webview zoom keys (Ctrl+=, Ctrl+Shift+=, Ctrl+0) do nothing in this build (O7, verified in the real app). | Not in work 009. Record zoom as unsupported until decided. | Human | Unsupported. Not a requirement in 009. Zoom by keyboard does nothing in this build (O7). Backlog: zoom support |
 | Q-6 | Toolbar source button: show the status word (for example "Connecting…") beside the name, or keep the glyph only? | Keep the glyph only (the name is scarce space). The capture control shows acquisition. | Human | Glyph only (no change) |
 | Q-7 | Peak click: keep "select and place marker", or split into "select" and "Place marker" (I11)? | Split. It makes the marker move explicit. | Human | Kept as it is in 009; the split is in the backlog |
 | Q-8 | Keyboard use of the plot (marker movement, zoom keys, 6.10): in a later work item? | Yes, later. Not in 009. | Human, PM | Backlog (later work item) |
@@ -2312,8 +2313,7 @@ Values and comments are the implemented ones. The test compares the block with `
   --capture-main-padding-x: 10px; /* Off-scale, kept from before T7 */
   --source-name-min: 150px;
   --source-name-max: 280px;
-  --field-width-frequency: 150px;
-  --field-width-inline: 130px;
+  --field-width-inline: 140px;
   --field-width-unit: 90px;
   --field-width-param: 140px;
   --field-padding-frequency: 7px; /* Off-scale, kept from before T7: frequency field inline padding */
@@ -2328,7 +2328,6 @@ Values and comments are the implemented ones. The test compares the block with `
   --toolbar-padding-x: 12px;
   --toolbar-group-gap: 8px;
   --toolbar-padding-y: 7px; /* Off-scale, kept from before 009: toolbar vertical padding */
-  --toolbar-field-gap: var(--space-3); /* Gap inside a toolbar field (5px at max-width 1180px) */
   --plot-zoom-reset-inset-left: 76px; /* Zoom reset, from the left of the plot */
   --plot-hint-padding-x: 40px; /* Plot hint: horizontal inset, so the text wraps clear of the plot edges */
   --waterfall-tick-gap: 3px; /* Off-scale, kept from before 009: waterfall tick label to its mark */
@@ -2380,8 +2379,6 @@ Values and comments are the implemented ones. The test compares the block with `
     --toolbar-gap: 10px;
     --toolbar-padding-x: 8px;
     --toolbar-group-gap: 5px;
-    --toolbar-field-gap: 5px;
-    --field-width-frequency: 128px;
   }
 }
 

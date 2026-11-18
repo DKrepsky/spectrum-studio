@@ -545,7 +545,6 @@ describe('design tokens', () => {
   it('keeps the geometry the pixel tokens replaced at the value the CSS used before (DESIGN.md 2.9, 2.10)', () => {
     const before: Record<string, string> = {
       '--toolbar-padding-y': '7px',
-      '--toolbar-field-gap': '6px',
       '--plot-zoom-reset-inset-left': '76px',
       '--plot-hint-padding-x': '40px',
       '--waterfall-tick-gap': '3px',

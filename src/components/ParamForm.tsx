@@ -8,6 +8,11 @@ interface Props {
   values: Partial<Record<string, ParamValue>>;
   onChange: (id: string, value: ParamValue) => void;
   disabled?: boolean;
+  /**
+   * Read-only in use: the values stay visible and focus stays in the control, but changes are
+   * ignored. Use it while a change is applying; `disabled` would drop keyboard focus (DESIGN.md 9.8).
+   */
+  readOnly?: boolean;
   /** Prefix for element ids, so several forms can coexist. */
   idPrefix: string;
   /**
@@ -39,6 +44,7 @@ export function ParamForm({
   values,
   onChange,
   disabled,
+  readOnly,
   idPrefix,
   layout = 'stacked',
   framed = true,
@@ -55,6 +61,7 @@ export function ParamForm({
               value={values[spec.id] ?? spec.default}
               onChange={(v) => onChange(spec.id, v)}
               disabled={disabled}
+              readOnly={readOnly}
               id={`${idPrefix}-${spec.id}`}
               layout={layout}
             />
@@ -70,12 +77,13 @@ interface FieldProps {
   value: ParamValue;
   onChange: (value: ParamValue) => void;
   disabled?: boolean | undefined;
+  readOnly?: boolean | undefined;
   id: string;
   layout: 'inline' | 'stacked';
 }
 
 /** One parameter as a `ui/` field. The label keeps its required mark in the text (no danger colour). */
-function ParamField({ spec, value, onChange, disabled, id, layout }: FieldProps) {
+function ParamField({ spec, value, onChange, disabled, readOnly, id, layout }: FieldProps) {
   const kind = spec.kind;
   const title = spec.help ?? undefined;
   const label = spec.required ? `${spec.label} *` : spec.label;
@@ -95,6 +103,7 @@ function ParamField({ spec, value, onChange, disabled, id, layout }: FieldProps)
                 step={kind.step}
                 onCommit={onChange}
                 disabled={disabled}
+                readOnly={readOnly}
               />
             ) : (
               <NumberField
@@ -109,6 +118,7 @@ function ParamField({ spec, value, onChange, disabled, id, layout }: FieldProps)
                 integer={Number.isInteger(kind.step) && kind.step >= 1}
                 onCommit={onChange}
                 disabled={disabled}
+                readOnly={readOnly}
               />
             )
           }
@@ -121,6 +131,7 @@ function ParamField({ spec, value, onChange, disabled, id, layout }: FieldProps)
             label={spec.label}
             checked={value === true}
             disabled={disabled}
+            readOnly={readOnly}
             onChange={(checked) => onChange(checked)}
           />
         </div>
@@ -136,6 +147,7 @@ function ParamField({ spec, value, onChange, disabled, id, layout }: FieldProps)
               value={String(value)}
               options={kind.options}
               disabled={disabled}
+              readOnly={readOnly}
               onChange={(v) => onChange(v)}
             />
           )}
@@ -152,6 +164,7 @@ function ParamField({ spec, value, onChange, disabled, id, layout }: FieldProps)
               maxLength={kind.maxLength}
               value={String(value)}
               disabled={disabled}
+              readOnly={readOnly}
               onChange={(v) => onChange(v)}
             />
           )}

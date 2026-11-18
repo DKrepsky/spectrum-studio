@@ -56,6 +56,73 @@ describe('Simulator acquisition workflow', () => {
     expect(text).toMatch(/P1\s*100\.25\d* MHz\s*-20\.\d dBFS/);
   });
 
+  it('shows Center and Span first in the side panel Measurement group, not in the toolbar', async () => {
+    const layout = await browser.execute(() => {
+      const measurement = Array.from(document.querySelectorAll('.side-panel details')).find(
+        (d) => d.querySelector('summary')?.textContent?.trim() === 'Measurement',
+      );
+      const labels = Array.from(measurement?.querySelectorAll('.ui-field__label') ?? []).map((l) =>
+        l.textContent?.trim(),
+      );
+      return {
+        labels,
+        inToolbar: document.querySelectorAll(
+          '.toolbar [data-testid="center-frequency"], .toolbar [data-testid="span-select"]',
+        ).length,
+      };
+    });
+    expect(layout.labels.slice(0, 3)).toEqual(['Center', 'Span', 'FFT size']);
+    expect(layout.inToolbar).toBe(0);
+  });
+
+  it('applies a picked span and keeps keyboard focus on Span (DESIGN.md 9.8, O1)', async () => {
+    const focusedLabel = () =>
+      browser.execute(() => document.activeElement?.getAttribute('aria-label') ?? null);
+    const span = $('#span');
+    await span.click();
+    await span.selectByAttribute('value', '1024000');
+    // The pick sets busy = 'applying'; the backend's new span shows in the select once it lands.
+    await browser.waitUntil(async () => (await span.getValue()) === '1024000', {
+      timeoutMsg: 'the picked span did not reach the source',
+    });
+    // A native disabled select drops focus in WebKit; Span is read-only while applying instead.
+    expect(await focusedLabel()).toBe('Span');
+    await expect(span).not.toBeDisabled();
+    await span.selectByAttribute('value', '2048000');
+    await browser.waitUntil(async () => (await span.getValue()) === '2048000');
+    expect(await focusedLabel()).toBe('Span');
+  });
+
+  it('applies a Source settings frequency and keeps keyboard focus in it (DESIGN.md 9.8, O1)', async () => {
+    const summary = await $('summary=Source settings');
+    await browser.waitUntil(async () => {
+      const open = await browser.execute(
+        (el) => (el.parentElement as HTMLDetailsElement).open,
+        summary,
+      );
+      if (open) return true;
+      await summary.click();
+      return false;
+    });
+    const tone = '#source-tone1Hz';
+    await setInput(tone, '100.3M');
+    // The commit sets busy = 'applying'; a read-only field keeps focus while it applies.
+    await browser.waitUntil(
+      async () => {
+        const first = (await $$('[data-testid="peak-table"] tbody tr'))[0];
+        return first !== undefined && (await first.getText()).includes('100.30');
+      },
+      { timeoutMsg: 'the Tone 1 frequency did not reach the source' },
+    );
+    const focusedId = await browser.execute(() => document.activeElement?.id ?? null);
+    expect(focusedId).toBe('source-tone1Hz');
+    await expect($(tone)).not.toBeDisabled();
+    // Restore the simulator's default tone for the specs that follow.
+    await setInput(tone, '100.25M');
+    await browser.waitUntil(async () => (await (await $(tone)).getValue()) === '100.250000 MHz');
+    await summary.click();
+  });
+
   it('applies processing settings and reflects them in the frame metadata', async () => {
     await $('#fft-size').selectByAttribute('value', '1024');
     await browser.waitUntil(async () => (await statusBarText()).includes('FFT 1024'), {
@@ -70,6 +137,11 @@ describe('Simulator acquisition workflow', () => {
     await browser.waitUntil(async () => (await statusBarText()).includes('Center 433.92'), {
       timeoutMsg: 'status bar did not show the new centre frequency',
     });
+    // Enter commits and keeps focus in the field (DESIGN.md 9.8, O1).
+    const focused = await browser.execute(
+      () => document.activeElement?.getAttribute('aria-label') ?? null,
+    );
+    if (focused !== 'Center frequency') throw new Error(`focus after Enter is on ${focused}`);
     await setInput('input[aria-label="Center frequency"]', '7G');
     await expect($('input[aria-label="Center frequency"]')).toHaveAttribute('aria-invalid', 'true');
     await browser.keys(['Escape']);

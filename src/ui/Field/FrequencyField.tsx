@@ -8,7 +8,8 @@ export interface FrequencyFieldProps extends Omit<
   ComponentProps<'input'>,
   'type' | 'value' | 'onChange' | 'onBlur' | 'onKeyDown' | 'onFocus' | 'size'
 > {
-  value: number;
+  /** Hz, or `null` when there is no value (no source): shown as an em dash and not editable. */
+  value: number | null;
   /** Called with a valid, changed frequency in Hz only. */
   onCommit: (hz: number) => void;
   min?: number;
@@ -19,9 +20,11 @@ export interface FrequencyFieldProps extends Omit<
   label: string;
   /** Shown as the tooltip while the value is valid. */
   title?: string;
-  /** `toolbar`: 150px (128px in the narrow range). `compact`: 140px in a parameter form. */
+  /** Height only: `toolbar` 30px, `compact` 28px (DESIGN.md 4.4). The frequency width is the same in both. */
   size?: FieldSize;
   invalid?: boolean;
+  /** Read-only in use: the value stays visible, focus stays in the field, and it is never stepped. */
+  readOnly?: boolean;
 }
 
 /**
@@ -39,6 +42,7 @@ export function FrequencyField({
   title,
   size = 'compact',
   invalid = false,
+  readOnly = false,
   className,
   ...rest
 }: FrequencyFieldProps) {
@@ -54,7 +58,8 @@ export function FrequencyField({
     (min !== undefined && hz < min) || (max !== undefined && hz > max);
   const parsed = draft === null ? value : parseFrequency(draft);
   const outOfRange = parsed !== null && isOutOfRange(parsed);
-  const invalidEntry = parsed === null || outOfRange;
+  // With no value and no draft there is nothing to be invalid about.
+  const invalidEntry = (draft !== null || value !== null) && (parsed === null || outOfRange);
   const showInvalid = invalidEntry || invalid;
 
   const commit = (revertInvalid: boolean) => {
@@ -88,8 +93,9 @@ export function FrequencyField({
             : 'Enter a frequency such as 100.2M or 433.92 MHz'
           : title
       }
-      value={draft ?? formatFrequency(value, 1)}
+      value={draft ?? (value === null ? '—' : formatFrequency(value, 1))}
       spellCheck={false}
+      readOnly={readOnly}
       onChange={(event) => {
         setDraft(event.target.value);
       }}
@@ -101,14 +107,16 @@ export function FrequencyField({
       }}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {
+          // Focus stays in the field after a commit (DESIGN.md 9.8: focus is never lost).
           commit(false);
-          if (!invalidEntry) event.currentTarget.blur();
         } else if (event.key === 'Escape') {
           setDraft(null);
           event.currentTarget.blur();
         } else if (
           (event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
-          draftRef.current === null
+          draftRef.current === null &&
+          value !== null &&
+          !readOnly
         ) {
           event.preventDefault();
           let next = value + (event.key === 'ArrowUp' ? step : -step);

@@ -108,6 +108,21 @@ async function pauseAcquisition() {
   await waitForState('Connected');
 }
 
+/**
+ * The Center text must not be clipped (scrollWidth <= clientWidth). A value of 1 GHz and above
+ * (`5.999000000 GHz`, 15 characters) was clipped at 130px (BUG-012-QA-1). `where` names the state.
+ */
+async function assertCenterFits(where: string) {
+  const center = await browser.execute(() => {
+    const el = document.querySelector<HTMLInputElement>('[data-testid="center-frequency"]')!;
+    return { sw: el.scrollWidth, cw: el.clientWidth, value: el.value };
+  });
+  expect(
+    center.sw,
+    `${where}: Center "${center.value}" is clipped (${center.sw} > ${center.cw})`,
+  ).toBeLessThanOrEqual(center.cw);
+}
+
 /** Scrolls the side panel so that the section with this title starts at its top. */
 async function showSection(title: string) {
   await browser.execute((t) => {
@@ -173,6 +188,34 @@ describe('Visual guard: panels, banners, status bar, plot tags and capture contr
       });
       await showSection('Measurement');
       await shot(`panel-measurement-${real}-sim`);
+
+      // A GHz Center (the simulator reaches 6 GHz) must fit the field, then return to 100 MHz.
+      await setInput('input[aria-label="Center frequency"]', '5999M');
+      await browser.waitUntil(
+        async () =>
+          (await browser.execute(
+            () =>
+              document.querySelector<HTMLInputElement>('[data-testid="center-frequency"]')!.value,
+          )) === '5.999000000 GHz',
+        { timeoutMsg: 'Center did not show 5.999000000 GHz' },
+      );
+      expect(
+        await browser.execute(
+          () => document.querySelector<HTMLInputElement>('[data-testid="center-frequency"]')!.value,
+        ),
+        `Center shows the GHz value at ${real}`,
+      ).toContain('GHz');
+      await assertCenterFits(`Center 5.999 GHz at ${real}`);
+      await shot(`panel-center-ghz-${real}-sim`);
+      await setInput('input[aria-label="Center frequency"]', '100M');
+      await browser.waitUntil(
+        async () =>
+          (await browser.execute(
+            () =>
+              document.querySelector<HTMLInputElement>('[data-testid="center-frequency"]')!.value,
+          )) === '100.000000 MHz',
+        { timeoutMsg: 'Center did not return to 100 MHz' },
+      );
 
       await (await $('button=+ Marker')).click();
       await (await $('button=+ Marker')).click();
@@ -919,11 +962,8 @@ async function assertNameVisible(where: string, name: string, minChars: number) 
       aria: btn.getAttribute('aria-label') ?? '',
     };
   });
-  const center = await browser.execute(() => {
-    const el = document.querySelector<HTMLInputElement>('[data-testid="center-frequency"]')!;
-    return { sw: el.scrollWidth, cw: el.clientWidth };
-  });
-  expect(center.sw, `${where}: Center frequency text is clipped`).toBeLessThanOrEqual(center.cw);
+  // Center is the first row of the side panel's Measurement group since 038; it must not clip either.
+  await assertCenterFits(where);
   const visible = Math.floor(name.length * Math.min(1, m.cw / m.sw));
   if (name.length <= 22) {
     expect(

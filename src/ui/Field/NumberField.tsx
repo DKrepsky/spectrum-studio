@@ -22,6 +22,11 @@ export interface NumberFieldProps extends Omit<
   size?: FieldSize;
   /** Shows the danger border and `aria-invalid` for an error the parent knows about. */
   invalid?: boolean;
+  /**
+   * Read-only in use (DESIGN.md 4.4, 9.10): the value stays visible, focus stays in the field and
+   * it is never stepped. Use this instead of `disabled` while a change is applying.
+   */
+  readOnly?: boolean;
 }
 
 /** Parses the draft; an empty draft is NaN (invalid), `null` means no edit in progress. */
@@ -50,6 +55,7 @@ export function NumberField({
   unit,
   size = 'compact',
   invalid = false,
+  readOnly = false,
   className,
   title,
   ...rest
@@ -96,6 +102,7 @@ export function NumberField({
         max={max}
         step={step}
         aria-invalid={showInvalid || undefined}
+        readOnly={readOnly}
         title={outOfRange ? rangeMessage : title}
         onChange={(event) => {
           setDraft(event.target.value);
@@ -110,7 +117,8 @@ export function NumberField({
             setDraft(null);
           } else if (
             (event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
-            draftRef.current === null
+            draftRef.current === null &&
+            !readOnly
           ) {
             event.preventDefault();
             const next = Math.min(

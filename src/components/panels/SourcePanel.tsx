@@ -17,7 +17,7 @@ export function SourcePanel() {
       idPrefix="source"
       specs={params}
       values={source.settings.params}
-      disabled={busy === 'applying'}
+      readOnly={busy === 'applying'}
       onChange={(id, value) =>
         void useSession
           .getState()

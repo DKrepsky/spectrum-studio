@@ -259,6 +259,26 @@ export const SelectUnavailable: Story = {
   ),
 };
 
+export const SelectReadOnly: Story = {
+  render: () => (
+    <Field label="Span" layout="inline">
+      {(control) => (
+        <Select
+          id={control.id}
+          label="Span"
+          value="100 MHz"
+          onChange={fn()}
+          readOnly
+          options={[
+            { value: '10 MHz', label: '10 MHz' },
+            { value: '100 MHz', label: '100 MHz' },
+          ]}
+        />
+      )}
+    </Field>
+  ),
+};
+
 /* Checkbox: the box comes before the text (DESIGN.md 4.6). */
 
 export const CheckboxUnchecked: Story = {
