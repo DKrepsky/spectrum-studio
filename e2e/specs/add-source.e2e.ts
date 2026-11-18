@@ -119,7 +119,7 @@ describe('Add source', () => {
     await waitForGone('add-source-dialog');
   });
 
-  it('forgetting the selected, not connected source clears the toolbar button (R2-3)', async () => {
+  it('forgetting the selected, not connected source clears the source button (R2-3)', async () => {
     // "Bench rig" is still selected after its failed connect: the button shows it.
     expect(await sourceButtonText()).toContain('Bench rig');
     await openSourceMenu();

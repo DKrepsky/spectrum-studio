@@ -15,7 +15,7 @@ import { useSession } from './session';
 export const SCAN_INTERVAL_MS = 3000;
 export const UNDO_FORGET_MS = 5000;
 
-/** The source the toolbar button shows; `id` is null for a source that is not remembered. */
+/** The source the source button shows; `id` is null for a source that is not remembered. */
 export interface ActiveEntry {
   id: string | null;
   title: string;
@@ -160,7 +160,7 @@ export const useSources = create<SourcesStore>()((set, get) => {
 
     updateSource: async (id, update) => {
       const saved = await api.updateSource(id, update);
-      await get().refresh(); // also re-titles the toolbar when the edited entry is the active one
+      await get().refresh(); // also re-titles the source button when the edited entry is the active one
       return saved;
     },
 

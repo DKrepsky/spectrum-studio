@@ -11,3 +11,4 @@
 - [Known pre-existing e2e failures](qa-known-failures-011.md) — acquisition.e2e.ts 2 deterministic failures at HEAD (work 011)
 - [WebDriver probe pitfalls (012)](webdriver-probe-pitfalls-012.md) — focus-visible needs OS focus (wmctrl), execute closures, status strip idle, SA430 range, GHz cropping check
 - [Webview zoom simulation](webview-zoom-simulation.md) — Ctrl+= does nothing in this build; root CSS zoom as the stand-in and its limits
+- [App autoconnect and probe setup](app-autoconnect-and-probe-setup.md) — SA430 auto-connects at launch; separate QA build dir; probe cascade trap (013)

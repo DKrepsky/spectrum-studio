@@ -7,7 +7,7 @@ import { useSources } from '../../state/sources';
 import { SourceMenu } from './SourceMenu';
 import { useSourceMenu } from './menuState';
 import { StatusDot } from '../../ui/StatusDot';
-import { activeStatus } from './status';
+import { STATUS_TEXT, activeStatus } from './status';
 import './source.css';
 
 const STATE_LABEL: Record<SessionState, string> = {
@@ -18,7 +18,7 @@ const STATE_LABEL: Record<SessionState, string> = {
   disconnecting: 'Disconnecting…',
 };
 
-/** The single source control of the toolbar: status dot, source name and the menu it opens. */
+/** The source control, first item of the side panel's Measurement group: status dot, source name and the menu it opens. */
 export function SourceButton() {
   const open = useSourceMenu((s) => s.open);
   const setOpen = useSourceMenu((s) => s.setOpen);
@@ -46,7 +46,9 @@ export function SourceButton() {
     : null;
   const status = activeStatus(state, busy, key !== null && failed === key, lost);
   const name = active?.title ?? 'Choose a source';
-  const stateLabel = busy === 'connecting' ? STATE_LABEL.connecting : STATE_LABEL[state];
+  // The accessible name says what the dot shows (the same words as the row, status.tsx), so a failed
+  // source reads "Failed", not the session's "Disconnected".
+  const stateLabel = STATUS_TEXT[status] ?? STATE_LABEL[state];
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'ArrowDown' && !open) {

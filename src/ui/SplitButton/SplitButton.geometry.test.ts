@@ -6,7 +6,7 @@ import { parseTokens, resolveToken } from '../../test/tokens';
 
 /**
  * jsdom cannot lay anything out, so this guards the fixed geometry of SplitButton, the capture
- * control, which keeps the toolbar still when the mode or the state changes (DESIGN.md 4.3, 3.3).
+ * control, which keeps the layout still when the mode or the state changes (DESIGN.md 4.3, 3.6).
  * The geometry is named by tokens, so the numbers live once, in tokens.css. Real pixels are checked
  * by the visual QA.
  */

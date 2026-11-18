@@ -1,10 +1,6 @@
-import { CaptureControl } from './capture/CaptureControl';
-import { SourceButton } from './source/SourceButton';
-
 /**
- * The toolbar (DESIGN.md 3.3): brand and the source group (source button, capture control). The
- * tuning fields (Center, Span) live in the side panel's Measurement group. Every control comes
- * from `src/ui/`.
+ * The toolbar (DESIGN.md 3.3): the brand only. The source button and the capture control are the
+ * first and last items of the side panel's Measurement group (3.6).
  */
 export function Toolbar() {
   return (
@@ -14,11 +10,6 @@ export function Toolbar() {
           ▲
         </span>
         Spectrum Studio
-      </div>
-
-      <div className="toolbar-group toolbar-source">
-        <SourceButton />
-        <CaptureControl />
       </div>
     </header>
   );

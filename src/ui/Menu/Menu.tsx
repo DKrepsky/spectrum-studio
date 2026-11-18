@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject } 
 
 import { useDismiss } from '../hooks/useDismiss';
 import { menuItems, useMenuKeys } from '../hooks/useMenuKeys';
+import { usePopupFlip } from '../hooks/usePopupFlip';
 import '../Popover/Popover.css';
 import './Menu.css';
 
@@ -43,6 +44,7 @@ export function Menu({
   const list = useRef<HTMLDivElement>(null);
   const close = useCallback(() => onClose(true), [onClose]);
   const dismiss = useCallback(() => onClose(false), [onClose]);
+  usePopupFlip(surface, anchorRef);
   const onKeyDown = useMenuKeys({ container: list, onEscape: close, onTab: close });
   useDismiss({ container: surface, anchor: anchorRef, onDismiss: dismiss });
 

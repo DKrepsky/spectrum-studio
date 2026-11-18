@@ -100,6 +100,16 @@ export const Connecting: Story = {
   },
 };
 
+/** Full width, as in the side panel's column: the main segment takes the room, the chevron stays at the end. */
+export const FullWidth: Story = {
+  args: { fullWidth: true },
+  render: (args: SplitProps) => (
+    <div style={{ width: 'var(--panel-width)' }}>
+      <SplitButton {...args} />
+    </div>
+  ),
+};
+
 /** Keyboard focus on the main segment shows the group ring. */
 export const Focus: Story = {
   play: async ({ canvasElement }) => {

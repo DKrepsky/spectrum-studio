@@ -20,6 +20,11 @@
 .popover-align-end {
   right: 0;
 }
+/* Opens above the trigger when there is no room below in the window or the panel (usePopupFlip). */
+.popover-up {
+  top: auto;
+  bottom: calc(100% + var(--space-2));
+}
 .popover-source {
   width: var(--popover-width);
   min-width: var(--popover-width-mode);

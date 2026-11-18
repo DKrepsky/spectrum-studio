@@ -75,9 +75,10 @@ function mainView(mode: CaptureMode, state: SessionState): MainView {
 }
 
 /**
- * The toolbar capture control: a main button (mode label plus play, pause or cancel) and a chevron
- * that opens the mode menu, both in one `SplitButton`. Everything shown comes from `SessionStatus`;
- * the UI never assumes a start, stop or single-capture completion succeeded.
+ * The capture control, last item of the side panel's Measurement group: a main button (mode label
+ * plus play, pause or cancel) and a chevron that opens the mode menu, both in one `SplitButton`.
+ * Everything shown comes from `SessionStatus`; the UI never assumes a start, stop or single-capture
+ * completion succeeded.
  */
 export function CaptureControl() {
   const status = useSession((s) => s.status);
@@ -199,6 +200,7 @@ export function CaptureControl() {
   return (
     <SplitButton
       groupLabel="Capture"
+      fullWidth
       tone={acquiring ? 'danger' : mode === 'single' ? 'violet' : 'accent'}
       chevronRef={chevron}
       main={{

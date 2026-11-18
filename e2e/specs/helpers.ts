@@ -159,13 +159,13 @@ export async function acquireState(): Promise<string | null> {
 
 export type CaptureModeName = 'continuous' | 'single';
 
-/** The capture mode the toolbar shows (`data-mode` of the main button), from the backend status. */
+/** The capture mode the capture control shows (`data-mode` of the main button), from the backend status. */
 export async function captureMode(): Promise<string | null> {
   return (await byTestId('acquire-button')).getAttribute('data-mode');
 }
 
 /**
- * Chooses a capture mode from the chevron menu and waits until the toolbar shows it. Choosing a
+ * Chooses a capture mode from the chevron menu and waits until the capture control shows it. Choosing a
  * mode never starts a capture.
  */
 export async function chooseMode(mode: CaptureModeName) {

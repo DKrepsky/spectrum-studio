@@ -1,14 +1,15 @@
-/* Source button (the toolbar trigger) and the source popover's feature layout: what a row shows, in
+/* Source button (the side panel's trigger) and the source popover's feature layout: what a row shows, in
    which grid cell. Surfaces, the popover, the rows' hover, the actions and the buttons are `ui/`
    (Popover, ListRow, StatusDot, Badge, IconButton, Button). Fixed widths are tokens, pinned by
    source.css.test.ts: the name column of every row is the same whatever its badge or status. */
 
+/* The source button fills the side panel's column (DESIGN.md 3.6): the panel is a fixed width, so the
+   name gets the whole row and truncates with an ellipsis. */
 .source-control {
   position: relative;
   display: flex;
-  flex: 0 1 auto;
-  min-width: var(--source-name-min);
-  max-width: var(--source-name-max);
+  width: 100%;
+  min-width: 0;
 }
 .source-button {
   display: flex;
@@ -16,8 +17,7 @@
   gap: var(--space-4);
   flex: 1 1 auto;
   box-sizing: border-box;
-  min-width: var(--source-name-min);
-  max-width: var(--source-name-max);
+  min-width: 0;
   height: var(--control-height);
   padding: 0 var(--space-5);
   border: 1px solid var(--color-border-default);
@@ -59,6 +59,12 @@
 .source-button-name {
   flex: 1 1 auto;
   text-align: left;
+}
+
+/* The popover is clipped by the side panel's scroll box, so it cannot be wider than the column it
+   opens from: it is as wide as the source button (DESIGN.md 4.11). */
+.source-control > .popover-source {
+  width: 100%;
 }
 
 .source-menu:focus {

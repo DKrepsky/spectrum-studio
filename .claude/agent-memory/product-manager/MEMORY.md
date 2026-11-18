@@ -17,3 +17,4 @@
 - [Storybook 010](project-storybook.md) — Storybook + a11y accepted; stories/axe guarded in npm test
 - [Reconnect 011](project-reconnect-011.md) — #1 fixed; pre-existing red e2e fixed in same change; check port 1420 before human tests
 - [Center/Span move 012](project-measurement-012.md) — #38 accepted; brief QA on overflow/focus/DESIGN re-measure up front; probe file cleanup
+- [Source/capture move 013](project-source-capture-013.md) — #40 accepted; capture not sticky; one fix pass then accept; raw shots → evidence/

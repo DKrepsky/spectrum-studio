@@ -104,9 +104,9 @@ name `SA430 08FF41E50F8B3A34`, a 22- and a 60-character name, a failing simulato
 a long serial-port path. At 1180 and 1024 px (the window cannot go below 1024, so a 520 request is
 clamped and logged) it asserts:
 
-- the source button is 150 to 280 px wide, shows the 22-character name untruncated and ellipsises
-  the 60-character one only while its `aria-label` carries the full name; the page and toolbar do
-  not scroll sideways;
+- the source button fills the side panel's column (the Measurement group), shows the 22-character
+  name untruncated and ellipsises the 60-character one only while its `aria-label` carries the full
+  name; the page and the toolbar do not scroll sideways;
 - every menu row has one name column (identical left and right edge for USB and Built-in
   rows), a badge column of exactly 64 px at the same left edge, a line 2, equal row heights, and a
   `title` whenever a name is cut;

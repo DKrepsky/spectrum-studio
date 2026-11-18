@@ -234,12 +234,12 @@ table says where. "Always shown" in draft 1 was wrong for some states: this tabl
 | Not detected | Empty ring (2px border) | Not detected | Popover row, line 2 | Yes |
 | New (detected, not remembered) | Solid grey dot | New | Popover row, line 2 | Yes |
 | Idle (remembered, not connected) | Solid grey dot | **none, by design** | Not shown | No status word in the name |
-| Source button (toolbar, any state) | The glyph of the table above | **none** (the glyph is the visible signal; the word is in the name and the tooltip) | Not shown | Yes |
+| Source button (side panel, any state) | The glyph of the table above | **none** (the glyph is the visible signal; the word is in the name and the tooltip) | Not shown | Yes |
 
 Rules:
 
 - **Idle has no visible word, by design.** A remembered source that is not connected is the default; a word would add noise to every row. Its name says nothing about status.
-- **The toolbar shows the glyph only.** At 1024px the name of the source is the scarce space (3.3). Connected and acquiring look the same in the toolbar (both teal); acquisition is visible on the capture control (red Pause or Stop). Open question Q-6 asks whether the toolbar should show a word.
+- **The source button shows the glyph only.** At 1024px the name of the source is the scarce space (3.6). Connected and acquiring look the same on the source button (both teal); acquisition is visible on the capture control (red Pause or Stop), which is the last item of the same panel group. Open question Q-6 asks whether the source button should show a word.
 - The glyph is 10px in an 18px cell (`--glyph-cell`, `--glyph-dot`). Its word on line 2 of a row says the same thing.
 - A status glyph is `aria-hidden`; the word or the name carries the state.
 
@@ -336,7 +336,7 @@ Base unit 2px. Use the scale. A value outside it needs a reason (2.17).
 Existing off-scale values (10px notice gap, 14px checkbox group gap, 5px row padding, 7px toolbar
 padding) are kept where a test pins them (`src/components/source/source.css.test.ts`, `src/ui/SplitButton/SplitButton.geometry.test.ts`). New code uses the scale.
 
-Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` (3px), `--capture-main-gap` (7px), `--capture-main-padding-x` (10px), `--field-padding-frequency` (7px), `--plot-tag-padding-x` (9px), `--source-test-min-height` (62px), `--source-test-gap` (10px), `--source-test-padding-y` (5px), `--toolbar-group-gap` (5px in the narrow window, 8px above 1180px), `--toolbar-padding-y` (7px), `--waterfall-tick-gap` (3px), `--legend-swatch-width` (10px) and `--legend-swatch-height` (3px). The next visual pass may snap them to the scale. That is a visible change and needs the before and after check of 10.4.
+Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` (3px), `--capture-main-gap` (7px), `--capture-main-padding-x` (10px), `--field-padding-frequency` (7px), `--plot-tag-padding-x` (9px), `--source-test-min-height` (62px), `--source-test-gap` (10px), `--source-test-padding-y` (5px), `--toolbar-padding-y` (7px), `--waterfall-tick-gap` (3px), `--legend-swatch-width` (10px) and `--legend-swatch-height` (3px). The next visual pass may snap them to the scale. That is a visible change and needs the before and after check of 10.4.
 
 **Every pixel value in a spacing or size property is a token** (work 009 QA fix, BUG-3). The token guard (`src/styles/tokens.test.ts`, "pixel sizes and spacing") checks `padding`, `margin`, `gap`, the inset sides, `width`, `height`, `min-*`, `max-*`, the grid and flex sizes, `font-size` and the outline and border widths in every component and feature stylesheet. Only the hairlines stay literal: `0` and `1px` (and `-1px` for the visually hidden box), as 2.17 allows. A value that is on the scale uses the scale token; an off-scale value gets a named token in `tokens.css` and a row in 2.10 and Appendix A.
 
@@ -344,7 +344,7 @@ Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` 
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--control-height` | 30px | Toolbar controls (source button, capture control) and the toolbar size of a field or select (4.4, 4.5) |
+| `--control-height` | 30px | Source button and capture control (side panel, 3.6) and the toolbar size of a field or select (4.4, 4.5) |
 | `--field-height-compact` | 28px | Fields and selects in the side panel and the dialog (number inputs measure 28.2px; side-panel selects measure 26px today: F1) |
 | `--control-height-small` | 24px | Minimum height of a small button, an icon button and a checkbox label (WCAG 2.2 target, 9.9) |
 | `--target-min` | 24px | The minimum for every interactive target (9.9) |
@@ -354,7 +354,7 @@ Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` 
 | `--row-height-single` | 30px | A one-line popover row (fixed items) |
 | `--row-gap` | 3px (off-scale, as before 009) | Space between two popover rows: the pitch is 47px for a 44px row |
 | `--panel-width` | 330px | Side panel column (fixed at every supported width) |
-| `--popover-width` | 360px | Source popover (min 280px; max `calc(100vw - 16px)`; max-height 70vh) |
+| `--popover-width` | 360px | Source popover (min 280px; max `calc(100vw - 16px)`; max-height 70vh). In the side panel it is as wide as the source button (4.11) |
 | `--popover-width-mode` | 280px | Capture mode menu |
 | `--dialog-width` | 440px | Add / Edit source dialog (max `calc(100% - 24px)`) |
 | `--dialog-offset-top` | 90px | Space above the dialog, so it sits under the toolbar |
@@ -364,8 +364,6 @@ Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` 
 | `--capture-chevron-width` | 26px | Capture control chevron (pinned by a test) |
 | `--capture-main-gap` | 7px | Capture control main segment: icon to label (off-scale, as before 009) |
 | `--capture-main-padding-x` | 10px | Capture control main segment: inline padding (off-scale, as before 009) |
-| `--source-name-min` | 150px | Minimum width of the source button (3.3) |
-| `--source-name-max` | 280px | Maximum width of the source button (3.3) |
 | `--field-width-inline` | 140px | Side panel control column: select, number and frequency (Center, Span). One width so the rows align; fits `5.999000000 GHz` (3.6) |
 | `--field-width-unit` | 90px | Number with a unit suffix (side panel) |
 | `--field-width-param` | 140px | Frequency parameter in a connect form |
@@ -377,9 +375,7 @@ Known off-scale token values, kept in 009 and marked in Appendix A: `--row-gap` 
 | `--source-test-min-height` | 62px (off-scale, as before 009) | Test connection result box in the source dialog: reserved for idle and ok, so the dialog does not jump |
 | `--source-test-gap` | 10px (off-scale, as before 009) | Test connection button to its result box |
 | `--source-test-padding-y` | 5px (off-scale, as before 009) | Vertical padding of the test connection result box |
-| `--toolbar-gap` | 18px (10px at max-width 1180px) | Gap between the toolbar groups (3.3) |
-| `--toolbar-padding-x` | 12px (8px at max-width 1180px) | Toolbar horizontal padding (3.3) |
-| `--toolbar-group-gap` | 8px (5px at max-width 1180px, off-scale) | Gap inside the toolbar source group |
+| `--toolbar-padding-x` | 12px (8px at max-width 1180px) | Toolbar horizontal padding (3.3). The toolbar holds the brand only |
 | `--toolbar-padding-y` | 7px (off-scale, as before 009) | Toolbar vertical padding |
 | `--plot-zoom-reset-inset-left` | 76px | Zoom reset control, from the left of the plot |
 | `--plot-hint-padding-x` | 40px | Plot hint: horizontal inset, so its text wraps clear of the plot edges |
@@ -549,7 +545,7 @@ Aliases remain for one release, then are removed (10.1, rule 7). Status after 00
 | --- | --- | --- |
 | Default | 1440 x 900 | `src-tauri/tauri.conf.json` |
 | Minimum | 1024 x 640 | `src-tauri/tauri.conf.json` |
-| Fixed regions | Toolbar and status bar (height from content: 45px and 25px measured); side panel 330px | |
+| Fixed regions | Toolbar and status bar (height from content, no token: 33px and 24px measured in 013 at 1024 x 640; the status bar is 4px padding above and below, a 1px top border and one 11px line); side panel 330px | |
 | Flexible | Plot column; the source name (shrinks first, to its minimum); the notice stack (grows with content, capped by B6) | |
 | Scrolling | The side panel scrolls vertically. The window never scrolls. The popover list scrolls inside its own section. | |
 
@@ -560,36 +556,30 @@ The review's wording (1180 to 1439 and 1024 to 1179) is kept; the one-pixel boun
 
 | Range (window width, CSS px) | Toolbar | Status bar (fallback fonts) | Side panel | Plot column |
 | --- | --- | --- | --- | --- |
-| **A: 1440 and above** (default 1440 x 900) | Gap 18px, padding 12px. Brand and source group only (Center and Span moved to the side panel in 038; spare width measured below). | All 10 items, `Uncalibrated` visible. Shown from 1258px. | 330px | Width minus 330px (1110px at 1440) |
-| **B: 1181 to 1439** | Gap 18px | 10 items from 1258px. 9 items (no `Frame`) from 1181 to 1257px. `Uncalibrated` hidden today; visible with F0. | 330px | 851 to 1109px |
-| **C: 1024 to 1180** (minimum 1024 x 640) | Gap 10px, padding 8px. Brand and source group only. | 9 items (no `Frame`) from 1078 to 1180px. 8 items (no `Frame`, no `Rate`) from 1024 to 1077px. `Uncalibrated` hidden today in all of C; visible with F0. | 330px | 694 to 850px |
+| **A: 1440 and above** (default 1440 x 900) | Padding 12px. Brand only (the source button and the capture control are in the side panel since 040). | All 10 items, `Uncalibrated` visible. Shown from 1258px. | 330px | Width minus 330px (1110px at 1440) |
+| **B: 1181 to 1439** | Brand only | 10 items from 1258px. 9 items (no `Frame`) from 1181 to 1257px. `Uncalibrated` hidden today; visible with F0. | 330px | 851 to 1109px |
+| **C: 1024 to 1180** (minimum 1024 x 640) | Padding 8px. Brand only. | 9 items (no `Frame`) from 1078 to 1180px. 8 items (no `Frame`, no `Rate`) from 1024 to 1077px. `Uncalibrated` hidden today in all of C; visible with F0. | 330px | 694 to 850px |
 
-Measured with the real CSS in WebKitGTK (work 012, QA, after 038):
+Measured with the real CSS in WebKitGTK (issue 40, work 013, after the source button and the capture control moved to the side panel):
 
-- The source button is 280px wide at all three widths (`--source-name-max`); with the 60-character example, 213px of the name is visible at 1024px and at 1440px (measured); the rest is truncated with an ellipsis. The full name is in the tooltip and the accessible name.
-- Toolbar spare width, measured in WebKitGTK after 038 (work 012, QA), with the source group and capture control. Spare width is the room to the right padding (12px at 1440, 8px at 1024). With a 22-character name (source button 224.6px) the content ends at 538.5px (1440) and 523.5px (1024), so the spare width is **889.5px** at 1440 and **492.5px** at 1024. With a 60-character name (button 280px) it ends at 593.9px and 578.9px, so the spare width is **834.1px** at 1440 and **437.1px** at 1024.
-- The toolbar does not overlap anything down to 465 CSS px (simulated enlargement, 3.9). At about 427 CSS px the capture control's chevron passes the window edge, so the toolbar clips; the threshold lies between 465 and 427 px (3.9, Q-5).
+- The source button is 305px wide at 1440 and at 1024, the width of the side panel's column (3.6). Its name area is 238px; a 60-character name is truncated with an ellipsis (the rest is in the tooltip and the accessible name), and the 22-character device id is shown in full.
+- The toolbar holds the brand only: 122px wide and 33px tall at 1440 and at 1024. Nothing in it can overlap or clip. The spare-width and overlap figures of work 012 (for the toolbar's source group and capture control) no longer describe the layout and are removed. Zoom (Q-5) is not re-measured for the side panel; the rows under 3.9 are from before 040.
+- The source popover (305px) and the capture mode menu (280px, right-aligned to the capture control) open inside the side panel's column and inside the window at 1440 and 1024 (4.11, 3.6).
 - The side panel's rows have 305px of usable width. The longest label ("Reference level") is 91px wide, so label and 140px control fit.
 
-### 3.3 Toolbar (Approved)
+### 3.3 Toolbar (Approved; brand only since 040)
 
-Left to right: brand, source group (source button, capture control). Center and Span are not in the toolbar: they are the first rows of the side panel's Measurement group (3.6, since work 012, issue 38).
+The toolbar is one row with the brand (mark and `Spectrum Studio`) and nothing else. The source button and the capture control were its source group until issue 40. They are now the first and last items of the side panel's Measurement group (3.6), so the device, the tuning and the capture sit in one column, top to bottom. Center and Span have been in that group since 038.
 
 | Element | Width rule | Shrinks? | Visible at every supported width |
 | --- | --- | --- | --- |
-| Brand (`Spectrum Studio`, mark) | Content width (125px) | No | Yes |
-| Source button | 150px to 280px (`--source-name-min` to `--source-name-max`) | **Yes, first.** Its name is truncated with an ellipsis. | Yes, with its state glyph |
-| Capture control | 154px fixed (128px main, 26px chevron) | No | Yes |
+| Brand (`Spectrum Studio`, mark) | Content width (122px measured in 040) | No | Yes |
 
 Rules:
 
-1. Priority when room runs out: the source button shrinks first (down to 150px). Nothing else shrinks. The brand and the capture control never shrink.
-2. The source name is truncated with an ellipsis. The full name is in the `title` and in the accessible name (`Source: <name>, <state>`).
-3. The capture control's width does not change with mode, state or label.
-4. **No overflow menu.** The toolbar has no overflow menu and no collapsing controls. It fits at 1024px with its fixed items and a 60-character name without one. An overflow menu would be a new feature (Deferred).
-5. If the toolbar cannot fit, the answer is decided in Q-5 (zoom). It is never silent overlap.
-
-Note: a 22-character device id (`SA430 08FF41E50F8B3A34`) used as the name fits the 213px name area and is shown in full. A 60-character name is truncated, which is the intended behaviour.
+1. The toolbar has no controls. Its height comes from the brand and the padding (33px measured in 040). It is never a source of overlap.
+2. The brand stays on one line (a wrapped brand would make the toolbar taller; the e2e guard checks it).
+3. Source names and the capture control are side panel concerns: their rules are in 3.6, 4.3 and 4.11, and the source name is truncated with an ellipsis there.
 
 ### 3.4 Status bar (Approved for order and priority; mechanism implemented in 009, F0)
 
@@ -639,15 +629,17 @@ Other rules:
 - A stack of collapsible sections (`details` and `summary`). Default open: Measurement, Markers, Peaks, Display. Default closed: Source settings.
 - Width is 330px at every supported width (`--panel-width`). The panel never shrinks and never grows, so its minimum and maximum are both 330px. The plot takes the rest.
 - Section body padding `0 12px 12px`, gap 8px. Label column to the left of the control; label in secondary text; control right aligned at a fixed width (140px select, number and frequency, the same in every row so they align; 90px with a unit suffix).
-- **Measurement (since 038)** starts with Center (frequency) and Span (select), then FFT size, Window, Averaging and the Max hold, Min hold and Reset row. Center and Span are rendered, disabled with their reasons, while no source is connected; the FFT rows appear once the processing settings are known. Center and Span use the same `inline` field layout and non-toolbar sizes as the other rows. With no source, Center shows an em dash (`—`) and is disabled, as Span does; it never shows `0 Hz`. The widest frequency shown is `5.999000000 GHz` (15 characters, the simulator's range up to 6 GHz); it fits the 140px control with its padding, and the visual guard checks it at 1440, 1180 and 1024.
+- **Measurement (since 040)** starts with the source button (the source control, full width: its name truncates with an ellipsis and the column is 305px at 330px panel width), then Center (frequency) and Span (select), then FFT size, Window, Averaging and the Max hold, Min hold and Reset row, and ends with the capture control (full width, 4.3). The source button and the capture control were in the toolbar before 040. Center and Span are rendered, disabled with their reasons, while no source is connected; FFT size and Window are disabled the same way, with the reason "Connect a source first" ("Connecting…" or "Disconnecting…" during a transition), and the trace reason for a trace source (issue 21, 4.5). The FFT rows appear once the processing settings are known. Averaging and the hold row stay enabled with no source (their values are kept for the next connection). Center and Span use the same `inline` field layout and non-toolbar sizes as the other rows. With no source, Center shows an em dash (`—`) and is disabled, as Span does; it never shows `0 Hz`. The widest frequency shown is `5.999000000 GHz` (15 characters, the simulator's range up to 6 GHz); it fits the 140px control with its padding, and the visual guard checks it at 1440, 1180 and 1024.
 - A row whose label and control do not fit is a bug. At 330px the widest row has 305px of room (3.2).
+- **Popovers and menus from the panel** must fit the column. The panel is a scroll box (`overflow-y: auto`), which clips anything that extends past its left or right edge. The source popover is therefore as wide as the source button (305px, 4.11). The capture menu (280px) is right-aligned to the capture control. Both open below their trigger, and open above it when there is no room below inside the window or the panel (`usePopupFlip`, `.popover-up`; 4.11). Both are visible in the window at 100% and at 200% zoom (e2e: `acquisition.e2e.ts`).
+- **The capture control is not sticky (decided by the human in 013).** It scrolls with the side panel: with Source settings open it can be scrolled out of view. Its state stays visible in the plot tag and the status bar, and the mode and the start are reachable again by scrolling up. Pinning it, or moving Source settings, was considered and not chosen.
 - The panel scrolls vertically inside itself. Sections never hide controls.
 - **Growth of the peak table** pushes the sections below it down, which is a layout shift (7.4). **Deferred (B5; backlog):** the peak table body has a maximum height of eight rows and scrolls inside.
 
 ### 3.7 Plot column (Approved; hide rule deferred to the backlog, Q-21)
 
 - Spectrum flex 3 and waterfall flex 2 when the waterfall is shown. The spectrum fills the column when it is hidden. Both are fixed by flex weight, not by content.
-- At a 640px window height the workspace is about 570px (45px toolbar and 25px status bar measured). The spectrum is about 340px and the waterfall about 230px at that height. A notice takes space from both.
+- At a 640px window height the workspace is 583px: 640 less the 33px toolbar and the 24px status bar (measured in 013 at 1024 x 640; the status bar has no height token, its height comes from its content, so the figure is the measured one). The spectrum is about 345px and the waterfall about 235px at that height. A notice takes space from both.
 - **Deferred (Q-21; backlog):** below a total plot height of 240px, the waterfall is hidden automatically while the user's setting (`showWaterfall`) stays on. The spectrum is never less than 200px.
 - Chips over the canvas (6.8): the state tag top right (`--plot-chip-inset-top`, `--plot-chip-inset-right`); the zoom reset top left (76px from the left, when zoomed); the hint centred. They do not overlap at 1024px (the tag is 163px wide, measured, on a 694px plot).
 
@@ -667,9 +659,9 @@ Two different things are called "scaling". They are tested separately.
 | 100%, default window | 1440 x 900 | Range A. Measured. | Required |
 | 100%, 1180 | 1180 x 900 | Range C. Measured. | Required |
 | **Desktop display scale 125%, 150%, 200%** (the desktop's scale factor, logical window size unchanged) | Unchanged | Layout identical. The device pixel ratio rises (1.25 to 2); the canvas uses `devicePixelRatio`. 1px borders and 2px focus rings are rendered at fractional device pixels and may look soft. | Required: identical layout. **Re-measure**: crispness of 1px lines and the focus ring in WebKitGTK. |
-| **Webview text enlargement 125%** of the minimum window (CSS viewport 819px) | 819 x 640 | Toolbar fits (source name about 123px). Status bar: `Unit` and `Uncalibrated` are cut today; with the F0 mechanism they stay and whole items are removed. | Follows F0 (implemented). Not a commitment: zoom is unsupported (Q-5). |
-| **Webview text enlargement 150%** (CSS viewport 683px) | 683 x 640 | Toolbar fits: no overlap, the source name is truncated with an ellipsis. Status bar drops three items (Noise floor, Rate, Frame) and keeps 7. Side panel intact. Measured by simulation (below). | Unsupported (Q-5) |
-| **Webview text enlargement 200%** (CSS viewport 512px) | 512 x 640 | Toolbar fits (brand to source gap 20px). Status bar drops FFT and Avg as well and keeps 5 items (Center, Span, RBW, Unit, Uncalibrated). Side panel intact. Measured by simulation (below). | Unsupported (Q-5) |
+| **Webview text enlargement 125%** of the minimum window (CSS viewport 819px) | 819 x 640 | Measured before 040: toolbar fits (source name about 123px). Status bar: `Unit` and `Uncalibrated` are cut today; with the F0 mechanism they stay and whole items are removed. | Follows F0 (implemented). Not a commitment: zoom is unsupported (Q-5). |
+| **Webview text enlargement 150%** (CSS viewport 683px) | 683 x 640 | Measured before 040 (the toolbar then held the source button and the capture control): no overlap, the source name truncated with an ellipsis. Status bar drops three items (Noise floor, Rate, Frame) and keeps 7. Side panel intact. Not re-measured after 040. Measured by simulation (below). | Unsupported (Q-5) |
+| **Webview text enlargement 200%** (CSS viewport 512px) | 512 x 640 | Measured before 040 (toolbar then held the source group). Status bar drops FFT and Avg as well and keeps 5 items (Center, Span, RBW, Unit, Uncalibrated). Side panel intact. Not re-measured after 040. Measured by simulation (below). | Unsupported (Q-5) |
 
 Note: in a webview, enlargement changes the CSS viewport, so the 819, 683 and 512 rows are exactly what the
 user gets at 125%, 150% and 200% of a 1024px window. The 683 and 512 rows were measured by simulation in WebKitGTK
@@ -744,7 +736,9 @@ Entries removed from draft 1: `EmptyState` (no definition existed; the empty sta
 - **Purpose:** start or stop acquisition, and choose the mode.
 - **Anatomy:** main segment (icon, mode label), chevron segment (caret). One group, one ring.
 - **Variants:** tone by mode (continuous teal, single violet); stop tone while acquiring (red) for either mode (2.5).
-- **Sizes:** height `--control-height`; main 128px, chevron 26px. Fixed.
+- **Sizes:** height `--control-height`; chevron 26px; main 128px. Fixed. **Full width** (`fullWidth`, the side panel since 040): the group fills the column (305px at a 330px panel), the main segment takes the room (279px) and the chevron stays at the end. The segment widths and the group height do not change with mode or state.
+- **Not sticky (decided in 013):** the control scrolls with the side panel and is not pinned while the panel scrolls (3.6).
+- **Placement:** the side panel's Measurement group, last item, below Max hold and Min hold (3.6). Before 040 it was in the toolbar.
 - **States:** idle; acquiring; no source (main native-disabled, chevron native-disabled; the reason is in the plot hint: "Choose a source to begin…"); connecting or disconnecting (unavailable; the reason is the plot tag "Connecting…" (8.1)); busy (a command in flight: main `aria-disabled` with progress cursor, at full strength because busy is not unavailable (U1); chevron dimmed as unavailable, reason in its description; Q-23); locked chevron (acquiring: unavailable, focusable, description says "Pause or cancel acquisition to change the mode"); focus (group ring); menu open (chevron `aria-expanded="true"`, brightness 0.92).
 - **Keyboard:** Enter or Space on the main segment acts. Tab reaches the main segment, then the chevron. Arrow Down or Up on the chevron opens the mode menu. Escape or Tab closes it and returns focus to the chevron (Tab then continues in document order, 5.1).
 - **ARIA:** the main segment's name is the action ("Start continuous acquisition", "Pause continuous acquisition", "Cancel single capture"). The chevron's name is "Capture mode: Continuous". The group is `role="group"` labelled "Capture". The chevron has `aria-haspopup="menu"` and `aria-expanded`. Its reason, when unavailable, is in `aria-describedby`.
@@ -757,7 +751,7 @@ Entries removed from draft 1: `EmptyState` (no definition existed; the empty sta
 - **Purpose:** enter one value.
 - **Anatomy:** label (left in the side panel, above the control in dialogs), control, optional unit suffix (muted, after the control), optional hint (below, secondary, 12px), optional error (below, danger, 12px, associated with the control, 5.7).
 - **Variants:** `inline` (side panel, label left, 140px control, 90px with unit); `stacked` (dialog and connect form: label above, in the secondary colour, full width; D1); `frequency` (mono, right aligned, SI suffix accepted, 140px inline in the side panel and in a parameter form).
-- **Sizes:** toolbar `--control-height` (30px); panel and dialog `--field-height-compact` (28px).
+- **Sizes:** toolbar `--control-height` (30px); the side panel's source button and capture control also `--control-height` (30px); panel and dialog `--field-height-compact` (28px).
 - **Value text (F17):** the Center and Span values use `--color-text-primary` (they were not primary before 009).
 - **Boundary:** `1px solid var(--color-border-input)` (3:1 on every surface it sits on; F15). Focus-visible replaces the border with the ring, offset 1px.
 - **States:** default; hover (border `--color-border-hover`); focus-visible (ring); invalid (border `--color-danger` plus the message; never colour alone); unavailable (`--opacity-unavailable`, reason in the description); read-only in use (`--opacity-read-only`, value visible); empty (placeholder in secondary text, e.g. "e.g. Bench SA430"; a placeholder is never the label); no value (Center with no source: the em dash `—`, disabled).
@@ -838,9 +832,11 @@ Two different things. Draft 1 used one name for both, which is why the source se
 - Keyboard: on open, focus goes to the checked item. Up and Down move with wrap; Home and End go to the first and last item; Enter and Space activate; type-ahead moves to the next item starting with the typed text; Escape closes and returns focus to the trigger; Tab closes and focus continues (5.1).
 - Choosing a mode never starts a capture; the store updates when the backend reports the new mode.
 - Locked while acquiring: the menu cannot open (the chevron is unavailable); if it is open when acquisition starts, it closes and focus goes to the chevron.
+- Placement (since 040): below the capture control in the side panel, right-aligned to the chevron (280px wide, inside the 305px column). When there is no room below inside the window or the panel, it opens above the chevron instead (013: at 200% zoom in a 1024 x 820 window the 268px menu ran 63px past the bottom when it opened below). Focus does not move.
 
 **Popover** (general-purpose, non-modal, list content, `role="dialog"`). Used for the source selection.
 
+- **Width in the side panel (since 040):** the popover is as wide as the source button (305px, `.source-control > .popover-source`), not 360px. The side panel is a scroll box that clips content past its column, so a wider popover could not be fully visible. It opens below the button, has `max-height` 70vh and scrolls inside itself. It opens above the button when there is no room below (the same rule as the capture menu, 013).
 - Anatomy: trigger (the source button) > popover (`role="dialog"`, `aria-label="Sources"`) > groups (`role="group"`; the two list groups have a visible caps label, the fixed blocks have an accessible name and a divider only: see below) > lists (`<ul>` > `<li>`) > rows.
 - A **row** is a list item with: a select button (the whole line; name, status word, badge, detail), and separate ordinary buttons for the row actions (Edit, Forget). Geometry (ruling, work 009 T9, 2026-11-16; measured in the browser with the real CSS, fallback fonts): the row is `--row-height` (44px) tall and rows are separated by `--row-gap` (3px), so the pitch is 47px, as before 009. Line 1 holds the glyph, the name and the badge (the badge is centred on the name's line, 17px tall). Line 2 holds the status word and the port, in the name column only. The row actions are two 24 x 24 buttons (`--target-min`) in the badge column (`--badge-column`, 64px), centred vertically on the row. They are shown on hover or when one of them has focus; while they are shown, the badge fades to opacity 0 (the transport badge is replaced, not covered). The actions never overlap a visible badge and never overlap line 2 (they sit in the badge column; line 2 is in the name column). The row actions are ordinary buttons with their own names ("Edit Bench SA430", "Forget Bench SA430"). They are not `menuitem`s.
 - Why not the other options (measured, row-relative, 24px actions, bottom-anchored under the badge): at 44px the actions top is 4.2px above the badge bottom (overlap); at 48px 2.1px; at 52px 0.09px (touching, and it depends on the line box of the name, so it is not robust). Centring at 44px needs no extra height and has no overlap to measure. 52px would add 8px to every two-line row at rest, which is the most visible change of the three.
@@ -942,7 +938,7 @@ Rules:
 
 **5.2.2 Lifecycle states.**
 
-| State | Button (toolbar) | Popover | Plot | Banner |
+| State | Button (side panel) | Popover | Plot | Banner |
 | --- | --- | --- | --- | --- |
 | S0 Loading (start-up; Deferred, B3) | "Loading…" in secondary text; no attention outline; capture unavailable | n/a | Empty; no hint | None |
 | S1 Nothing chosen | "Choose a source" with the 2px attention outline | Lists remembered sources (none) and detected devices | Hint: "Choose a source to begin. Try Signal simulator." | None |
@@ -1154,7 +1150,7 @@ Long text is designed for, not left to chance.
 
 | Text | Length the design is built for | Where it is shown | Rule |
 | --- | --- | --- | --- |
-| Source name | Up to 60 characters (dialog limit) | Source button (213px of name visible at the 280px button, measured), popover name line, dialog field | Ellipsis in the button, the status line and the popover name. Full text in the `title` and the accessible name. |
+| Source name | Up to 60 characters (dialog limit) | Source button (238px name area in the 305px side panel button, measured in 040), popover name line, dialog field | Ellipsis in the button, the status line and the popover name. Full text in the `title` and the accessible name. |
 | Device id | 22 characters (`SA430 08FF41E50F8B3A34`) | Popover row detail (mono); dialog | The detail truncates first (ellipsis). The full value is in the `title`. In the dialog it is shown in full. |
 | Port or path | Long (`/dev/serial/by-id/...`) | Popover detail (mono), dialog | Mono, ellipsis, full value in `title`. |
 | Driver name | About 26 characters ("TI SA430 spectrum analyzer") | Dialog, tooltip | Wraps in the dialog. Not shown in the toolbar. |
@@ -1163,11 +1159,11 @@ Long text is designed for, not left to chance.
 
 Rules:
 
-1. Shrink order: the source button first (down to 150px), then the detail in a popover row. Nothing else shrinks.
+1. Shrink order: the source button's name first (ellipsis), then the detail in a popover row. The button fills the side panel's column, which is fixed (330px panel), so it does not change with the window.
 2. Ellipsis for any single line the user can read in full elsewhere (row name, detail, button name). The tooltip carries the full value.
 3. Wrap for any message the user must read (banner, dialog error, hint).
 4. Never clip a message at the edge of a container. The status bar removes whole items instead (3.4).
-5. Check every screen at 1024px with the 60-character name and the 22-character device id. Measured at 1024px: the toolbar is intact.
+5. Check every screen at 1024px with the 60-character name and the 22-character device id. Measured at 1024px: the side panel is intact (040).
 
 ### 5.10 Keyboard map (Approved; B1 items implemented in 009)
 
@@ -1709,7 +1705,7 @@ Implementation rules:
 ### 9.8 Focus (Approved)
 
 - Visible focus on every focusable element with the ring from 2.7. Never `outline: none` without a replacement.
-- Focus order follows the visual order: toolbar (source, capture), notice stack (recovery, dismiss), side panel (sections in order; Measurement starts with Center, then Span), status bar (not focusable).
+- Focus order follows the visual order: toolbar (brand, not focusable), notice stack (recovery, dismiss), side panel (sections in order; Measurement: source button, Center, Span, FFT size, Window, Averaging, the hold row, then the capture control; Source settings after it), status bar (not focusable).
 - A popover receives focus on open and returns it on close (Escape). A popover that closes because focus left it does not move focus back (5.1).
 - Focus is never lost. A removed element hands focus to the nearest remaining item (for example Forget moves focus to Undo; when Undo expires, focus goes to the first row).
 - The plot is not focusable today. Keyboard use of the plot is Deferred (6.10).
@@ -1720,8 +1716,8 @@ WCAG 2.2 2.5.8 (AA) requires **24 by 24 CSS px** for pointer targets, with one e
 
 | Target | Measured today (CSS px) | Requirement | Result | Fix |
 | --- | --- | --- | --- | --- |
-| Source button | 280 x 30 | 24 x 24 | Pass | |
-| Capture main | 128 x 30 | 24 x 24 | Pass | |
+| Source button (side panel since 040) | 305 x 30 (1440 and 1024, measured in 040) | 24 x 24 | Pass | |
+| Capture main (side panel since 040, full width) | 279 x 30 (1440 and 1024, measured in 040; 128 x 30 before) | 24 x 24 | Pass | |
 | Capture chevron | 26 x 30 | 24 x 24 | Pass | |
 | Center field (side panel since 038) | 140 x 28 in the panel (1440 and 1024, measured in WebKitGTK) | 24 x 24 | Pass (height 28, below the 30px control height) | F1 |
 | Span select (side panel since 038) | 140 x 28 in the panel (1440 and 1024, measured in WebKitGTK) | 24 x 24 | Pass (height 28, below the 30px control height) | F1 |
@@ -1767,7 +1763,7 @@ The app is a desktop window. Layout is tested at the CSS widths in 3.9. Desktop 
 | --- | --- | --- |
 | Toolbar | `<header>` with `aria-label="Main toolbar"`. Not `role="toolbar"`: no roving focus is implemented, and a toolbar role without arrow-key navigation is misleading. | Implemented in 009 (B7) |
 | Notice stack | Live regions per 9.6 | Implemented in 009 (B2) |
-| Source button | Button, `aria-haspopup="dialog"`, `aria-expanded`, `aria-controls` the popover, name `Source: <name>, <state>` or `Source: Choose a source` | Implemented in 009 (B1): dialog, not menu |
+| Source button | Button, `aria-haspopup="dialog"`, `aria-expanded`, `aria-controls` the popover, name `Source: <name>, <state>` or `Source: Choose a source`. `<state>` is the status word the row shows (Connected, Acquiring, Connecting…, Failed, Not detected); Disconnected when the row shows none (fixed in 013, F4: a failed source is `Failed`, not `Disconnected`) | Implemented in 009 (B1): dialog, not menu |
 | Source popover | `role="dialog"`, `aria-label="Sources"`, groups with visible labels, lists | Implemented in 009 (B1) |
 | Source rows | Button in a list item; `aria-current="true"` on the active row; the name includes the status word | Implemented in 009 (B1) |
 | Row actions | Ordinary buttons "Edit <name>", "Forget <name>" | Implemented in 009 (B1); was `role="menuitem"` |
@@ -1958,8 +1954,10 @@ Status values are defined in 0.3. "Where" gives the section of this file or the 
 | F1 to F15 | Small fixes of `design.md` section 2 (F1 to F11, F13 to F15; F12 has no visual change) | Implemented in 009 (PM accepted, decisions.md) | design.md 2 |
 | F16 | Checkbox accent `--color-accent` (teal), not the WebKit default blue | Accepted (PM, T6); implemented in 009 | 4.6 |
 | F17 | Center and Span value text in `--color-text-primary` | Accepted (PM, T7); implemented in 009 | 4.4 |
+| 013-F2 | The capture control is not sticky: it scrolls with the side panel (decided by the human; Source settings can scroll it out of view) | Decided (human, 013); no change | 3.6, 4.3 |
+| 013-F1, 013-F3 to 013-F5 | Popups open above their trigger when there is no room below (F1); status bar 24px and workspace 583px (F3); accessible name uses the row's status word (F4); FFT size and Window disabled with the reason while no source is connected (F5, issue 21) | Implemented in 013 | 3.1, 3.6, 3.7, 4.3, 4.11, 9.12 |
 | D1 | Dialog: Save is busy (not native `disabled`); notes and errors in one polite region; warnings `role="status"`; stacked label secondary in the dialog and the connect form (T11); ParamForm `framed` | Accepted (PM, T10); implemented in 009 (T11) | 4.12, 9.6, 4.4 |
-| D2 | Known off-scale token values (`--row-gap`, `--capture-main-gap`, `--capture-main-padding-x`, `--field-padding-frequency`, `--plot-tag-padding-x`, `--source-test-*`, `--toolbar-group-gap`) | Approved as known exceptions; snap is a later pass | 2.9 |
+| D2 | Known off-scale token values (`--row-gap`, `--capture-main-gap`, `--capture-main-padding-x`, `--field-padding-frequency`, `--plot-tag-padding-x`, `--source-test-*`) | Approved as known exceptions; snap is a later pass | 2.9 |
 | U1 | Busy is not unavailable: a busy button, the busy Save and the busy capture main keep full strength; a control is dimmed only when its action cannot run | Accepted (PM, T11); implemented in 009 | 2.15, 4.1, 4.3, 4.12 |
 | I19 | Popover list keys stop at the first and last row (no wrap); leaving the popover by Tab closes it | Implemented in 009 (B1; T5 accepted) | 4.11, 5.1 |
 | A10 | Accepted deviation: Peak search, Next peak and + Marker use native `disabled` (T6); 9.10 needs their reason visible on the same screen | Implemented in 009 (T6 accepted); QA to confirm the reason is visible | 9.10 |
@@ -1974,8 +1972,8 @@ The designer's recommendation is kept for the record. The last column is the PM'
 | Q-2 | Copy: "press Play" to "press Continuous" / "press Single" (C1)? | Yes. It matches the button. | Human | Accepted; implemented in 009 (C1) |
 | Q-3 | Unavailable opacity: 0.6 (proposed) or another value? | 0.6. It is the lowest value, in steps of 0.05, where the primary label reaches 4.5:1 on the control fill. | Human | Accepted: 0.6; implemented in 009 (F9) |
 | Q-4 | Status bar removal order (3.4): Frame, Rate, Noise floor, FFT, Avg, RBW? | Yes. Frame and Rate are the least needed while the plot tag shows data age. | Human | Accepted; implemented in 009 (F0) |
-| Q-5 | Is in-app text enlargement (zoom) a requirement? The toolbar does not overlap down to 465 CSS px (it clips at about 427 CSS px, 3.2 and 3.9), so no toolbar second row is proposed. The status bar drops items at 683 and 512 CSS px (3.9). Webview zoom keys (Ctrl+=, Ctrl+Shift+=, Ctrl+0) do nothing in this build (O7, verified in the real app). | Not in work 009. Record zoom as unsupported until decided. | Human | Unsupported. Not a requirement in 009. Zoom by keyboard does nothing in this build (O7). Backlog: zoom support |
-| Q-6 | Toolbar source button: show the status word (for example "Connecting…") beside the name, or keep the glyph only? | Keep the glyph only (the name is scarce space). The capture control shows acquisition. | Human | Glyph only (no change) |
+| Q-5 | Is in-app text enlargement (zoom) a requirement? Before 040 the toolbar did not overlap down to 465 CSS px (it clipped at about 427 CSS px, 3.2 and 3.9). Since 040 the toolbar is the brand only, and the side panel (fixed 330px, its source button and capture control) is the part to re-measure at each zoom level; that is not done yet. The status bar drops items at 683 and 512 CSS px (3.9). Webview zoom keys (Ctrl+=, Ctrl+Shift+=, Ctrl+0) do nothing in this build (O7, verified in the real app). | Not in work 009. Record zoom as unsupported until decided. | Human | Unsupported. Not a requirement in 009. Zoom by keyboard does nothing in this build (O7). Backlog: zoom support |
+| Q-6 | Source button (side panel since 040): show the status word (for example "Connecting…") beside the name, or keep the glyph only? | Keep the glyph only (the name is scarce space). The capture control shows acquisition. | Human | Glyph only (no change) |
 | Q-7 | Peak click: keep "select and place marker", or split into "select" and "Place marker" (I11)? | Split. It makes the marker move explicit. | Human | Kept as it is in 009; the split is in the backlog |
 | Q-8 | Keyboard use of the plot (marker movement, zoom keys, 6.10): in a later work item? | Yes, later. Not in 009. | Human, PM | Backlog (later work item) |
 | Q-9 | Non-colour trace differentiation: dashed max hold and dotted min hold (6.4)? It changes the canvas. | Yes, as a separate work item. | Human | Backlog (separate work item) |
@@ -2046,7 +2044,7 @@ Status after 009: E1 to E7 are implemented. E1 is the token file and its tests, 
 **Corrections of fact (found while measuring; each was wrong in draft 1):**
 
 - `Uncalibrated` is **hidden** at every width from 1024 to 1257px, including 1180px (measured). Draft 1 and `design.md` said it was visible at 1180px; that was wrong. Section 3.4, W3, F0.
-- The toolbar overlaps below about 780 CSS px (measured). Draft 1 did not say so.
+- The toolbar overlaps below about 780 CSS px (measured before 040, when it held the source button and the capture control). Draft 1 did not say so.
 - The large-text definition: 24px regular or 18.67px bold, not 15px semibold (review 1). Section 9.2.
 - The source selector is a popover with list semantics, not a menu (review 1). Sections 4.11, 5.1.
 - Target sizes: the zoom reset (21.4px) and the checkbox label (19px) fail too, not only the small buttons (review 1). Section 9.9, F13, F14.
@@ -2311,8 +2309,6 @@ Values and comments are the implemented ones. The test compares the block with `
   --capture-chevron-width: 26px;
   --capture-main-gap: 7px; /* Off-scale, kept from before T7: icon to label */
   --capture-main-padding-x: 10px; /* Off-scale, kept from before T7 */
-  --source-name-min: 150px;
-  --source-name-max: 280px;
   --field-width-inline: 140px;
   --field-width-unit: 90px;
   --field-width-param: 140px;
@@ -2324,9 +2320,7 @@ Values and comments are the implemented ones. The test compares the block with `
   --source-test-min-height: 62px; /* Off-scale, as before 009: test result box, reserved for idle and ok */
   --source-test-gap: 10px; /* Off-scale, as before 009: Test connection button to result box */
   --source-test-padding-y: 5px; /* Off-scale, as before 009: test result box vertical padding */
-  --toolbar-gap: 18px;
   --toolbar-padding-x: 12px;
-  --toolbar-group-gap: 8px;
   --toolbar-padding-y: 7px; /* Off-scale, kept from before 009: toolbar vertical padding */
   --plot-zoom-reset-inset-left: 76px; /* Zoom reset, from the left of the plot */
   --plot-hint-padding-x: 40px; /* Plot hint: horizontal inset, so the text wraps clear of the plot edges */
@@ -2376,9 +2370,7 @@ Values and comments are the implemented ones. The test compares the block with `
 /* 2.10 Narrow window (range C, max-width 1180px, inclusive) */
 @media (max-width: 1180px) {
   :root {
-    --toolbar-gap: 10px;
     --toolbar-padding-x: 8px;
-    --toolbar-group-gap: 5px;
   }
 }
 

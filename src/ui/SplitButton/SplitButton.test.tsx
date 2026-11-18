@@ -150,4 +150,28 @@ describe('SplitButton', () => {
     expect(rule(css, '.split-chevron')).toContain('width: var(--capture-chevron-width)');
     expect(rule(css, '.split-button')).toContain('height: var(--control-height)');
   });
+
+  it('fills the column only with fullWidth: the main segment takes the room, the chevron keeps its width', () => {
+    renderSplit();
+    expect(screen.getByRole('group', { name: 'Capture' })).not.toHaveClass('split-button-full');
+    expect(rule(css, '.split-button-full')).toContain('width: 100%');
+    expect(rule(css, '.split-button-full .split-main')).toContain('flex: 1 1 auto');
+    expect(rule(css, '.split-button-full .split-main')).toContain('width: auto');
+    expect(rule(css, '.split-chevron')).toContain('width: var(--capture-chevron-width)');
+  });
+
+  it('marks the group full width when fullWidth is set, with the same segments', () => {
+    render(
+      <SplitButton
+        groupLabel="Capture"
+        tone="accent"
+        fullWidth
+        main={{ label: 'Continuous', onPress: vi.fn() }}
+        chevron={{ ariaLabel: 'Capture mode: Continuous', expanded: false, onPress: vi.fn() }}
+      />,
+    );
+    const group = screen.getByRole('group', { name: 'Capture' });
+    expect(group).toHaveClass('split-button', 'split-button-full');
+    expect(screen.getByRole('button', { name: 'Continuous' })).toHaveClass('split-main');
+  });
 });

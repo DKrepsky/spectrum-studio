@@ -112,7 +112,7 @@ async function metrics(testId: string): Promise<Metrics> {
   );
 }
 
-/** Moves the pointer off every row (onto the top-left corner of the page, the toolbar). */
+/** Moves the pointer off every row (onto the top-left corner of the page, the brand). */
 async function parkPointer() {
   await (await $('body')).moveTo({ xOffset: 2, yOffset: 2 });
 }

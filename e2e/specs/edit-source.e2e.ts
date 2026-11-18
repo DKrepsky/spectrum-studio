@@ -92,7 +92,7 @@ describe('Edit source', () => {
     await saveDialog();
 
     await browser.waitUntil(async () => (await sourceButtonText()).includes('Live renamed'), {
-      timeoutMsg: 'the toolbar button did not take the new name',
+      timeoutMsg: 'the source button did not take the new name',
     });
     expect(await sessionState()).toBe('Acquiring');
     expect(await livenessKind()).toBe('live');
