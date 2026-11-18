@@ -77,16 +77,6 @@ select {
 .toolbar-source > :not(.source-control) {
   flex: none;
 }
-.toolbar-field {
-  display: flex;
-  align-items: center;
-  gap: var(--toolbar-field-gap);
-  color: var(--color-text-secondary);
-}
-/* The Span list is as wide as its longest entry, as before 009 (the inline field width is 130px). */
-.toolbar-field .toolbar-span {
-  width: auto;
-}
 
 /* Mode icon in the capture mode menu: the mode colour (DESIGN.md 2.5). */
 .capture-mode-icon {

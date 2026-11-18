@@ -19,6 +19,12 @@ export interface SelectProps extends Omit<
   /** Accessible name. Use `Field` for the visible label. */
   label: string;
   size?: FieldSize;
+  /**
+   * Read-only in use (DESIGN.md 4.4, 9.10): the value stays visible, focus stays on the select and
+   * a pick is ignored. Use this instead of `disabled` while a change is applying: a natively
+   * disabled select drops keyboard focus.
+   */
+  readOnly?: boolean;
 }
 
 /** A short fixed list. The native element: keyboard and screen readers come with it (4.5). */
@@ -28,6 +34,7 @@ export function Select({
   onChange,
   label,
   size = 'compact',
+  readOnly = false,
   className,
   ...rest
 }: SelectProps) {
@@ -35,9 +42,11 @@ export function Select({
     <select
       {...rest}
       aria-label={label}
+      aria-readonly={readOnly || undefined}
       className={fieldInputClass(size, false, ['ui-select', className].filter(Boolean).join(' '))}
       value={value}
       onChange={(event) => {
+        if (readOnly) return;
         onChange(event.target.value);
       }}
     >

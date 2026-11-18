@@ -124,6 +124,52 @@ describe('FrequencyField', () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 
+  it('keeps focus in the field after Enter commits a valid entry', async () => {
+    const { input, onCommit } = renderField();
+    await userEvent.clear(input);
+    await userEvent.type(input, '145M{Enter}');
+    expect(onCommit).toHaveBeenCalledWith(145_000_000);
+    expect(input).toHaveFocus();
+  });
+
+  it('keeps focus in the field after Enter on an unchanged value', async () => {
+    const { input, onCommit } = renderField();
+    await userEvent.click(input);
+    await userEvent.keyboard('{Enter}');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(input).toHaveFocus();
+  });
+
+  it('shows an em dash and does not step when there is no value', async () => {
+    const { input, onCommit } = renderField({ value: null, disabled: true });
+    expect(input).toHaveValue('—');
+    expect(input).not.toHaveAttribute('aria-invalid');
+    input.focus();
+    await userEvent.keyboard('{ArrowUp}');
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('is not invalid with no value and no draft, and a typed entry is still checked', async () => {
+    const { input, onCommit } = renderField({ value: null });
+    await userEvent.click(input);
+    await userEvent.clear(input);
+    await userEvent.type(input, '145M{Enter}');
+    expect(onCommit).toHaveBeenCalledWith(145_000_000);
+    await userEvent.clear(input);
+    await userEvent.type(input, 'abc{Enter}');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('is read-only when asked: shows the value, is not stepped, and keeps focus', async () => {
+    const { input, onCommit } = renderField({ readOnly: true });
+    expect(input).toHaveValue('100.200000 MHz');
+    expect(input).toHaveAttribute('readonly');
+    input.focus();
+    await userEvent.keyboard('{ArrowUp}');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(input).toHaveFocus();
+  });
+
   it('is disabled when asked', () => {
     const { input } = renderField({ disabled: true });
     expect(input).toBeDisabled();

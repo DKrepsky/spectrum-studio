@@ -145,8 +145,7 @@
   --capture-main-padding-x: 10px; /* Off-scale, kept from before T7 */
   --source-name-min: 150px;
   --source-name-max: 280px;
-  --field-width-frequency: 150px;
-  --field-width-inline: 130px;
+  --field-width-inline: 140px;
   --field-width-unit: 90px;
   --field-width-param: 140px;
   --field-padding-frequency: 7px; /* Off-scale, kept from before T7: frequency field inline padding */
@@ -161,7 +160,6 @@
   --toolbar-padding-x: 12px;
   --toolbar-group-gap: 8px;
   --toolbar-padding-y: 7px; /* Off-scale, kept from before 009: toolbar vertical padding */
-  --toolbar-field-gap: var(--space-3); /* Gap inside a toolbar field (5px at max-width 1180px) */
   --plot-zoom-reset-inset-left: 76px; /* Zoom reset, from the left of the plot */
   --plot-hint-padding-x: 40px; /* Plot hint: horizontal inset, so the text wraps clear of the plot edges */
   --waterfall-tick-gap: 3px; /* Off-scale, kept from before 009: waterfall tick label to its mark */
@@ -213,8 +211,6 @@
     --toolbar-gap: 10px;
     --toolbar-padding-x: 8px;
     --toolbar-group-gap: 5px;
-    --toolbar-field-gap: 5px;
-    --field-width-frequency: 128px;
   }
 }
 

@@ -140,3 +140,7 @@ re-run unattended (or ask the PM to ask the human) before chasing them.
   capture stops it can trail the backend by 4 to 6 frames, so a `before + 1` check on it is wrong. Use
   `settledFrameSeq()` for the baseline. The backend publishes exactly one frame per single capture (checked with
   temporary `tracing` in `session/worker.rs`, reverted).
+
+## Added in 012 fix pass (focus after Enter)
+- A commit that sets a global busy state disables its own field, and WebKit drops focus to BODY, even with the blur removed. Check `document.activeElement` after the commit in the real app. The fix used: `readOnly` while busy (DESIGN 4.4 read-only), not `disabled`. Span (a native select) still has this issue; not fixed in 012.
+- Probe recipe that worked: a throwaway `e2e/specs/<name>.e2e.ts` run with `npm run e2e:run -- --spec <abs path>`, `console.log('PROBE ...')` from the spec, read the log, delete the spec. Do not run `npx wdio` by hand.

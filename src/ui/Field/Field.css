@@ -76,10 +76,6 @@
   text-align: right;
 }
 
-.ui-field__input--frequency.ui-field__input--toolbar {
-  width: var(--field-width-frequency);
-}
-
 .ui-field--stacked .ui-field__input {
   width: 100%;
 }
@@ -107,6 +103,10 @@
   opacity: var(--opacity-read-only);
 }
 
+.ui-field__input[aria-readonly='true'] {
+  opacity: var(--opacity-read-only);
+}
+
 .ui-field__unit {
   flex: 0 0 auto;
   color: var(--color-text-secondary);
@@ -129,6 +129,11 @@
 
 .ui-checkbox--disabled {
   opacity: var(--opacity-unavailable);
+  cursor: default;
+}
+
+.ui-checkbox--read-only {
+  opacity: var(--opacity-read-only);
   cursor: default;
 }
 

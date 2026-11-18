@@ -42,7 +42,6 @@ describe('Toolbar', () => {
     expect(button).toHaveTextContent('Continuous');
     expect(screen.queryByText(/^(Run|Stop)$/)).not.toBeInTheDocument();
     expect(screen.queryByTestId('simulated-badge')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Center frequency')).toBeDisabled();
   });
 
   it('has one source control and none of the old connect buttons', () => {
@@ -150,36 +149,17 @@ describe('Toolbar', () => {
       'Source: Signal simulator, Acquiring',
     );
     expect(screen.queryByTestId('simulated-badge')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Center frequency')).toHaveValue('100.000000 MHz');
-    expect(screen.getByLabelText('Span')).toHaveValue('2048000');
   });
 
-  it('applies a typed centre frequency', async () => {
-    apiMock.applySourceSettings.mockResolvedValue(activeSimulator.settings);
+  it('has no tuning fields: Center and Span live in the side panel Measurement group', () => {
     useSession
       .getState()
       .receiveStatus(status({ revision: 3, state: 'connected', source: activeSimulator }));
     renderToolbar();
-    const input = screen.getByLabelText('Center frequency');
-    await userEvent.clear(input);
-    await userEvent.type(input, '433.92M{Enter}');
-    expect(apiMock.applySourceSettings).toHaveBeenCalledWith({
-      centerHz: 433.92e6,
-      spanHz: null,
-      params: {},
-    });
-  });
-
-  it('keeps an out-of-range frequency visible as invalid instead of applying it', async () => {
-    useSession
-      .getState()
-      .receiveStatus(status({ revision: 4, state: 'connected', source: activeSimulator }));
-    renderToolbar();
-    const input = screen.getByLabelText('Center frequency');
-    await userEvent.clear(input);
-    await userEvent.type(input, '7G{Enter}');
-    expect(input).toHaveAttribute('aria-invalid', 'true');
-    expect(apiMock.applySourceSettings).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Center frequency')).toBeNull();
+    expect(screen.queryByLabelText('Span')).toBeNull();
+    expect(screen.queryByTestId('center-frequency')).toBeNull();
+    expect(screen.queryByTestId('span-select')).toBeNull();
   });
 
   it('is a labelled header without role=toolbar, which promises a roving focus it does not have (B7)', () => {

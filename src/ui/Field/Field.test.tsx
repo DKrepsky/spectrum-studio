@@ -118,6 +118,9 @@ describe('Field', () => {
   it('dims disabled inputs with the unavailable opacity and marks read-only ones', () => {
     expect(rule(css, '.ui-field__input:disabled')).toContain('opacity: var(--opacity-unavailable)');
     expect(rule(css, '.ui-field__input[readonly]')).toContain('opacity: var(--opacity-read-only)');
+    expect(rule(css, ".ui-field__input[aria-readonly='true']")).toContain(
+      'opacity: var(--opacity-read-only)',
+    );
   });
 });
 
@@ -187,6 +190,30 @@ describe('Select', () => {
     expect(onChange).toHaveBeenCalledWith('2');
   });
 
+  it('ignores a pick while read-only and keeps focus on the select', async () => {
+    const onChange = vi.fn();
+    render(
+      <Select
+        label="Span"
+        value="1"
+        readOnly
+        onChange={onChange}
+        options={[
+          { value: '1', label: '1 MHz' },
+          { value: '2', label: '2 MHz' },
+        ]}
+      />,
+    );
+    const select = screen.getByRole('combobox', { name: 'Span' });
+    expect(select).toHaveAttribute('aria-readonly', 'true');
+    expect(select).toBeEnabled();
+    select.focus();
+    await userEvent.selectOptions(select, '2');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(select).toHaveValue('1');
+    expect(select).toHaveFocus();
+  });
+
   it('takes its description from aria-describedby', () => {
     render(
       <Select
@@ -243,6 +270,22 @@ describe('Checkbox', () => {
     expect(screen.getByText('Peaks').closest('label')).toHaveClass('ui-checkbox--disabled');
     await userEvent.click(screen.getByText('Peaks'));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('is read-only when asked: stays enabled, shows the state and ignores changes', async () => {
+    const onChange = vi.fn();
+    render(<Checkbox checked onChange={onChange} label="Peaks" readOnly />);
+    const box = screen.getByRole('checkbox', { name: 'Peaks' });
+    expect(box).not.toBeDisabled();
+    expect(box).toHaveAttribute('aria-readonly', 'true');
+    expect(screen.getByText('Peaks').closest('label')).toHaveClass('ui-checkbox--read-only');
+    await userEvent.click(box);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(box).toBeChecked();
+  });
+
+  it('dims a read-only checkbox with the read-only opacity', () => {
+    expect(rule(css, '.ui-checkbox--read-only')).toContain('opacity: var(--opacity-read-only)');
   });
 
   it('makes the label at least 24px high (F14)', () => {

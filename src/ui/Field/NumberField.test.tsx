@@ -144,4 +144,14 @@ describe('NumberField', () => {
     await userEvent.type(input, '-4{Enter}');
     expect(onCommit).toHaveBeenCalledWith(-4);
   });
+
+  it('is read-only when asked: stays focusable, is not stepped and is not committed', async () => {
+    const { input, onCommit } = renderField({ readOnly: true });
+    expect(input).not.toBeDisabled();
+    expect(input).toHaveAttribute('readonly');
+    input.focus();
+    await userEvent.keyboard('{ArrowUp}{Enter}');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(input).toHaveFocus();
+  });
 });
