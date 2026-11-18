@@ -28,6 +28,15 @@ describe('SidePanel', () => {
     expect(screen.getByRole('complementary', { name: 'Analysis controls' })).toBeInTheDocument();
   });
 
+  it('holds the source button first and the capture control last in the Measurement group', () => {
+    const { container } = render(<SidePanel />);
+    const measurement = container.querySelector('details')!;
+    const body = measurement.querySelector('.ui-section-body')!;
+    expect(body.firstElementChild).toBe(screen.getByTestId('source-button').parentElement);
+    expect(body.lastElementChild).toBe(screen.getByRole('group', { name: 'Capture' }));
+    expect(measurement.querySelector('summary')?.textContent).toBe('Measurement');
+  });
+
   it('uses no raw controls in the side panel or its parameter form', () => {
     const files = [
       resolve(HERE, 'SidePanel.tsx'),

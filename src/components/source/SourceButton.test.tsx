@@ -57,6 +57,20 @@ describe('source button', () => {
     expect(button).not.toHaveClass('attention');
   });
 
+  it('names a source the device no longer reports Not detected, as its row does', () => {
+    setup('Bench');
+    act(() =>
+      useSession.setState({
+        status: status({
+          revision: 3,
+          state: 'disconnected',
+          lastNotice: { kind: 'deviceLost', message: 'Device lost', timestampMs: 1 },
+        }),
+      }),
+    );
+    expect(screen.getByTestId('source-button')).toHaveAccessibleName('Source: Bench, Not detected');
+  });
+
   it('wears the same status dot as the rows and no status text', () => {
     setup('Bench');
     act(() =>
@@ -85,7 +99,8 @@ describe('source button', () => {
     setup('Bench');
     act(() => useSources.setState({ failed: 'source-entry-a' }));
     expect(screen.getByTestId('source-button-status')).toHaveAttribute('data-status', 'failed');
-    expect(screen.getByTestId('source-button')).toHaveAccessibleName('Source: Bench, Disconnected');
+    // The name says the word the row shows (F4), not the session's Disconnected.
+    expect(screen.getByTestId('source-button')).toHaveAccessibleName('Source: Bench, Failed');
   });
 
   it('shows the connected dot and label, not Failed, when the backend is connected', () => {

@@ -233,7 +233,7 @@ describe('source button and menu', () => {
       expect(apiMock.connectRemembered).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps Disconnected and shows Failed with the backend message after a failed pick', async () => {
+    it('keeps the session Disconnected, and the button name and the row say Failed after a failed pick', async () => {
       apiMock.connectRemembered.mockRejectedValue({ message: 'Cannot open the device.' });
       setup({ list: [alpha, charlie], activeId: 'a' });
       await openMenu();
@@ -241,7 +241,8 @@ describe('source button and menu', () => {
       await waitFor(() =>
         expect(useSession.getState().commandError).toBe('Cannot open the device.'),
       );
-      expect(button()).toHaveAccessibleName('Source: Charlie, Disconnected');
+      // The name matches the visible word on the row (F4), not the session state.
+      expect(button()).toHaveAccessibleName('Source: Charlie, Failed');
       expect(useSession.getState().status?.state).toBe('disconnected');
       await openMenu();
       expect(screen.getByTestId('source-entry-c')).toHaveTextContent('Failed');

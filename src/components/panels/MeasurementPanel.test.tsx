@@ -3,6 +3,8 @@ import '../../test/mockApi';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import type { DecodedFrame } from '../../ipc/frame';
+import { frameStore } from '../../state/frames';
 import { SIMULATOR_CONFIG, useSession } from '../../state/session';
 import { useSources } from '../../state/sources';
 import { activeSimulator, simulatorDriver, status } from '../../test/fixtures';
@@ -48,7 +50,7 @@ describe('MeasurementPanel: Center and Span rows', () => {
     expect(screen.getByLabelText('Span')).toHaveValue('2048000');
   });
 
-  it('shows Center and Span disabled with no source, as the toolbar did', () => {
+  it('shows Center and Span disabled with no source', () => {
     render(<MeasurementPanel />);
     expect(screen.getByLabelText('Center frequency')).toBeDisabled();
     expect(screen.getByLabelText('Span')).toBeDisabled();
@@ -173,5 +175,221 @@ describe('MeasurementPanel: Center and Span rows', () => {
     await userEvent.selectOptions(span, '1024000');
     expect(apiMock.applySourceSettings).toHaveBeenCalledTimes(1);
     expect(span).toHaveValue('2048000');
+  });
+});
+
+describe('MeasurementPanel: FFT size and Window availability', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSession.setState({ status: null, drivers: [simulatorDriver], busy: null });
+    useSources.setState({
+      drivers: [simulatorDriver],
+      list: [],
+      active: { id: null, title: 'Signal simulator', config: SIMULATOR_CONFIG },
+    });
+  });
+
+  it('disables FFT size and Window with the reason when no source is connected (issue 21)', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'disconnected', source: null }));
+    render(<MeasurementPanel />);
+    for (const label of ['FFT size', 'Window']) {
+      const control = screen.getByLabelText(label);
+      expect(control).toBeDisabled();
+      expect(control).toHaveAttribute('title', 'Connect a source first');
+      expect(control).toHaveAccessibleDescription('Connect a source first');
+    }
+    // Same as Center and Span: disabled, not read-only, so the reason is the only thing shown.
+    expect(screen.getByLabelText('Center frequency')).toBeDisabled();
+  });
+
+  it('says Connecting… while the no-source reason is a connection in progress', () => {
+    useSession.getState().receiveStatus(status({ revision: 2, state: 'connecting', source: null }));
+    render(<MeasurementPanel />);
+    expect(screen.getByLabelText('FFT size')).toHaveAccessibleDescription('Connecting…');
+  });
+
+  it('enables FFT size and Window, with no description, while a source is connected', () => {
+    connect(activeSimulator);
+    render(<MeasurementPanel />);
+    for (const label of ['FFT size', 'Window']) {
+      expect(screen.getByLabelText(label)).toBeEnabled();
+      expect(screen.getByLabelText(label)).not.toHaveAttribute('title');
+      expect(screen.getByLabelText(label)).not.toHaveAccessibleDescription();
+    }
+  });
+
+  it('disables FFT size and Window with the trace reason for a trace source', () => {
+    connect({
+      ...activeSimulator,
+      capabilities: { ...activeSimulator.capabilities, dataKind: 'trace' },
+    });
+    render(<MeasurementPanel />);
+    for (const label of ['FFT size', 'Window']) {
+      expect(screen.getByLabelText(label)).toBeDisabled();
+      expect(screen.getByLabelText(label)).toHaveAccessibleDescription(
+        'The source supplies measured traces; no FFT is computed',
+      );
+    }
+  });
+});
+
+describe('MeasurementPanel: source button and capture control', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSession.setState({ status: null, drivers: [simulatorDriver], busy: null });
+    useSources.setState({
+      drivers: [simulatorDriver],
+      list: [],
+      active: { id: null, title: 'Signal simulator', config: SIMULATOR_CONFIG },
+    });
+  });
+
+  it('puts the source button first and the capture control last in the Measurement group', () => {
+    connect(activeSimulator);
+    const { container } = render(<MeasurementPanel />);
+    // The panel's rows are its direct children: the source control first, the capture group last.
+    expect(container.firstElementChild).toBe(screen.getByTestId('source-button').parentElement);
+    expect(container.lastElementChild).toBe(screen.getByRole('group', { name: 'Capture' }));
+  });
+
+  it('fills the column: the source button and the capture group are full width', () => {
+    render(<MeasurementPanel />);
+    expect(screen.getByRole('group', { name: 'Capture' })).toHaveClass('split-button-full');
+    expect(screen.getByTestId('source-button').parentElement).toHaveClass('source-control');
+  });
+
+  it('shows no state pill and a disabled capture button while disconnected', () => {
+    useSession.getState().receiveStatus(status({ revision: 1 }));
+    render(<MeasurementPanel />);
+    expect(screen.queryByTestId('session-state')).not.toBeInTheDocument();
+    expect(screen.getByTestId('source-button')).toHaveAttribute(
+      'aria-label',
+      'Source: Signal simulator, Disconnected',
+    );
+    const button = screen.getByTestId('acquire-button');
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-label', 'Start continuous acquisition');
+    expect(button).toHaveAttribute('data-state', 'idle');
+    expect(button).toHaveAttribute('title', 'Connect a source first');
+    expect(button).toHaveTextContent('Continuous');
+    expect(screen.queryByText(/^(Run|Stop)$/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('simulated-badge')).not.toBeInTheDocument();
+  });
+
+  it('has one source control and none of the old connect buttons', () => {
+    useSession.getState().receiveStatus(status({ revision: 1 }));
+    render(<MeasurementPanel />);
+    expect(screen.getByTestId('source-button')).toHaveTextContent('Signal simulator');
+    expect(
+      screen.queryByRole('button', { name: /^(Connect|Disconnect|Switch|Sources…)$/ }),
+    ).toBeNull();
+    expect(screen.queryByTestId('connect-button')).not.toBeInTheDocument();
+  });
+
+  it('disables the capture control until a source is chosen', () => {
+    useSources.setState({ active: null });
+    useSession.getState().receiveStatus(status({ revision: 1 }));
+    render(<MeasurementPanel />);
+    expect(screen.getByTestId('source-button')).toHaveTextContent('Choose a source');
+    expect(screen.getByTestId('acquire-button')).toBeDisabled();
+    expect(screen.getByTestId('acquire-button')).toHaveAttribute('title', 'Connect a source first');
+  });
+
+  it.each(['connecting', 'disconnecting'] as const)(
+    'disables the capture button while %s',
+    (state) => {
+      useSession.getState().receiveStatus(status({ revision: 1, state }));
+      render(<MeasurementPanel />);
+      expect(screen.getByTestId('acquire-button')).toBeDisabled();
+    },
+  );
+
+  it('marks the capture button aria-disabled while a command is in flight, even when connected', () => {
+    useSession.getState().receiveStatus(status({ revision: 1, state: 'connected' }));
+    useSession.setState({ busy: 'starting' });
+    render(<MeasurementPanel />);
+    const button = screen.getByTestId('acquire-button');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toBeEnabled();
+  });
+
+  it('keeps keyboard focus on the capture button while busy and ignores clicks until the command ends', async () => {
+    useSession.getState().receiveStatus(status({ revision: 1, state: 'connected' }));
+    let finishStart!: () => void;
+    apiMock.startAcquisition.mockImplementationOnce(
+      () => new Promise<null>((resolve) => (finishStart = () => resolve(null))),
+    );
+    render(<MeasurementPanel />);
+    const button = screen.getByTestId('acquire-button');
+    button.focus();
+    expect(button).toHaveFocus();
+
+    await userEvent.keyboard('{Enter}');
+    expect(apiMock.startAcquisition).toHaveBeenCalledTimes(1);
+    expect(button).toHaveFocus();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+
+    await userEvent.click(button);
+    await userEvent.keyboard(' ');
+    expect(apiMock.startAcquisition).toHaveBeenCalledTimes(1);
+    expect(apiMock.stopAcquisition).not.toHaveBeenCalled();
+    expect(button).toHaveFocus();
+
+    finishStart();
+    await waitFor(() => expect(useSession.getState().busy).toBeNull());
+    expect(button).not.toHaveAttribute('aria-disabled');
+    expect(button).toHaveFocus();
+  });
+
+  it('starts acquisition from the capture button without connecting first', async () => {
+    useSession.getState().receiveStatus(status({ revision: 1, state: 'connected' }));
+    render(<MeasurementPanel />);
+    const button = screen.getByTestId('acquire-button');
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute('aria-label', 'Start continuous acquisition');
+    await userEvent.click(button);
+    expect(apiMock.startAcquisition).toHaveBeenCalledTimes(1);
+    expect(apiMock.connectRemembered).not.toHaveBeenCalled();
+    expect(apiMock.connectSource).not.toHaveBeenCalled();
+  });
+
+  it('shows Pause while acquiring and stops without clearing the last frame', async () => {
+    const frame = { receivedAt: 1 } as unknown as DecodedFrame;
+    frameStore.publish(frame);
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'acquiring', source: activeSimulator }));
+    render(<MeasurementPanel />);
+    const button = screen.getByTestId('acquire-button');
+    expect(button).toHaveAttribute('aria-label', 'Pause continuous acquisition');
+    expect(button).toHaveAttribute('data-state', 'acquiring');
+    expect(button).toHaveAttribute('title', 'Pause acquisition: the last trace stays on screen');
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    expect(apiMock.stopAcquisition).toHaveBeenCalledTimes(1);
+    expect(frameStore.latest).toBe(frame);
+    frameStore.clear();
+  });
+
+  it('keeps the source button state-aware while acquiring', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'acquiring', source: activeSimulator }));
+    render(<MeasurementPanel />);
+    expect(screen.getByTestId('source-button')).toHaveAttribute(
+      'aria-label',
+      'Source: Signal simulator, Acquiring',
+    );
+    expect(screen.queryByTestId('simulated-badge')).not.toBeInTheDocument();
+  });
+
+  it('describes why the capture button is unavailable, through its accessible description', () => {
+    useSession.getState().receiveStatus(status({ revision: 1 }));
+    render(<MeasurementPanel />);
+    expect(
+      screen.getByRole('button', { name: 'Start continuous acquisition' }),
+    ).toHaveAccessibleDescription('Connect a source first');
   });
 });

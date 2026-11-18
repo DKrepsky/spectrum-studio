@@ -10,6 +10,7 @@ import {
 
 import { useDismiss } from '../hooks/useDismiss';
 import { useListKeys } from '../hooks/useListKeys';
+import { usePopupFlip } from '../hooks/usePopupFlip';
 import './Popover.css';
 
 interface PopoverProps {
@@ -51,6 +52,7 @@ export function Popover({
   const moveInList = useListKeys({ container: root });
   const dismiss = useCallback(() => onClose(false), [onClose]);
   useDismiss({ container: root, anchor: anchorRef, onDismiss: dismiss });
+  usePopupFlip(root, anchorRef);
 
   // Focus on open: the current row, else the first row, else the popover itself.
   // A child that already moved focus in (a connect form's first field) keeps it.

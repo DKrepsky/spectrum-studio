@@ -273,7 +273,7 @@ describe('Visual guard: panels, banners, status bar, plot tags and capture contr
       await closeSourceMenu();
 
       await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
-      for (let i = 0; i < 10; i += 1) {
+      for (let i = 0; i < 30; i += 1) {
         if (
           (await browser.execute(() => document.activeElement?.getAttribute('data-testid'))) ===
           'source-button'
@@ -347,7 +347,7 @@ describe('Visual guard: panels, banners, status bar, plot tags and capture contr
       await pauseAcquisition();
 
       await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
-      for (let i = 0; i < 10; i += 1) {
+      for (let i = 0; i < 30; i += 1) {
         if (
           (await browser.execute(() => document.activeElement?.getAttribute('data-testid'))) ===
           'acquire-button'
@@ -790,7 +790,7 @@ describe('Visual guard: source button, menu and dialog', () => {
   });
 
   for (const w of WIDTHS) {
-    it(`the source button stays between 150 and 280px and truncates only with a full-name label at ${w}px`, async () => {
+    it(`the source button fills the side panel column and truncates only with a full-name label at ${w}px`, async () => {
       const real = await resize(w);
       for (const [label, expectFull, id] of [
         [N60, false, 'source-entry-vis-60'],
@@ -809,8 +809,12 @@ describe('Visual guard: source button, menu and dialog', () => {
           const b = document.querySelector<HTMLElement>('[data-testid="source-button"]')!;
           const n = b.querySelector<HTMLElement>('[data-testid="source-button-name"]')!;
           const r = b.getBoundingClientRect();
+          // The column: the Measurement section body less its own horizontal padding (DESIGN.md 3.6).
+          const body = b.closest<HTMLElement>('.ui-section-body')!;
+          const cs = getComputedStyle(body);
           return {
             w: r.width,
+            column: body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
             scroll: n.scrollWidth,
             client: n.clientWidth,
             aria: b.getAttribute('aria-label') ?? '',
@@ -826,15 +830,19 @@ describe('Visual guard: source button, menu and dialog', () => {
           };
         });
         const where = `${label} at ${real}`;
-        expect(m.w, `${where}: button width`).toBeGreaterThanOrEqual(149.5);
-        expect(m.w, `${where}: button width`).toBeLessThanOrEqual(280.5);
+        expect(m.w, `${where}: button ${m.w}px, column ${m.column}px`).toBeGreaterThanOrEqual(
+          m.column - TOL,
+        );
+        expect(m.w, `${where}: button ${m.w}px, column ${m.column}px`).toBeLessThanOrEqual(
+          m.column + TOL,
+        );
         expect(m.aria, `${where}: aria-label carries the full name`).toContain(label);
         if (expectFull)
           expect(m.scroll, `${where}: name truncated`).toBeLessThanOrEqual(m.client + 1);
         else expect(m.scroll, `${where}: 60-char name must ellipsise`).toBeGreaterThan(m.client);
         expect(m.pageSw, `${where}: page scrolls sideways`).toBeLessThanOrEqual(m.iw + 1);
         expect(m.toolbarOverflow, `${where}: toolbar overflows`).toBeLessThanOrEqual(1);
-        // The brand stays on one line (a wrapped brand makes the toolbar taller).
+        // The toolbar holds the brand only; the brand stays on one line (a wrapped brand makes it taller).
         expect(m.brandH, `${where}: brand wrapped to ${m.brandH}px`).toBeLessThan(
           (Number.isNaN(m.brandLine) ? 24 : m.brandLine) * 1.5,
         );
@@ -977,7 +985,7 @@ async function assertNameVisible(where: string, name: string, minChars: number) 
   expect(m.aria, `${where}: aria-label keeps the full name`).toContain(name);
 }
 
-describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () => {
+describe('Visual guard: the side panel and its source and capture controls fit the window (R2-2)', () => {
   const FIT_WIDTHS = [1180, 1024];
   const SIM_ID = 'source-entry-vis-sim';
   const N22_SIM = 'Simulated bench unit 2'; // 22 chars, unique among the seeded names
@@ -1005,7 +1013,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
         await browser.pause(300);
         await assertChromeFits(`idle ${label.length} chars at ${real}`);
         await assertNameVisible(`idle ${label.length} chars at ${real}`, label, label.length);
-        await shot(`toolbar-idle-${label.length}-${real}-seeded`);
+        await shot(`panel-idle-${label.length}-${real}-seeded`);
       }
     });
   }
@@ -1049,13 +1057,24 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
         const r = document
           .querySelector('[data-testid="capture-mode-menu"]')!
           .getBoundingClientRect();
-        return { left: r.left, right: r.right, iw: window.innerWidth };
+        return {
+          left: r.left,
+          right: r.right,
+          top: r.top,
+          bottom: r.bottom,
+          iw: window.innerWidth,
+          ih: window.innerHeight,
+        };
       });
       expect(menu.left, `capture menu starts left of the window at ${real}`).toBeGreaterThanOrEqual(
         0,
       );
       expect(menu.right, `capture menu ends past the window at ${real}`).toBeLessThanOrEqual(
         menu.iw + 0.5,
+      );
+      expect(menu.top, `capture menu starts above the window at ${real}`).toBeGreaterThanOrEqual(0);
+      expect(menu.bottom, `capture menu ends below the window at ${real}`).toBeLessThanOrEqual(
+        menu.ih + 0.5,
       );
       await assertNoOverflow('[data-testid="capture-mode-menu"]');
       await shot(`capture-menu-open-${real}`);
@@ -1083,7 +1102,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
         await browser.pause(300);
         await assertChromeFits(`connected ${name.length} chars at ${real}`);
         await assertNameVisible(`connected at ${real}`, name, 18);
-        await shot(`toolbar-connected-${name.length}-${real}-seeded`);
+        await shot(`panel-connected-${name.length}-${real}-seeded`);
       }
       await (await byTestId('acquire-button')).click();
       await waitForState('Acquiring');
@@ -1095,7 +1114,7 @@ describe('Visual guard: the toolbar and side panel fit the window (R2-2)', () =>
         await browser.pause(300);
         await assertChromeFits(`acquiring ${name.length} chars at ${real}`);
         await assertNameVisible(`acquiring at ${real}`, name, 18);
-        await shot(`toolbar-acquiring-${name.length}-${real}-seeded`);
+        await shot(`panel-acquiring-${name.length}-${real}-seeded`);
       }
       await (await byTestId('acquire-button')).click();
       await waitForState('Connected');
@@ -1115,7 +1134,7 @@ describeHardware('Visual guard with the real SA430', () => {
       await browser.pause(300);
       await assertChromeFits(`real connected at ${real}`);
       await assertNameVisible(`real connected at ${real}`, REAL, REAL.length);
-      await shot(`toolbar-connected-real-${real}-sa430`);
+      await shot(`panel-connected-real-${real}-sa430`);
     }
     await (await byTestId('acquire-button')).click();
     await waitForState('Acquiring');
@@ -1127,7 +1146,7 @@ describeHardware('Visual guard with the real SA430', () => {
       await browser.pause(300);
       await assertChromeFits(`real acquiring at ${real}`);
       await assertNameVisible(`real acquiring at ${real}`, REAL, REAL.length);
-      await shot(`toolbar-acquiring-real-${real}-sa430`);
+      await shot(`panel-acquiring-real-${real}-sa430`);
     }
     await (await byTestId('acquire-button')).click();
     await waitForState('Connected');

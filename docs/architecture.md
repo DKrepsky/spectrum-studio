@@ -6,7 +6,7 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 
 ```
 ┌──────────────────────────── WebView (React + TS) ───────────────────────────┐
-│ Toolbar · Source menu · Spectrum canvas · Waterfall · Markers · Peaks      │
+│ Side panel (source, capture) · Source menu · Spectrum canvas · Waterfall    │
 │        ▲ SessionStatus events          ▲ binary frames (next_frame poll)    │
 └────────┼───────────────────────────────┼────────────────────────────────────┘
          │ invoke(commands)              │

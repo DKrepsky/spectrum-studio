@@ -28,6 +28,12 @@ describe('Failure handling', () => {
     await openSourceMenu();
     expect(await textOf(await sourceRow('seed-fail'))).toContain('Failed');
     await closeSourceMenu();
+    // The button's accessible name says the word the row shows (F4), not the session's Disconnected.
+    const name = await browser.execute(
+      () =>
+        document.querySelector('[data-testid="source-button"]')?.getAttribute('aria-label') ?? '',
+    );
+    expect(name).toMatch(/, Failed$/);
   });
 
   it('detects device loss during acquisition and recovers with Reconnect', async () => {

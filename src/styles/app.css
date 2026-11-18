@@ -38,13 +38,12 @@ select {
   height: 100vh;
 }
 
-/* Toolbar (DESIGN.md 3.3): this app's layout. Its controls come from src/ui/. The gaps and the
-   padding change in the narrow range through the tokens (2.10). */
+/* Toolbar (DESIGN.md 3.3): the brand only. The source button and the capture control are in the side
+   panel's Measurement group (3.6). The padding changes in the narrow range through the tokens (2.10). */
 .toolbar {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--toolbar-gap);
   padding: var(--toolbar-padding-y) var(--toolbar-padding-x);
   background: var(--color-surface-panel);
   border-bottom: 1px solid var(--color-border-default);
@@ -61,23 +60,6 @@ select {
 .brand-mark {
   color: var(--color-accent);
 }
-.toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: var(--toolbar-group-gap);
-  flex: none;
-}
-/* The only group that may shrink: the source name column gives way (down to the source button's
-   150px minimum) so a long name never pushes the other controls or the side panel off screen.
-   `min-width: 0` is needed because its min-content contains the whole, unwrapped name. */
-.toolbar-source {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-.toolbar-source > :not(.source-control) {
-  flex: none;
-}
-
 /* Mode icon in the capture mode menu: the mode colour (DESIGN.md 2.5). */
 .capture-mode-icon {
   display: inline-flex;

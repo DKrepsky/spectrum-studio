@@ -32,6 +32,15 @@
   padding: 0;
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
+/* Full width (the side panel): the main segment takes the room; the chevron keeps its width. */
+.split-button-full {
+  width: 100%;
+}
+.split-button-full .split-main {
+  flex: 1 1 auto;
+  width: auto;
+}
+
 .split-main svg,
 .split-chevron svg {
   flex: none;

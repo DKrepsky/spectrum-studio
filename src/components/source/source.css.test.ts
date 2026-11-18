@@ -50,10 +50,10 @@ describe('source.css contract', () => {
     expect(rule(css, '.source-toast')).toContain('min-height: var(--row-height)');
   });
 
-  it('bounds the source button by the source name tokens', () => {
-    expect(rule(css, '.source-button')).toContain('min-width: var(--source-name-min)');
-    expect(rule(css, '.source-button')).toContain('max-width: var(--source-name-max)');
-    expect(rule(css, '.source-control')).toContain('flex: 0 1 auto');
+  it('fills the side panel column: no width cap, and a popover as wide as the control', () => {
+    expect(rule(css, '.source-control')).toContain('width: 100%');
+    expect(rule(css, '.source-button')).not.toMatch(/max-width|min-width: var\(--source-name/);
+    expect(rule(css, '.source-control > .popover-source')).toContain('width: 100%');
   });
 
   it('truncates every name with an ellipsis instead of wrapping', () => {

@@ -143,8 +143,6 @@
   --capture-chevron-width: 26px;
   --capture-main-gap: 7px; /* Off-scale, kept from before T7: icon to label */
   --capture-main-padding-x: 10px; /* Off-scale, kept from before T7 */
-  --source-name-min: 150px;
-  --source-name-max: 280px;
   --field-width-inline: 140px;
   --field-width-unit: 90px;
   --field-width-param: 140px;
@@ -156,9 +154,7 @@
   --source-test-min-height: 62px; /* Off-scale, as before 009: test result box, reserved for idle and ok */
   --source-test-gap: 10px; /* Off-scale, as before 009: Test connection button to result box */
   --source-test-padding-y: 5px; /* Off-scale, as before 009: test result box vertical padding */
-  --toolbar-gap: 18px;
   --toolbar-padding-x: 12px;
-  --toolbar-group-gap: 8px;
   --toolbar-padding-y: 7px; /* Off-scale, kept from before 009: toolbar vertical padding */
   --plot-zoom-reset-inset-left: 76px; /* Zoom reset, from the left of the plot */
   --plot-hint-padding-x: 40px; /* Plot hint: horizontal inset, so the text wraps clear of the plot edges */
@@ -208,9 +204,7 @@
 /* 2.10 Narrow window (range C, max-width 1180px, inclusive) */
 @media (max-width: 1180px) {
   :root {
-    --toolbar-gap: 10px;
     --toolbar-padding-x: 8px;
-    --toolbar-group-gap: 5px;
   }
 }
 

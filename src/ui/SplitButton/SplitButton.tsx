@@ -53,13 +53,18 @@ interface SplitButtonProps {
   chevron: ChevronSegment;
   /** Focus target of the chevron (returned to after the popup closes). */
   chevronRef?: Ref<HTMLButtonElement>;
+  /**
+   * The group fills its column (the side panel, 3.6): the main segment takes the room and the chevron
+   * stays at the right edge. The segment widths of the default placement are unchanged.
+   */
+  fullWidth?: boolean;
   /** The popup the chevron opens (a `Menu` or `Popover`), rendered inside the group. */
   children?: ReactNode;
 }
 
 /**
  * Two buttons in one group: a main action and a chevron that opens a popup. Geometry is fixed
- * (main 128px, chevron 26px, height `--control-height`), so no state moves the toolbar. One focus
+ * (main 128px, chevron 26px, height `--control-height`), so no state moves the layout. One focus
  * ring goes around the whole group, not one per segment (`:has()` in SplitButton.css).
  */
 export function SplitButton({
@@ -68,10 +73,16 @@ export function SplitButton({
   main,
   chevron,
   chevronRef,
+  fullWidth,
   children,
 }: SplitButtonProps) {
   return (
-    <div className="split-button" role="group" aria-label={groupLabel} data-tone={tone}>
+    <div
+      className={fullWidth ? 'split-button split-button-full' : 'split-button'}
+      role="group"
+      aria-label={groupLabel}
+      data-tone={tone}
+    >
       <button
         type="button"
         className="split-main"

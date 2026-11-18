@@ -2,20 +2,22 @@
 
 ## First run
 
-1. Start Spectrum Studio. The source button at the left of the toolbar reads **Choose a source**
-   and the capture button is disabled until you pick one.
+1. Start Spectrum Studio. The source button at the top of the side panel's **Measurement** group reads
+   **Choose a source** and the capture button at its bottom is disabled until you pick one.
 2. Click the source button (or press **Ctrl+K**) and choose **Signal simulator**. Picking a source
    connects to it; the source button then reads **… Connected** (its status circle shows the state).
 3. Press the main capture button (▶ **Continuous**). It turns red and becomes Pause (❚❚), the source button
    reads **… Acquiring**, and the plot shows **LIVE**. The simulator is named **Signal simulator**
    in the source button, so you always see that the data is generated.
 
-## Toolbar
+## Measurement group
+
+The side panel's **Measurement** group holds the source and the capture, in that order from top to bottom, with the settings between them. The toolbar shows only the name of the application.
 
 | Control | Purpose |
 | --- | --- |
-| Source button | Shows the status circle and name of the current source; opens the source menu (see *Choosing a source*). |
-| Capture button (▶ Continuous / ▶ Single) | Starts or pauses acquisition in the mode it shows. Enabled only when a source is connected. **Continuous** keeps acquiring until you pause; pause freezes the last trace on screen and resuming uses the same settings. **Single** takes one complete sweep, shows it, and stops by itself; press again for a new sweep. Cancelling a single capture keeps the previous trace. While acquiring, the button is red and shows Pause (Continuous) or Stop (Single). |
+| Source button (first item, full width) | Shows the status circle and name of the current source; opens the source menu (see *Choosing a source*). |
+| Capture button (▶ Continuous / ▶ Single, last item, full width) | Starts or pauses acquisition in the mode it shows. Enabled only when a source is connected. **Continuous** keeps acquiring until you pause; pause freezes the last trace on screen and resuming uses the same settings. **Single** takes one complete sweep, shows it, and stops by itself; press again for a new sweep. Cancelling a single capture keeps the previous trace. While acquiring, the button is red and shows Pause (Continuous) or Stop (Single). |
 | ▾ (capture mode) | Opens the capture mode menu (Continuous or Single). Choosing a mode never starts a capture. The mode cannot change while acquiring: pause or cancel first. The mode is remembered across restarts. |
 | Center / Span | Tuning and span, enabled only when the source supports them. Center accepts `100.2M`, `433.92 MHz`, `2.4G`, `12k`; ↑/↓ step by a tenth of the span. Invalid input stays highlighted until corrected or Escape. |
 

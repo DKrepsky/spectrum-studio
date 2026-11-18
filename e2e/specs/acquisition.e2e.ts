@@ -37,6 +37,32 @@ describe('Simulator acquisition workflow', () => {
     await expect(await byTestId('simulated-badge')).not.toBeExisting();
   });
 
+  it('disables FFT size and Window with their reason while no source is connected, as Center and Span are', async () => {
+    await ensureDisconnected();
+    // The reason is in the tooltip and in the accessible description (DESIGN.md 5.4); the plot hint
+    // also shows it on screen while nothing is connected.
+    const state = () =>
+      browser.execute(() =>
+        ['fft-size', 'window'].map((id) => {
+          const el = document.getElementById(id) as HTMLSelectElement | null;
+          const described = (el?.getAttribute('aria-describedby') ?? '')
+            .split(' ')
+            .map((d) => document.getElementById(d)?.textContent ?? '')
+            .join('|');
+          return { id, disabled: el?.disabled ?? null, title: el?.title ?? '', described };
+        }),
+      );
+    await browser.waitUntil(async () => (await state()).every((s) => s.disabled !== null), {
+      timeoutMsg: 'FFT size and Window are not in the panel',
+    });
+    for (const s of await state()) {
+      expect(s.disabled).toBe(true);
+      expect(s.title).toBe('Connect a source first');
+      expect(s.described).toBe('Connect a source first');
+    }
+    expect(await livenessKind()).toBe('noSource');
+  });
+
   it('connects to the simulator and shows a live, labelled spectrum', async () => {
     await runSimulator();
     expect(await captureMode()).toBe('continuous');
@@ -56,23 +82,146 @@ describe('Simulator acquisition workflow', () => {
     expect(text).toMatch(/P1\s*100\.25\d* MHz\s*-20\.\d dBFS/);
   });
 
-  it('shows Center and Span first in the side panel Measurement group, not in the toolbar', async () => {
+  it('puts the source button first and the capture control last in the side panel Measurement group, and only the brand in the toolbar', async () => {
     const layout = await browser.execute(() => {
       const measurement = Array.from(document.querySelectorAll('.side-panel details')).find(
         (d) => d.querySelector('summary')?.textContent?.trim() === 'Measurement',
       );
+      const body = measurement?.querySelector('.ui-section-body');
       const labels = Array.from(measurement?.querySelectorAll('.ui-field__label') ?? []).map((l) =>
         l.textContent?.trim(),
       );
+      const toolbar = document.querySelector('.toolbar');
       return {
         labels,
-        inToolbar: document.querySelectorAll(
-          '.toolbar [data-testid="center-frequency"], .toolbar [data-testid="span-select"]',
+        first: body?.firstElementChild?.querySelector('[data-testid="source-button"]')
+          ? 'source'
+          : '',
+        last: body?.lastElementChild?.getAttribute('role') === 'group' ? 'capture' : '',
+        captureName: body?.lastElementChild?.getAttribute('aria-label') ?? '',
+        inToolbar: toolbar?.querySelectorAll(
+          '[data-testid="center-frequency"], [data-testid="span-select"], [data-testid="source-button"], [data-testid="acquire-button"]',
         ).length,
       };
     });
     expect(layout.labels.slice(0, 3)).toEqual(['Center', 'Span', 'FFT size']);
+    expect(layout.first).toBe('source');
+    expect(layout.last).toBe('capture');
+    expect(layout.captureName).toBe('Capture');
     expect(layout.inToolbar).toBe(0);
+  });
+
+  it('opens the source popover and the capture menu inside the window and the panel, and Escape returns focus to the trigger', async () => {
+    const focusedTestId = () =>
+      browser.execute(() => document.activeElement?.getAttribute('data-testid') ?? null);
+    // Fully visible: inside the window (not clipped by its edge) and inside the side panel's column,
+    // which is a scroll box that would clip a wider popover on its left or right.
+    const placement = (testId: string) =>
+      browser.execute((id) => {
+        const b = document
+          .querySelector<HTMLElement>(`[data-testid="${id}"]`)!
+          .getBoundingClientRect();
+        const panel = document.querySelector('.side-panel')!.getBoundingClientRect();
+        return {
+          inWindow:
+            b.left >= 0 &&
+            b.top >= 0 &&
+            b.right <= window.innerWidth &&
+            b.bottom <= window.innerHeight,
+          inPanel: b.left >= panel.left && b.right <= panel.right,
+        };
+      }, testId);
+
+    // The earlier tests left the simulator acquiring, and the capture chevron is locked while it does.
+    // Pause for this check and resume afterwards, so the tests that follow see the same state.
+    const wasAcquiring = (await acquireState()) === 'acquiring';
+    if (wasAcquiring) {
+      await (await byTestId('acquire-button')).click();
+      await waitForState('Connected');
+    }
+
+    await browser.execute(() =>
+      (document.querySelector('[data-testid="source-button"]') as HTMLElement).focus(),
+    );
+    await browser.keys(['ArrowDown']);
+    await byTestId('source-menu').waitForDisplayed();
+    expect(await placement('source-menu')).toEqual({ inWindow: true, inPanel: true });
+    await browser.keys(['Escape']);
+    await waitForGone('source-menu');
+    expect(await focusedTestId()).toBe('source-button');
+
+    await browser.execute(() =>
+      (document.querySelector('[data-testid="capture-mode-button"]') as HTMLElement).focus(),
+    );
+    await browser.keys(['ArrowDown']);
+    await byTestId('capture-mode-menu').waitForDisplayed();
+    expect(await placement('capture-mode-menu')).toEqual({ inWindow: true, inPanel: true });
+    await browser.keys(['Escape']);
+    await waitForGone('capture-mode-menu');
+    expect(await focusedTestId()).toBe('capture-mode-button');
+    if (wasAcquiring) {
+      await (await byTestId('acquire-button')).click();
+      await waitForState('Acquiring');
+    }
+  });
+
+  it('flips the capture menu above its chevron at 200% zoom, so it stays inside the window', async () => {
+    const focusedTestId = () =>
+      browser.execute(() => document.activeElement?.getAttribute('data-testid') ?? null);
+    const placement = () =>
+      browser.execute(() => {
+        const menu = document.querySelector<HTMLElement>('[data-testid="capture-mode-menu"]')!;
+        const b = menu.getBoundingClientRect();
+        const panel = document.querySelector('.side-panel')!.getBoundingClientRect();
+        return {
+          top: b.top,
+          bottom: b.bottom,
+          windowHeight: window.innerHeight,
+          // The side panel is a scroll box: a menu past its bottom edge is clipped, not just off-window.
+          inPanel: b.left >= panel.left && b.right <= panel.right && b.bottom <= panel.bottom,
+          flipped: menu.classList.contains('popover-up'),
+        };
+      });
+
+    // The capture chevron is locked while acquiring: pause for this check and resume afterwards.
+    const wasAcquiring = (await acquireState()) === 'acquiring';
+    if (wasAcquiring) {
+      await (await byTestId('acquire-button')).click();
+      await waitForState('Connected');
+    }
+    // A short window at 200%: the menu would open below the chevron and run past the window bottom.
+    // The webview's zoom key does nothing in this build, so the zoom is set on the root (QA note).
+    await browser.setWindowSize(1024, 820);
+    await browser.pause(300);
+    try {
+      await browser.execute(() => {
+        document.documentElement.style.zoom = '2';
+      });
+      await browser.execute(() =>
+        (document.querySelector('[data-testid="capture-mode-button"]') as HTMLElement).focus(),
+      );
+      await browser.keys(['ArrowDown']);
+      await byTestId('capture-mode-menu').waitForDisplayed();
+      const menu = await placement();
+      expect(menu.flipped).toBe(true);
+      expect(menu.top).toBeGreaterThanOrEqual(0);
+      expect(menu.bottom).toBeLessThanOrEqual(menu.windowHeight);
+      expect(menu.inPanel).toBe(true);
+      // Flipping moves the menu, not focus: Escape still returns focus to the chevron.
+      await browser.keys(['Escape']);
+      await waitForGone('capture-mode-menu');
+      expect(await focusedTestId()).toBe('capture-mode-button');
+    } finally {
+      await browser.execute(() => {
+        document.documentElement.style.zoom = '';
+      });
+      await browser.setWindowSize(1440, 900);
+      await browser.pause(300);
+      if (wasAcquiring) {
+        await (await byTestId('acquire-button')).click();
+        await waitForState('Acquiring');
+      }
+    }
   });
 
   it('applies a picked span and keeps keyboard focus on Span (DESIGN.md 9.8, O1)', async () => {
