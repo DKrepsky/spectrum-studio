@@ -96,6 +96,7 @@ impl SourceDriver for IdentityDriver {
                 kind: spectrum_core::model::ParamKind::Text { max_length: 64 },
                 default: ParamValue::Text(String::new()),
                 required: false,
+                placement: spectrum_core::model::ParamPlacement::Source,
             }],
             ..ScriptedDriver.info()
         }
@@ -550,6 +551,73 @@ fn stale_settings_fall_back_to_defaults() {
         m.connect_with_default_fallback(SourceConfig::new("nope"))
             .is_err()
     );
+}
+
+#[test]
+fn connect_if_idle_replaces_an_idle_simulator() {
+    let (m, _) = manager();
+    m.connect(sim_config()).unwrap();
+    assert_eq!(m.status().state, SessionState::Connected);
+
+    let status = m
+        .connect_if_idle(SourceConfig::new("scripted"))
+        .unwrap()
+        .expect("the idle simulator is replaced");
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(status.source.unwrap().device_label, "Scripted #1");
+    assert_eq!(m.status().source.unwrap().device_label, "Scripted #1");
+}
+
+#[test]
+fn connect_if_idle_never_replaces_an_acquiring_simulator() {
+    let (m, _) = manager();
+    m.connect(sim_config()).unwrap();
+    m.start().unwrap();
+
+    let outcome = m.connect_if_idle(SourceConfig::new("scripted")).unwrap();
+    assert!(outcome.is_none(), "an acquisition is never interrupted");
+    let status = m.status();
+    assert_eq!(status.state, SessionState::Acquiring);
+    assert_eq!(
+        status.source.unwrap().config.driver_id,
+        simulator::DRIVER_ID
+    );
+    m.stop().unwrap();
+}
+
+#[test]
+fn connect_if_idle_never_replaces_a_connected_real_source() {
+    let (m, _) = manager();
+    m.connect(SourceConfig::new("scripted")).unwrap();
+
+    let outcome = m.connect_if_idle(sim_config()).unwrap();
+    assert!(outcome.is_none());
+    assert_eq!(
+        m.status().source.unwrap().config.driver_id,
+        "scripted",
+        "the real source stays"
+    );
+}
+
+#[test]
+fn launching_is_false_by_default_and_follows_set_launching() {
+    let (m, sink) = manager();
+    assert!(!m.status().launching, "a session no auto-connect started");
+    m.set_launching(true);
+    assert!(m.status().launching);
+    m.set_launching(false);
+    assert!(!m.status().launching);
+    assert!(
+        sink.0.lock().unwrap().last().is_some_and(|s| !s.launching),
+        "the change is published"
+    );
+}
+
+#[test]
+fn connect_if_idle_connects_when_nothing_is_connected() {
+    let (m, _) = manager();
+    let status = m.connect_if_idle(sim_config()).unwrap().expect("connected");
+    assert_eq!(status.state, SessionState::Connected);
 }
 
 fn identity_manager(device_id: Option<&str>, port: Option<&str>) -> SessionManager {

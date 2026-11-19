@@ -8,9 +8,10 @@ import type { SourceTestResult } from '../bindings/SourceTestResult';
 import type { SourceUpdate } from '../bindings/SourceUpdate';
 import type { ParamValue } from '../bindings/ParamValue';
 import { api, errorMessage } from '../ipc/commands';
+import { sameIdentity } from './sourceConfig';
 import type { DiscoveryState } from './sourceEntries';
-import { rowTitle } from './sourceEntries';
-import { useSession } from './session';
+import { fallbackTitle, rowTitle, simulatorEntry } from './sourceEntries';
+import { SIMULATOR_CONFIG, useSession } from './session';
 
 export const SCAN_INTERVAL_MS = 3000;
 export const UNDO_FORGET_MS = 5000;
@@ -25,7 +26,10 @@ export interface ActiveEntry {
 export interface SourcesStore {
   list: SavedSource[];
   activeId: string | null;
-  /** `null` means "Choose a source". */
+  /**
+   * The selected source. The app never clears it after start-up (ADR 0017): `null` only before the
+   * first list is loaded and in a build without the simulator driver.
+   */
   active: ActiveEntry | null;
   discovery: DiscoveryState & { error: string | null };
   /**
@@ -46,6 +50,7 @@ export interface SourcesStore {
   setFailed: (key: string | null) => void;
   /** Loads the remembered list and the last active entry. Never connects. */
   init: () => Promise<void>;
+  /** Reloads the list; a selection that is not remembered yet is matched to its entry by identity. */
   refresh: () => Promise<void>;
   /** Scans now and every 3 s (one request at a time) until the returned function is called. */
   startScanning: () => () => void;
@@ -71,6 +76,17 @@ export const useSources = create<SourcesStore>()((set, get) => {
     title: rowTitle(entry, get().drivers),
     config: entry.config,
   });
+
+  /** The selection a forgotten, unconnected source leaves behind: the simulator (R10). */
+  const simulatorSelection = (): ActiveEntry => {
+    const remembered = simulatorEntry(get().list);
+    if (remembered) return entryOf(remembered);
+    return {
+      id: null,
+      title: fallbackTitle(SIMULATOR_CONFIG, get().drivers),
+      config: SIMULATOR_CONFIG,
+    };
+  };
 
   /** Applies a fresh list; keeps the active entry's title in sync with its remembered record. */
   const applyList = (next: SourceList, adoptActive: boolean) => {
@@ -115,6 +131,14 @@ export const useSources = create<SourcesStore>()((set, get) => {
         applyList(await api.listSources(), false);
       } catch (e) {
         set({ error: errorMessage(e) });
+        return;
+      }
+      // The backend remembers an auto-connect just after publishing it Connected, so the selection
+      // can be one list behind: an unremembered selection adopts the entry with its identity.
+      const { active, list } = get();
+      if (active && active.id == null) {
+        const match = list.find((e) => sameIdentity(e.config, active.config));
+        if (match) set({ active: entryOf(match) });
       }
     },
 
@@ -176,9 +200,10 @@ export const useSources = create<SourcesStore>()((set, get) => {
         return;
       }
       // Forgetting a connected source keeps the connection and its name until another source is
-      // picked; a selected source that is not connected simply stops being selected.
+      // picked; a selected source that is not connected leaves the selection on the simulator.
       const sessionState = useSession.getState().status?.state ?? 'disconnected';
-      if (get().active?.id === id && sessionState === 'disconnected') set({ active: null });
+      if (get().active?.id === id && sessionState === 'disconnected')
+        set({ active: simulatorSelection() });
       clearTimeout(undoTimer);
       set({ forgotten: entry });
       undoTimer = setTimeout(() => set({ forgotten: null }), UNDO_FORGET_MS);

@@ -72,7 +72,16 @@ export function ParamForm({
   );
 }
 
-interface FieldProps {
+/** Text for screen readers only, linked from the control by `aria-describedby` (DESIGN.md 5.4). */
+function Described({ id, text }: { id: string; text: string | null | undefined }) {
+  return text ? (
+    <span id={id} className="visually-hidden">
+      {text}
+    </span>
+  ) : null;
+}
+
+export interface ParamFieldProps {
   spec: ParamSpec;
   value: ParamValue;
   onChange: (value: ParamValue) => void;
@@ -80,93 +89,138 @@ interface FieldProps {
   readOnly?: boolean | undefined;
   id: string;
   layout: 'inline' | 'stacked';
+  /** No value to show (no source): a number shows an em dash and a choice a single "—" option. */
+  noValue?: boolean | undefined;
+  /**
+   * Why the field is unavailable. It is the tooltip and part of the accessible description, after
+   * the driver's help text (DESIGN.md 5.4).
+   */
+  reason?: string | undefined;
 }
 
-/** One parameter as a `ui/` field. The label keeps its required mark in the text (no danger colour). */
-function ParamField({ spec, value, onChange, disabled, readOnly, id, layout }: FieldProps) {
+/**
+ * One parameter as a `ui/` field. The label keeps its required mark in the text (no danger colour).
+ * The driver's help is the accessible description and the tooltip (DESIGN.md 4.4).
+ */
+export function ParamField({
+  spec,
+  value,
+  onChange,
+  disabled,
+  readOnly,
+  id,
+  layout,
+  noValue = false,
+  reason,
+}: ParamFieldProps) {
   const kind = spec.kind;
-  const title = spec.help ?? undefined;
+  const help = spec.help ?? undefined;
   const label = spec.required ? `${spec.label} *` : spec.label;
+  const helpId = `${id}-help`;
+  const reasonId = `${id}-reason`;
+  const describedBy = (own: string | undefined) =>
+    [own, help ? helpId : undefined, reason ? reasonId : undefined].filter(Boolean).join(' ') ||
+    undefined;
   switch (kind.type) {
-    case 'number':
+    case 'number': {
+      const numeric = noValue ? null : typeof value === 'number' ? value : 0;
       return (
-        <Field label={label} id={id} layout={layout} title={title}>
-          {(c) =>
-            kind.unit === 'Hz' ? (
-              <FrequencyField
-                id={c.id}
-                aria-describedby={c.describedBy}
-                label={spec.label}
-                value={typeof value === 'number' ? value : 0}
-                min={kind.min}
-                max={kind.max}
-                step={kind.step}
-                onCommit={onChange}
-                disabled={disabled}
-                readOnly={readOnly}
-              />
-            ) : (
-              <NumberField
-                id={c.id}
-                aria-describedby={c.describedBy}
-                label={spec.label}
-                unit={kind.unit ?? undefined}
-                value={typeof value === 'number' ? value : 0}
-                min={kind.min}
-                max={kind.max}
-                step={kind.step}
-                integer={Number.isInteger(kind.step) && kind.step >= 1}
-                onCommit={onChange}
-                disabled={disabled}
-                readOnly={readOnly}
-              />
-            )
-          }
+        <Field label={label} id={id} layout={layout} title={help}>
+          {(c) => (
+            <>
+              {kind.unit === 'Hz' ? (
+                <FrequencyField
+                  id={c.id}
+                  aria-describedby={describedBy(c.describedBy)}
+                  label={spec.label}
+                  value={numeric}
+                  min={kind.min}
+                  max={kind.max}
+                  step={kind.step}
+                  onCommit={onChange}
+                  disabled={disabled}
+                  readOnly={readOnly}
+                  title={reason}
+                />
+              ) : (
+                <NumberField
+                  id={c.id}
+                  aria-describedby={describedBy(c.describedBy)}
+                  label={spec.label}
+                  unit={kind.unit ?? undefined}
+                  value={numeric}
+                  min={kind.min}
+                  max={kind.max}
+                  step={kind.step}
+                  integer={Number.isInteger(kind.step) && kind.step >= 1}
+                  onCommit={onChange}
+                  disabled={disabled}
+                  readOnly={readOnly}
+                  title={reason}
+                />
+              )}
+              <Described id={helpId} text={help} />
+              <Described id={reasonId} text={reason} />
+            </>
+          )}
         </Field>
       );
+    }
     case 'bool':
       return (
-        <div title={title}>
+        <div title={help}>
           <Checkbox
             label={spec.label}
             checked={value === true}
             disabled={disabled}
             readOnly={readOnly}
+            aria-describedby={describedBy(undefined)}
             onChange={(checked) => onChange(checked)}
           />
+          <Described id={helpId} text={help} />
+          <Described id={reasonId} text={reason} />
         </div>
       );
     case 'choice':
       return (
-        <Field label={label} id={id} layout={layout} title={title}>
+        <Field label={label} id={id} layout={layout} title={help}>
           {(c) => (
-            <Select
-              id={c.id}
-              aria-describedby={c.describedBy}
-              label={spec.label}
-              value={String(value)}
-              options={kind.options}
-              disabled={disabled}
-              readOnly={readOnly}
-              onChange={(v) => onChange(v)}
-            />
+            <>
+              <Select
+                id={c.id}
+                aria-describedby={describedBy(c.describedBy)}
+                label={spec.label}
+                value={noValue ? '' : String(value)}
+                options={noValue ? [{ value: '', label: '—' }] : kind.options}
+                disabled={disabled}
+                readOnly={readOnly}
+                title={reason}
+                onChange={(v) => onChange(v)}
+              />
+              <Described id={helpId} text={help} />
+              <Described id={reasonId} text={reason} />
+            </>
           )}
         </Field>
       );
     case 'text':
       return (
-        <Field label={label} id={id} layout={layout} title={title}>
+        <Field label={label} id={id} layout={layout} title={help}>
           {(c) => (
-            <TextField
-              id={c.id}
-              aria-describedby={c.describedBy}
-              aria-label={spec.label}
-              maxLength={kind.maxLength}
-              value={String(value)}
-              disabled={disabled}
-              readOnly={readOnly}
-              onChange={(v) => onChange(v)}
-            />
+            <>
+              <TextField
+                id={c.id}
+                aria-describedby={describedBy(c.describedBy)}
+                aria-label={spec.label}
+                maxLength={kind.maxLength}
+                value={String(value)}
+                disabled={disabled}
+                readOnly={readOnly}
+                onChange={(v) => onChange(v)}
+              />
+              <Described id={helpId} text={help} />
+              <Described id={reasonId} text={reason} />
+            </>
           )}
         </Field>
       );

@@ -42,7 +42,8 @@ WebKitGTK webview. Everything runs locally — there is no server, account or ne
 | `src/format/` | Pure formatting and parsing of values for display (DESIGN.md 7.5). | Hold state. Callers in `src/ui/` and the readouts format through it, never with `toFixed` or `toLocaleString`. |
 
 **Auto-connect** runs beside the session, not inside it. `autoconnect.rs` holds the rules (launch
-connect, connect on plug-in, disconnect on unplug) and is driven by one coordinator thread that
+connect with the simulator as fallback, replace an idle simulator on plug-in, disconnect on unplug;
+ADR 0017) and is driven by one coordinator thread that
 serialises decisions. Each driver that can watch for hot-plug events gets its own watcher thread,
 which only forwards events. Device specifics stay in the driver's `watch` (see
 [sources](sources.md)). The session guards `connect_if_idle` and `device_removed` make a racing

@@ -3,12 +3,36 @@
 ## First run
 
 1. Start Spectrum Studio. The source button at the top of the side panel's **Measurement** group reads
-   **Choose a source** and the capture button at its bottom is disabled until you pick one.
-2. Click the source button (or press **Ctrl+K**) and choose **Signal simulator**. Picking a source
-   connects to it; the source button then reads **… Connected** (its status circle shows the state).
+   **Loading…** for a moment, then the source the app connected by itself (see *Start-up*): an
+   attached analyzer, or the **Signal simulator** when none is attached. The source button then reads
+   **… Connected**. The capture button at the bottom is enabled but nothing is acquired yet.
+2. Press the capture button, or choose another source with the source button (or **Ctrl+K**). Picking a
+   source connects to it and stops the previous one; the source button shows its state (its status
+   circle says the same).
 3. Press the main capture button (▶ **Continuous**). It turns red and becomes Pause (❚❚), the source button
    reads **… Acquiring**, and the plot shows **LIVE**. The simulator is named **Signal simulator**
    in the source button, so you always see that the data is generated.
+
+## Start-up
+
+- While the app starts, the source button and the capture control read **Loading…**. A source is
+  always selected once start-up is over; the button never reads "Choose a source".
+- If the backend does not answer, the source button reads **Status unavailable** and the capture
+  control says the same; the notice bar explains why.
+- With an analyzer attached (an SA430 on USB) the app connects it by itself, paused, as before.
+- With no analyzer attached the app connects the **Signal simulator** by itself and selects it. It is
+  connected but not acquiring: press the capture button to start.
+- An idle simulator is replaced as soon as an analyzer is plugged in: the analyzer is connected
+  and the simulator is disconnected. A simulator that is acquiring is never interrupted; stop it
+  first.
+- An analyzer found at start-up that fails to connect (for example its serial port is busy) stays
+  selected, marked **Failed**. The simulator is not connected in its place. Pick the device again
+  when the cause is gone.
+- Unplugging a connected analyzer shows the device-lost notice. No simulator is connected in its
+  place; the device stays the selection and its row reads *Not detected*.
+- Disconnect releases the source and keeps it selected: the source button reads "… Disconnected", the
+  plot says *Not connected. Use the source button to connect.*, and the capture button is disabled
+  until you connect.
 
 ## Measurement group
 
@@ -20,6 +44,9 @@ The side panel's **Measurement** group holds the source and the capture, in that
 | Capture button (▶ Continuous / ▶ Single, last item, full width) | Starts or pauses acquisition in the mode it shows. Enabled only when a source is connected. **Continuous** keeps acquiring until you pause; pause freezes the last trace on screen and resuming uses the same settings. **Single** takes one complete sweep, shows it, and stops by itself; press again for a new sweep. Cancelling a single capture keeps the previous trace. While acquiring, the button is red and shows Pause (Continuous) or Stop (Single). |
 | ▾ (capture mode) | Opens the capture mode menu (Continuous or Single). Choosing a mode never starts a capture. The mode cannot change while acquiring: pause or cancel first. The mode is remembered across restarts. |
 | Center / Span | Tuning and span, enabled only when the source supports them. Center accepts `100.2M`, `433.92 MHz`, `2.4G`, `12k`; ↑/↓ step by a tenth of the span. Invalid input stays highlighted until corrected or Escape. |
+| Source measurement settings (after Span) | The source's own settings that change its measurement. An SA430 shows **Frequency step** (kHz, 10 to 500, default 100) and **Reference level** (dBm). Type a value and press Enter, or pick one from the list; it applies at once. An invalid value stays visible and is not sent. With no source connected they show "—" and are unavailable. |
+| FFT size, Window | Shown only for a source that computes its spectrum from IQ samples (the simulator). Rows a source does not use are not shown at all. |
+| Averaging, Max hold, Min hold, Reset | Shown for every source. |
 
 ## Choosing a source
 
@@ -40,14 +67,14 @@ ellipsis; hover the row for the full name and its details.
   automatically). **One physical device is always one row**, however many times you plugged it in
   or on which port: the row follows the device by its serial number.
   - **✎ Edit** (or **F2** on the focused row) opens the *Edit source* dialog (see below).
-  - **× Forget** (or **Delete**) removes it from the list; an **Undo** appears for a few seconds. Forgetting the source you have selected but not connected clears the selection (the button reads "Choose a source"); a connected source stays connected until you pick another.
+  - **× Forget** (or **Delete**) removes it from the list; an **Undo** appears for a few seconds. Forgetting the source you have selected but not connected selects the Signal simulator instead, not connected; a connected source stays connected until you pick another.
 - **Detected devices:** hardware that is plugged in and not yet remembered. The menu looks for
   devices by itself while it is open; there is no Scan button. When nothing new is plugged in it
   says so. A detected row has **✎** too: it opens the dialog with the device filled in, and Save
   remembers it without connecting. A remembered device that is not currently plugged in is shown
   dimmed as **Not detected**.
-- **Signal simulator:** listed until you have used it once, after which it is a normal entry
-  under *Your sources*.
+- **Signal simulator:** always offered in the fixed block at the bottom of the menu, with its settings
+  from the last use. It is not listed under *Your sources*; a simulator preset you named yourself is.
 - **Add source…:** adds a source you set up by hand, for example an SA430 on a serial port you
   name (see *Add and edit a source*). Nothing is connected until you pick the new row.
 - **Disconnect:** releases the current source but keeps it selected. Connect it again by picking it
@@ -69,7 +96,8 @@ second line; colour is never the only signal.
 Planned integrations that are not implemented yet are not shown in the menu at all; they cannot be
 connected. See the [GitHub issues](https://github.com/DKrepsky/spectrum-studio/issues) for what is planned.
 
-On the next start the last used source is selected again but never connected automatically.
+On the next start an attached analyzer is connected by itself. Without one the Signal simulator is
+connected and selected instead (see *Start-up*).
 
 ### Add and edit a source
 
@@ -144,7 +172,11 @@ Display zoom only changes what is shown. To change what is measured, use Center 
 - **Max/Min hold** and **Reset**. Holds and averages restart automatically when the frequency
   axis changes.
 
-FFT size and window are disabled for sources that supply measured traces.
+FFT size and window appear only for a source that computes spectra from IQ samples. A source that supplies measured traces (the SA430) shows its own settings in the Measurement group instead, and Averaging and the holds still apply to it.
+
+## Source settings
+
+The side panel's **Source settings** section lists the connected source's own settings that are not in the Measurement group. The SA430 has none, so the section says "This source has no additional settings." The simulator's settings are described under *Simulator*.
 
 ## Markers and peaks
 
@@ -157,7 +189,7 @@ FFT size and window are disabled for sources that supply measured traces.
 
 ## Simulator
 
-Pick the simulator, then open *Source settings* in the side panel while connected. Every emitter has an absolute RF
+The simulator is connected at start-up when no analyzer is attached; otherwise pick it from the menu. Open *Source settings* in the side panel while connected. Every emitter has an absolute RF
 frequency, so retuning moves signals across the display like a real receiver:
 
 | Group | Default |

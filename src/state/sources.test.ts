@@ -1,7 +1,8 @@
 import { apiMock } from '../test/mockApi';
 
 import { savedSource, simulatorDriver, status } from '../test/fixtures';
-import { useSession } from './session';
+import { SIMULATOR_CONFIG, useSession } from './session';
+import { emptyConfig } from './sourceConfig';
 import { SCAN_INTERVAL_MS, UNDO_FORGET_MS, useSources } from './sources';
 
 const a = savedSource({ id: 'a', label: 'Alpha' });
@@ -118,7 +119,7 @@ describe('sources store', () => {
     useSession.setState({ status: null });
   });
 
-  it('forgetting a selected source that is not connected clears the selection', async () => {
+  it('forgetting a selected source that is not connected selects the simulator, not connected', async () => {
     useSession.setState({ status: status({ state: 'disconnected' }) });
     useSources.setState({
       list: [a, b],
@@ -126,13 +127,73 @@ describe('sources store', () => {
     });
     apiMock.forgetSource.mockResolvedValue({ sources: [b], activeId: 'a' });
     await useSources.getState().forget('a');
-    expect(useSources.getState().active).toBeNull();
+    expect(useSources.getState().active).toEqual({
+      id: null,
+      title: 'Signal simulator',
+      config: SIMULATOR_CONFIG,
+    });
     // Forgetting some other entry leaves the selection alone.
     useSources.setState({ list: [a, b], active: { id: 'a', title: 'Alpha', config: a.config } });
     apiMock.forgetSource.mockResolvedValue({ sources: [a], activeId: 'a' });
     await useSources.getState().forget('b');
     expect(useSources.getState().active?.id).toBe('a');
     useSession.setState({ status: null });
+  });
+
+  it('forgetting a selected source that is not connected selects the remembered simulator', async () => {
+    useSession.setState({ status: status({ state: 'disconnected' }) });
+    const sim = savedSource({ id: 'sim', lastUsedMs: 5 });
+    const bench = savedSource({
+      id: 'bench',
+      name: 'Bench',
+      config: { ...emptyConfig('sa430'), deviceId: 'SN1' },
+    });
+    useSources.setState({
+      list: [bench, sim],
+      active: { id: 'bench', title: 'Bench', config: bench.config },
+    });
+    apiMock.forgetSource.mockResolvedValue({ sources: [sim], activeId: null });
+    await useSources.getState().forget('bench');
+    expect(useSources.getState().active).toMatchObject({ id: 'sim', title: 'Signal simulator' });
+    useSession.setState({ status: null });
+  });
+
+  it('refresh re-adopts an unremembered selection by identity once its entry is in the list', async () => {
+    useSources.setState({
+      list: [],
+      active: { id: null, title: 'Signal simulator', config: SIMULATOR_CONFIG },
+    });
+    apiMock.listSources.mockResolvedValueOnce({ sources: [], activeId: null });
+    await useSources.getState().refresh();
+    expect(useSources.getState().active).toMatchObject({ id: null });
+
+    const sim = savedSource({ id: 'sim', lastUsedMs: 9 });
+    apiMock.listSources.mockResolvedValueOnce({ sources: [sim], activeId: 'sim' });
+    await useSources.getState().refresh();
+    expect(useSources.getState().active).toEqual({
+      id: 'sim',
+      title: 'Signal simulator',
+      config: sim.config,
+    });
+  });
+
+  it('refresh leaves a selection alone when no entry has its identity', async () => {
+    useSources.setState({
+      list: [],
+      active: { id: null, title: 'Signal simulator', config: SIMULATOR_CONFIG },
+    });
+    const bench = savedSource({
+      id: 'bench',
+      name: 'Bench',
+      config: { ...emptyConfig('sa430'), deviceId: 'SN1' },
+    });
+    apiMock.listSources.mockResolvedValueOnce({ sources: [bench], activeId: null });
+    await useSources.getState().refresh();
+    expect(useSources.getState().active).toEqual({
+      id: null,
+      title: 'Signal simulator',
+      config: SIMULATOR_CONFIG,
+    });
   });
 
   describe('add, update and test', () => {

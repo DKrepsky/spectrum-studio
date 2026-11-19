@@ -72,6 +72,25 @@ to inspect files the app wrote read `SPECTRUM_E2E_APP_CONFIG`. Note that WebKitW
 
 Failed E2E tests save a screenshot to `e2e/logs/` (git-ignored).
 
+**What a spec starts from.** The app connects at launch (ADR 0014, 0017): an attached analyzer, or
+without one the Signal simulator, which is connected and selected but not acquiring. So no spec may
+assume "nothing connected" or "Choose a source". A spec that needs nothing connected calls
+`ensureDisconnected()` (`helpers.ts`): it releases whatever the launch connected and keeps the
+selection (Disconnect keeps it selected, ADR 0017); nothing is forgotten. `runSimulator()` releases
+the launch connection and picks the fixed *Signal simulator* row, the same path for a first and a
+later run. Specs that need a named entry seed one (`persistence/sources.json` has the preset
+"Bench FM setup"): the unnamed simulator is never listed under *Your sources*.
+
+**Launch-state specs and an attached analyzer.** `startup.e2e.ts` and the first test of
+`acquisition.e2e.ts` describe the launch with no analyzer. They check `analyzerAtLaunch()` and are
+*pending* (reported as skipped) when an analyzer is attached, because the no-device launch cannot be
+produced without unplugging the cable. Every other spec passes with or without the analyzer. The
+analyzer-launch case is covered by `sa430.e2e.ts` with `SPECTRUM_E2E_SA430=1`.
+
+**Manual start-up checks.** Plug and unplug steps that need the cable are listed in the header of
+`sa430.e2e.ts` (unplug with nothing connected, plug in over an idle simulator, plug in during a
+capture, unplug during acquisition). Run them by hand before a release that touches start-up.
+
 ### Accessibility of the stories
 
 `npm test` runs axe-core (the engine of `@storybook/addon-a11y`) on every story after it renders,
@@ -90,8 +109,9 @@ the story (`parameters.a11y.config.rules`), not globally, and says why in a comm
 Hardware specs: with a TI SA430 on `/dev/ttyACM0` and `SPECTRUM_E2E_SA430=1`, `sa430.e2e.ts`
 (the launch auto-connect connects it paused and remembers one row, Add source… with the real port
 and *Test connection* with the second row refused, rename through Edit leaves one row also after a
-restart, live dBm sweeps, centre restore, no auto-reconnect after a manual disconnect, one Single
-capture, five immediate Cancel presses with no frame shown), the hardware cases of
+restart, live dBm sweeps, centre restore, Frequency step in Measurement, no auto-reconnect after a
+manual disconnect, one Single capture, five immediate Cancel presses with no frame shown, a busy port
+that fails into Failed and stays selected), the hardware cases of
 `add-source.e2e.ts` and the *Add dialog OK* screenshot of `visual.e2e.ts` run; without the
 variable they are skipped. The *different device on this port* state needs a second analyzer and
 is reported as skipped, never mocked.

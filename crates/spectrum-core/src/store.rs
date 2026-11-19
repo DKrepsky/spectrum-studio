@@ -2083,6 +2083,7 @@ mod tests {
                 kind: crate::model::ParamKind::Text { max_length: 64 },
                 default: ParamValue::Text(String::new()),
                 required: false,
+                placement: crate::model::ParamPlacement::Source,
             }],
             ..driver("sdr", DriverStatus::Available)
         }

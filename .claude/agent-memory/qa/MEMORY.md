@@ -12,3 +12,5 @@
 - [WebDriver probe pitfalls (012)](webdriver-probe-pitfalls-012.md) — focus-visible needs OS focus (wmctrl), execute closures, status strip idle, SA430 range, GHz cropping check
 - [Webview zoom simulation](webview-zoom-simulation.md) — Ctrl+= does nothing in this build; root CSS zoom as the stand-in and its limits
 - [App autoconnect and probe setup](app-autoconnect-and-probe-setup.md) — SA430 auto-connects at launch; separate QA build dir; probe cascade trap (013)
+- [SA430-attached run recipes](sa430-attached-run-recipes.md) — replug timings, sweep limit, launch-guard race with analyzer attached (014/015 second pass)
+- [No-device run recipes (015)](no-device-run-recipes-015.md) — SA430 unplugged e2e, runSimulator acquires, DOM-injection for SA430 rows, Loading observer

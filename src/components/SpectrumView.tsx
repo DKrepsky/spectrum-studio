@@ -8,8 +8,7 @@ import { drawSpectrum, plotGeometry } from '../plot/spectrumRenderer';
 import { fullView, panBy, zoomAt } from '../plot/viewport';
 import { frameStore } from '../state/frames';
 import { useLiveness, type LivenessKind } from '../state/liveness';
-import { useSession } from '../state/session';
-import { useSources } from '../state/sources';
+import { selectStartup, useSession, type Startup } from '../state/session';
 import { useView, type FrequencyView } from '../state/view';
 import { Badge, type BadgeTone } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -46,16 +45,20 @@ const TAG_TONE: Record<LivenessKind, BadgeTone> = {
   capturing: 'capturing',
 };
 
-/** The empty-plot hint: only while there is no trace yet (design.md 5, copy). */
+/**
+ * The empty-plot hint: only while there is no trace yet (design.md 5, copy). No hint during start-up
+ * (`loading`, `unavailable`); a selected source that is not connected asks for a connect (S13).
+ */
 export function plotHint(
-  noSource: boolean,
+  startup: Startup,
   state: SessionState | undefined,
   mode: CaptureMode | undefined,
   kind: LivenessKind,
   hasFrame: boolean,
 ): string | null {
-  if (noSource) return 'Choose a source to begin. Try Signal simulator.';
+  if (startup !== 'ready') return null;
   if (hasFrame) return null;
+  if (state === 'disconnected') return 'Not connected. Use the source button to connect.';
   if (kind === 'capturing') return 'Capturing one sweep…';
   if (state !== 'connected') return null;
   return mode === 'single'
@@ -68,8 +71,9 @@ export function SpectrumView() {
   const state = useSession((s) => s.status?.state);
   const captureMode = useSession((s) => s.status?.captureMode);
   const sourceUnit = useSession((s) => s.status?.source?.capabilities.amplitudeUnit);
-  const noSource = useSources((s) => s.active === null);
-  const live = useLiveness(state, frameStore.latest, captureMode);
+  const startup = useSession(selectStartup);
+  const deviceLost = useSession((s) => s.status?.lastNotice?.kind === 'deviceLost');
+  const live = useLiveness(state, frameStore.latest, captureMode, deviceLost);
   const liveRef = useRef(false);
   const hover = useRef<{ x: number; y: number } | null>(null);
   const dirty = useRef(true);
@@ -200,7 +204,7 @@ export function SpectrumView() {
   };
 
   const view = useView((s) => s.zoom);
-  const hint = plotHint(noSource, state, captureMode, live.kind, frameStore.latest !== null);
+  const hint = plotHint(startup, state, captureMode, live.kind, frameStore.latest !== null);
   const unit = UNIT_SYMBOL[frameStore.latest?.header.unit ?? sourceUnit ?? 'dbfs'];
   const shown = view ?? currentFullView();
 

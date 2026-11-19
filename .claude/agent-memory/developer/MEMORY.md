@@ -10,3 +10,7 @@
 - [Dialog busy/error probes](dialog-busy-error-probes.md) — invoke is not patchable; FIFO at sources.json.tmp holds a save busy, a directory there gives a save error
 - [CSS geometry probes](css-geometry-probes.md) — pixel-literal guard, computed-style dump before/after, why an outside focus ring looked inside
 - [Storybook a11y checks](storybook-a11y-checks.md) — jsdom axe vs real-Chrome run recipe, button/form/row-name gotchas from 010 rework 2
+- [Stale integration tests](cargo-stale-integration-tests.md) — concurrent core edits cause bogus field errors; touch lib.rs and retry
+- [Verify scripted edits](verify-scripted-edits.md) — a backgrounded bash call can drop its python edits; grep after bulk edits
+- [Measurement cache in tests](measurement-cache-tests.md) — reset capabilitiesByDriver in beforeEach; cached kind leaks between tests
+- [Derive state from status](derive-state-from-status.md) — start-up/selection state as a pure function of status; stored flags break setState-based tests

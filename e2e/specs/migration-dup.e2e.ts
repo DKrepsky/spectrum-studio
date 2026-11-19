@@ -44,7 +44,11 @@ describe('Upgrading a store with duplicate SA430 records', () => {
 
     const file = JSON.parse(readFileSync(join(configDir(), 'sources.json'), 'utf8'));
     expect(file.version).toBe(3);
-    expect(file.sources).toHaveLength(1);
+    // The launch fallback also remembers the unnamed simulator (ADR 0017, R10); count the device only.
+    const devices = file.sources.filter(
+      (s: { config: { driverId: string } }) => s.config.driverId === 'sa430',
+    );
+    expect(devices).toHaveLength(1);
     expect(existsSync(join(configDir(), 'sources.json'))).toBe(true);
   });
 

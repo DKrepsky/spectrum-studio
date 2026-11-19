@@ -31,6 +31,8 @@ const DRIVER: &str = "fake";
 struct Bench {
     devices: Mutex<Vec<DeviceDescriptor>>,
     discover_fails: AtomicBool,
+    /// `discover` panics, as a buggy driver would.
+    discover_panics: AtomicBool,
     /// Opens attempted so far (successful or not).
     opens: AtomicUsize,
     /// Upcoming opens that fail as a busy port would.
@@ -156,6 +158,7 @@ impl SourceDriver for Hardware {
                 kind: ParamKind::Text { max_length: 256 },
                 default: ParamValue::Text(String::new()),
                 required: false,
+                placement: spectrum_core::model::ParamPlacement::Source,
             }],
         }
     }
@@ -163,6 +166,9 @@ impl SourceDriver for Hardware {
     fn discover(&self) -> Result<Vec<DeviceDescriptor>, SourceError> {
         self.bench.discovers.fetch_add(1, Ordering::SeqCst);
         pass_gate(&self.bench.discover_gate);
+        if self.bench.discover_panics.load(Ordering::SeqCst) {
+            panic!("scripted driver bug");
+        }
         if self.bench.discover_fails.load(Ordering::SeqCst) {
             return Err(SourceError::unavailable("Could not search for devices."));
         }
@@ -282,15 +288,26 @@ struct Rig {
     events: Sender<DeviceEvent>,
 }
 
-/// A session with the scripted hardware (and the simulator when `simulator` is set), a fresh
-/// store and a policy over them.
+/// A session with the scripted hardware (when `hardware`) and the simulator, a fresh store and a
+/// policy over them.
 fn rig(devices: Vec<DeviceDescriptor>, hardware: bool) -> Rig {
+    build_rig(devices, hardware, true)
+}
+
+/// Like [`rig`], without the simulator driver (a build that ships none).
+fn rig_without_simulator(devices: Vec<DeviceDescriptor>) -> Rig {
+    build_rig(devices, true, false)
+}
+
+fn build_rig(devices: Vec<DeviceDescriptor>, hardware: bool, simulator: bool) -> Rig {
     let dir = tempfile::tempdir().unwrap();
     let bench = Arc::new(Bench::default());
     *bench.devices.lock().unwrap() = devices;
     let (events, rx) = mpsc::channel();
     let mut registry = DriverRegistry::new();
-    registry.register(SimulatorDriver::unpaced());
+    if simulator {
+        registry.register(SimulatorDriver::unpaced());
+    }
     if hardware {
         registry.register(Hardware {
             bench: bench.clone(),
@@ -366,36 +383,107 @@ fn launch_connects_the_first_device_paused_and_remembers_it() {
 }
 
 #[test]
-fn launch_with_no_device_or_only_the_simulator_does_nothing() {
+fn launch_with_no_device_connects_the_idle_simulator_and_remembers_it() {
     let r = hardware_rig(vec![]);
     r.policy.launch();
-    assert_eq!(r.session.status().state, SessionState::Disconnected);
-    assert_eq!(r.bench.opens.load(Ordering::SeqCst), 0);
 
-    let r = rig(vec![], false);
-    r.policy.launch();
     let status = r.session.status();
     assert_eq!(
         status.state,
-        SessionState::Disconnected,
-        "the simulator is never auto-connected"
+        SessionState::Connected,
+        "the simulator is selected"
     );
+    assert_ne!(
+        status.state,
+        SessionState::Acquiring,
+        "nothing starts acquisition"
+    );
+    let source = status.source.as_ref().expect("connected");
+    assert_eq!(source.config.driver_id, simulator::DRIVER_ID);
+    assert!(source.simulated);
+    assert!(status.last_notice.is_none());
+    assert_eq!(
+        r.bench.opens.load(Ordering::SeqCst),
+        0,
+        "the hardware is not opened"
+    );
+
+    let saved = r.store.sources_all();
+    assert_eq!(saved.len(), 1);
+    assert_eq!(saved[0].config.driver_id, simulator::DRIVER_ID);
+    assert_eq!(
+        r.store.preferences().last_source_id,
+        Some(saved[0].id.clone())
+    );
+}
+
+#[test]
+fn launch_without_any_simulator_driver_connects_nothing() {
+    let r = rig_without_simulator(vec![]);
+    r.policy.launch();
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Disconnected);
     assert!(status.last_notice.is_none());
     assert!(r.store.sources_all().is_empty());
 }
 
 #[test]
-fn launch_scan_error_connects_nothing_and_is_silent_in_the_session() {
+fn launch_scan_error_falls_back_to_the_simulator_and_never_opens_the_failed_scan() {
     let r = hardware_rig(vec![device("a", "/dev/a")]);
     r.bench.discover_fails.store(true, Ordering::SeqCst);
     r.policy.launch();
     let status = r.session.status();
-    assert_eq!(status.state, SessionState::Disconnected);
-    assert!(status.last_notice.is_none());
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(
+        status.source.as_ref().unwrap().config.driver_id,
+        simulator::DRIVER_ID,
+        "no device was found, so the simulator is connected"
+    );
+    assert!(
+        status.last_notice.is_none(),
+        "a failed scan is silent in the session"
+    );
     assert_eq!(
         r.bench.opens.load(Ordering::SeqCst),
         0,
         "a failed scan is never opened"
+    );
+}
+
+#[test]
+fn launch_fallback_applies_the_remembered_simulator_settings() {
+    let r = rig(vec![], false);
+    // An earlier manual pick of the simulator stored a centre frequency.
+    let mut config = SourceConfig::new(simulator::DRIVER_ID);
+    config.settings.center_hz = Some(433e6);
+    connect_new(&r.session, &r.store, config).unwrap();
+    r.session.disconnect();
+    r.store.set_last_source_id(None).unwrap();
+
+    r.policy.launch();
+
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(status.source.as_ref().unwrap().settings.center_hz, 433e6);
+    let saved = r.store.sources_all();
+    assert_eq!(saved.len(), 1, "the same identity updates its entry");
+    assert_eq!(
+        r.store.preferences().last_source_id,
+        Some(saved[0].id.clone())
+    );
+}
+
+#[test]
+fn launch_with_a_device_does_not_connect_the_simulator() {
+    let r = hardware_rig(vec![device("a", "/dev/a")]);
+    r.policy.launch();
+    let status = r.session.status();
+    assert_eq!(source_device(&status).as_deref(), Some("a"));
+    assert!(!status.source.as_ref().unwrap().simulated);
+    assert_eq!(
+        r.store.sources_all().len(),
+        1,
+        "only the device is remembered"
     );
 }
 
@@ -465,6 +553,18 @@ fn launch_failure_shows_connect_failed_and_remembers_nothing() {
     let status = r.session.status();
     assert_eq!(status.state, SessionState::Disconnected);
     assert_eq!(notice_kind(&status), Some(NoticeKind::ConnectFailed));
+    assert!(
+        status.source.is_none(),
+        "no simulator fallback after a device that failed (ADR 0017)"
+    );
+    assert_eq!(
+        status
+            .last_config
+            .as_ref()
+            .and_then(|c| c.device_id.as_deref()),
+        Some("a"),
+        "the device stays the selection"
+    );
     assert!(r.store.sources_all().is_empty());
     assert_eq!(r.store.preferences().last_source_id, None);
     assert_eq!(
@@ -495,18 +595,80 @@ fn added_while_a_source_is_connected_changes_nothing() {
 }
 
 #[test]
-fn added_while_the_simulator_is_connected_changes_nothing() {
+fn added_replaces_the_idle_simulator_connected_at_launch() {
+    let r = hardware_rig(vec![]);
+    r.policy.launch();
+    *r.bench.devices.lock().unwrap() = vec![device("a", "/dev/a")];
+
+    r.policy.on_event(DRIVER, &added("/dev/a"));
+
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(source_device(&status).as_deref(), Some("a"));
+    assert!(!status.source.as_ref().unwrap().simulated);
+    assert_eq!(r.bench.opens.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        r.store.preferences().last_source_id,
+        Some(
+            r.store
+                .sources_all()
+                .into_iter()
+                .find(|s| s.config.driver_id == DRIVER)
+                .expect("the device is remembered")
+                .id
+        ),
+        "the device is now the selection"
+    );
+}
+
+#[test]
+fn added_replaces_an_idle_simulator_picked_manually() {
     let r = hardware_rig(vec![device("a", "/dev/a")]);
     r.session
         .connect(SourceConfig::new(simulator::DRIVER_ID))
         .unwrap();
+
     r.policy.on_event(DRIVER, &added("/dev/a"));
+
     let status = r.session.status();
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(source_device(&status).as_deref(), Some("a"));
+    assert_eq!(r.bench.opens.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn added_while_the_simulator_is_acquiring_changes_nothing() {
+    let r = hardware_rig(vec![device("a", "/dev/a")]);
+    r.session
+        .connect(SourceConfig::new(simulator::DRIVER_ID))
+        .unwrap();
+    r.session.start().unwrap();
+
+    r.policy.on_event(DRIVER, &added("/dev/a"));
+
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Acquiring, "never interrupted");
     assert_eq!(
         status.source.as_ref().unwrap().config.driver_id,
         simulator::DRIVER_ID
     );
     assert_eq!(r.bench.opens.load(Ordering::SeqCst), 0);
+    r.session.stop().unwrap();
+}
+
+#[test]
+fn added_while_a_real_device_is_acquiring_changes_nothing() {
+    let r = hardware_rig(vec![device("a", "/dev/a"), device("b", "/dev/b")]);
+    r.policy.launch();
+    r.session.start().unwrap();
+
+    r.policy.on_event(DRIVER, &added("/dev/b"));
+
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Acquiring);
+    assert_eq!(source_device(&status).as_deref(), Some("a"));
+    assert_eq!(r.bench.opens.load(Ordering::SeqCst), 1);
+    r.session.stop().unwrap();
 }
 
 #[test]
@@ -710,6 +872,30 @@ fn removed_of_another_device_changes_nothing() {
 }
 
 #[test]
+fn unplugging_the_device_gives_no_simulator_fallback() {
+    let r = hardware_rig(vec![device("a", "/dev/a")]);
+    r.policy.launch();
+    r.policy.on_event(DRIVER, &removed("/dev/a"));
+
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Disconnected);
+    assert!(
+        status.source.is_none(),
+        "no simulator is connected (ADR 0017)"
+    );
+    assert_eq!(notice_kind(&status), Some(NoticeKind::DeviceLost));
+    assert_eq!(
+        status
+            .last_config
+            .as_ref()
+            .and_then(|c| c.device_id.as_deref()),
+        Some("a"),
+        "the lost device stays the selection"
+    );
+    assert_eq!(r.bench.opens.load(Ordering::SeqCst), 1);
+}
+
+#[test]
 fn removed_then_added_reconnects_paused() {
     let r = hardware_rig(vec![device("a", "/dev/a")]);
     r.policy.launch();
@@ -758,10 +944,13 @@ fn shutdown_makes_later_events_and_launch_do_nothing() {
 // ---- session guards ----
 
 #[test]
-fn connect_if_idle_leaves_a_connected_source_alone() {
-    let r = hardware_rig(vec![device("a", "/dev/a")]);
+fn connect_if_idle_leaves_a_connected_device_alone() {
+    let r = hardware_rig(vec![device("a", "/dev/a"), device("b", "/dev/b")]);
     r.session
-        .connect(SourceConfig::new(simulator::DRIVER_ID))
+        .connect(SourceConfig {
+            device_id: Some("b".into()),
+            ..SourceConfig::new(DRIVER)
+        })
         .unwrap();
 
     let outcome = r.session.connect_if_idle(SourceConfig {
@@ -769,12 +958,27 @@ fn connect_if_idle_leaves_a_connected_source_alone() {
         ..SourceConfig::new(DRIVER)
     });
     assert!(outcome.unwrap().is_none());
-    let status = r.session.status();
-    assert_eq!(
-        status.source.as_ref().unwrap().config.driver_id,
-        simulator::DRIVER_ID
-    );
-    assert_eq!(r.bench.opens.load(Ordering::SeqCst), 0);
+    assert_eq!(source_device(&r.session.status()).as_deref(), Some("b"));
+    assert_eq!(r.bench.opens.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn connect_if_idle_replaces_an_idle_simulator_with_a_device() {
+    let r = hardware_rig(vec![device("a", "/dev/a")]);
+    r.session
+        .connect(SourceConfig::new(simulator::DRIVER_ID))
+        .unwrap();
+
+    let status = r
+        .session
+        .connect_if_idle(SourceConfig {
+            device_id: Some("a".into()),
+            ..SourceConfig::new(DRIVER)
+        })
+        .unwrap()
+        .expect("replaced");
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(source_device(&status).as_deref(), Some("a"));
 }
 
 #[test]
@@ -850,17 +1054,111 @@ fn start_connects_at_launch_and_connects_on_watched_plug_in() {
     auto.shutdown();
 }
 
+/// Waits until the launch rule has finished (`launching` is cleared).
+fn wait_for_launch(r: &Rig) {
+    wait_for("the launch to finish", || !r.session.status().launching);
+}
+
 #[test]
-fn a_plug_in_while_nothing_is_connected_connects_the_device() {
+fn a_plug_in_replaces_the_simulator_connected_at_launch() {
     let r = hardware_rig(vec![]);
     let auto = AutoConnect::start(r.session.clone(), r.store.clone());
+    wait_for("the launch simulator", || {
+        let status = r.session.status();
+        status.state == SessionState::Connected
+            && status.source.as_ref().is_some_and(|s| s.simulated)
+    });
+    // Only now does the device appear, so the simulator really is the source being replaced.
     *r.bench.devices.lock().unwrap() = vec![device("b", "/dev/b")];
     r.events.send(added("/dev/b")).unwrap();
-    wait_for("the plug-in connect", || {
-        r.session.status().state == SessionState::Connected
+    wait_for("the plug-in to replace the simulator", || {
+        source_device(&r.session.status()).as_deref() == Some("b")
     });
-    assert_eq!(source_device(&r.session.status()).as_deref(), Some("b"));
+    assert_eq!(r.session.status().state, SessionState::Connected);
     auto.shutdown();
+}
+
+#[test]
+fn launching_is_true_until_the_launch_rule_has_finished() {
+    let r = hardware_rig(vec![device("a", "/dev/a")]);
+    let (entered, parked) = mpsc::channel();
+    let (release, released) = mpsc::channel();
+    // The launch scan is the first scan: hold it there.
+    *r.bench.discover_gate.lock().unwrap() = Some(Gate {
+        entered,
+        release: released,
+    });
+    assert!(!r.session.status().launching, "not started yet");
+
+    let auto = AutoConnect::start(r.session.clone(), r.store.clone());
+    parked
+        .recv_timeout(WAIT)
+        .expect("the launch rule reached its scan");
+    let status = r.session.status();
+    assert!(status.launching, "true while the launch rule runs");
+    assert_eq!(status.state, SessionState::Disconnected);
+
+    release.send(()).unwrap();
+    wait_for_launch(&r);
+    let status = r.session.status();
+    assert!(!status.launching);
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(source_device(&status).as_deref(), Some("a"));
+    auto.shutdown();
+}
+
+#[test]
+fn launching_is_cleared_even_when_the_launch_rule_panics() {
+    let r = hardware_rig(vec![device("a", "/dev/a")]);
+    r.bench.discover_panics.store(true, Ordering::SeqCst);
+    let auto = AutoConnect::start(r.session.clone(), r.store.clone());
+    wait_for_launch(&r);
+    let status = r.session.status();
+    assert_eq!(
+        status.state,
+        SessionState::Disconnected,
+        "nothing was connected"
+    );
+    assert!(!status.launching);
+    auto.shutdown();
+}
+
+#[test]
+fn a_manual_pick_during_a_replacement_is_never_replaced() {
+    // The simulator is idle; a plug-in is being scanned when the user picks another device. The
+    // replacement that follows must find that device connected and leave it alone.
+    let r = hardware_rig(vec![device("a", "/dev/a"), device("b", "/dev/b")]);
+    r.session
+        .connect(SourceConfig::new(simulator::DRIVER_ID))
+        .unwrap();
+    let (entered, parked) = mpsc::channel();
+    let (release, released) = mpsc::channel();
+    *r.bench.discover_gate.lock().unwrap() = Some(Gate {
+        entered,
+        release: released,
+    });
+
+    let policy = r.policy.clone();
+    let auto = thread::spawn(move || policy.on_event(DRIVER, &added("/dev/a")));
+    parked
+        .recv_timeout(WAIT)
+        .expect("the replacement reached its scan");
+
+    r.session
+        .connect(SourceConfig {
+            device_id: Some("b".into()),
+            ..SourceConfig::new(DRIVER)
+        })
+        .unwrap();
+    release.send(()).unwrap();
+    auto.join().unwrap();
+
+    assert_eq!(source_device(&r.session.status()).as_deref(), Some("b"));
+    assert_eq!(
+        r.bench.opens.load(Ordering::SeqCst),
+        1,
+        "only the manual pick opened a device"
+    );
 }
 
 #[test]
@@ -911,6 +1209,7 @@ fn shutdown_ends_a_blocked_watch_and_joins_its_thread_promptly() {
     wait_for("the watch to start", || {
         r.bench.watch_started.load(Ordering::SeqCst)
     });
+    wait_for_launch(&r);
 
     let started = Instant::now();
     auto.shutdown();
@@ -919,7 +1218,8 @@ fn shutdown_ends_a_blocked_watch_and_joins_its_thread_promptly() {
     assert!(r.bench.watch_returned.load(Ordering::SeqCst));
     assert!(took < Duration::from_millis(500), "shutdown took {took:?}");
     assert_eq!(r.bench.stop_requests.load(Ordering::SeqCst), 1);
-    assert_eq!(r.session.status().state, SessionState::Disconnected);
+    // Shutdown stops the policy; it does not disconnect the selected simulator.
+    assert_eq!(r.session.status().state, SessionState::Connected);
 }
 
 #[test]
@@ -958,6 +1258,8 @@ fn an_unstoppable_watcher_stays_detached_and_ignores_events_after_shutdown() {
     wait_for("the watch to start", || {
         r.bench.watch_started.load(Ordering::SeqCst)
     });
+    wait_for_launch(&r);
+    let before = r.session.status();
 
     let started = Instant::now();
     auto.shutdown();
@@ -971,7 +1273,11 @@ fn an_unstoppable_watcher_stays_detached_and_ignores_events_after_shutdown() {
     wait_for("the watcher to return", || {
         r.bench.watch_returned.load(Ordering::SeqCst)
     });
-    assert_eq!(r.session.status().state, SessionState::Disconnected);
+    assert_eq!(
+        r.session.status().source,
+        before.source,
+        "the event changed nothing"
+    );
     assert_eq!(r.bench.opens.load(Ordering::SeqCst), 0);
 }
 
@@ -1036,11 +1342,25 @@ fn a_manual_connect_during_an_auto_attempt_is_never_replaced() {
 }
 
 #[test]
-fn without_a_watchable_driver_nothing_is_watched_and_the_simulator_is_not_picked() {
+fn without_a_watchable_driver_nothing_is_watched_and_only_the_simulator_is_connected() {
     let r = rig(vec![device("a", "/dev/a")], false);
     let auto = AutoConnect::start(r.session.clone(), r.store.clone());
-    // Nothing is watched, so the thread set is empty; the simulator is never picked.
-    thread::sleep(Duration::from_millis(100));
+    wait_for_launch(&r);
+    // Nothing is watched. The device is not in the registry, so the simulator is the fallback.
+    let status = r.session.status();
+    assert_eq!(status.state, SessionState::Connected);
+    assert_eq!(
+        status.source.as_ref().unwrap().config.driver_id,
+        simulator::DRIVER_ID
+    );
+    auto.shutdown();
+}
+
+#[test]
+fn start_without_a_simulator_or_device_leaves_the_session_idle() {
+    let r = rig_without_simulator(vec![]);
+    let auto = AutoConnect::start(r.session.clone(), r.store.clone());
+    wait_for_launch(&r);
     assert_eq!(r.session.status().state, SessionState::Disconnected);
     auto.shutdown();
 }

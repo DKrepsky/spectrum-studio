@@ -1,6 +1,6 @@
 import './test/mockApi';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { App } from './App';
@@ -24,7 +24,11 @@ describe('App', () => {
     useSourceMenu.setState({ open: false });
     render(<App />);
     expect(await screen.findByTestId('plot-hint')).toHaveTextContent(
-      'Choose a source to begin. Try Signal simulator.',
+      'Not connected. Use the source button to connect.',
+    );
+    // Ctrl+K does nothing until start-up is done (the source button reads Loading… before it).
+    await waitFor(() =>
+      expect(screen.getByTestId('source-button')).not.toHaveTextContent('Loading…'),
     );
     await userEvent.keyboard('{Control>}k{/Control}');
     expect(await screen.findByTestId('source-menu')).toBeInTheDocument();

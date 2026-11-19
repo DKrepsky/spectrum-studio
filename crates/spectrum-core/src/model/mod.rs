@@ -8,7 +8,7 @@ pub mod source;
 pub mod units;
 
 pub use frame::{FrameHeader, Peak, SpectrumFrame, TraceKind};
-pub use params::{ParamKind, ParamMap, ParamMapExt, ParamSpec, ParamValue};
+pub use params::{ParamKind, ParamMap, ParamMapExt, ParamPlacement, ParamSpec, ParamValue};
 pub use processing::{PeakSettings, ProcessingSettings, WindowKind};
 pub use session::{
     ActiveSource, CaptureMode, NoticeKind, SessionNotice, SessionState, SessionStatus,

@@ -18,6 +18,23 @@ export const TRANSPORT_LABEL: Record<Transport, string> = {
 
 export const SIMULATOR_ID = 'simulator';
 
+/** A remembered simulator entry with no user name: it stands for the fixed row, not a named source. */
+function isUnnamedSimulator(entry: SavedSource): boolean {
+  return entry.config.driverId === SIMULATOR_ID && entry.name.trim() === '';
+}
+
+/**
+ * The unnamed remembered simulator entry the fixed row connects (most recently used), or undefined.
+ * Named simulator presets (for example "ISM band") are not this entry.
+ */
+export function simulatorEntry(list: readonly SavedSource[]): SavedSource | undefined {
+  let best: SavedSource | undefined;
+  for (const e of list) {
+    if (isUnnamedSimulator(e) && (!best || e.lastUsedMs > best.lastUsedMs)) best = e;
+  }
+  return best;
+}
+
 /** Drivers that may be connected; Planned ones are never exposed to the user. */
 export function visibleDrivers(drivers: readonly DriverInfo[]): DriverInfo[] {
   return drivers.filter((d) => d.status === 'available');
@@ -105,7 +122,7 @@ export interface DetectedRow {
 export interface MenuModel {
   yours: YourRow[];
   detected: DetectedRow[];
-  /** The fixed "Signal simulator" row shows only until the simulator has been used. */
+  /** The fixed "Signal simulator" row is always offered while the simulator driver exists (R11). */
   simulatorInFixedBlock: boolean;
   /** Drivers whose last scan failed, for the "Could not scan" line. */
   scanErrors: { driverId: string; error: string }[];
@@ -153,7 +170,9 @@ export function menuModel(
 ): MenuModel {
   const available = new Map(visibleDrivers(drivers).map((d) => [d.id, d]));
   const entries = list.filter((e) => available.has(e.config.driverId));
-  const yours = entries.map<YourRow>((entry) => {
+  // Unnamed simulator entries stand for the fixed row, not for a source the user named (R11).
+  const listed = entries.filter((e) => !isUnnamedSimulator(e));
+  const yours = listed.map<YourRow>((entry) => {
     const driver = available.get(entry.config.driverId)!;
     const located = discovery.results
       .find((r) => r.driverId === entry.config.driverId)
@@ -207,8 +226,7 @@ export function menuModel(
   return {
     yours,
     detected,
-    simulatorInFixedBlock:
-      available.has(SIMULATOR_ID) && !entries.some((e) => e.config.driverId === SIMULATOR_ID),
+    simulatorInFixedBlock: available.has(SIMULATOR_ID),
     scanErrors,
   };
 }

@@ -12,6 +12,7 @@ import {
   otherDrivers,
   rowKey,
   rowTitle,
+  simulatorEntry,
   splitConnectionParams,
 } from './sourceEntries';
 
@@ -42,6 +43,7 @@ const network: DriverInfo = {
       kind: { type: 'text', maxLength: 64 },
       default: '',
       required: true,
+      placement: 'source',
     },
   ],
 };
@@ -76,11 +78,42 @@ describe('rowTitle', () => {
   });
 });
 
+describe('simulatorEntry', () => {
+  it('is the most recently used unnamed simulator entry', () => {
+    const older = savedSource({ id: 'old', lastUsedMs: 1 });
+    const newer = savedSource({ id: 'new', lastUsedMs: 5 });
+    expect(simulatorEntry([older, newer])?.id).toBe('new');
+    expect(simulatorEntry([newer, older])?.id).toBe('new');
+  });
+
+  it('ignores named presets, other drivers and an empty list', () => {
+    const named = savedSource({ id: 'n', name: 'ISM band', lastUsedMs: 9 });
+    const blank = savedSource({ id: 'b', name: '  ', lastUsedMs: 1 });
+    const other = savedSource({ id: 'o', config: emptyConfig('sa430'), lastUsedMs: 9 });
+    expect(simulatorEntry([named, other])).toBeUndefined();
+    expect(simulatorEntry([named, blank])?.id).toBe('b');
+    expect(simulatorEntry([])).toBeUndefined();
+  });
+});
+
 describe('menuModel', () => {
-  it('shows the simulator row only until the simulator has been used', () => {
+  it('always offers the simulator in the fixed block while its driver exists', () => {
     expect(menuModel([], noScan, drivers, null).simulatorInFixedBlock).toBe(true);
-    expect(menuModel([savedSource()], noScan, drivers, null).simulatorInFixedBlock).toBe(false);
+    expect(menuModel([savedSource()], noScan, drivers, null).simulatorInFixedBlock).toBe(true);
     expect(menuModel([], noScan, [sa430], null).simulatorInFixedBlock).toBe(false);
+  });
+
+  it('does not list an unnamed simulator entry under Your sources', () => {
+    const m = menuModel([savedSource({ id: 's' })], noScan, drivers, 's');
+    expect(m.yours).toEqual([]);
+  });
+
+  it('keeps a named simulator preset listed under Your sources', () => {
+    const preset = savedSource({ id: 'ism', name: 'ISM band' });
+    const m = menuModel([preset, savedSource({ id: 's' })], noScan, drivers, 'ism');
+    expect(m.yours.map((r) => r.entry.id)).toEqual(['ism']);
+    expect(m.yours[0]!.active).toBe(true);
+    expect(m.simulatorInFixedBlock).toBe(true);
   });
 
   it('hides planned and unknown drivers everywhere', () => {
@@ -167,12 +200,13 @@ describe('menuModel', () => {
       scanned: true,
       scanning: false,
     };
-    expect(menuModel([savedSource()], scan, drivers, null).yours[0]!.presence).toBe('unknown');
+    const named = savedSource({ name: 'Named', config: emptyConfig('sa430') });
+    expect(menuModel([named], scan, drivers, null).yours[0]!.presence).toBe('unknown');
   });
 
   it('keeps the list order it is given', () => {
     const m = menuModel(
-      [savedSource({ id: 'b' }), savedSource({ id: 'a' })],
+      [savedSource({ id: 'b', name: 'B' }), savedSource({ id: 'a', name: 'A' })],
       noScan,
       drivers,
       null,
@@ -197,6 +231,7 @@ describe('splitConnectionParams', () => {
     kind: { type: 'text', maxLength: 64 },
     default: '',
     required,
+    placement: 'source',
   });
   const specs = [spec('opt', false), spec('rate', true), spec('host', true)];
 

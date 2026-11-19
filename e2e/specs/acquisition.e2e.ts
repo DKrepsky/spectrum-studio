@@ -2,42 +2,57 @@ import { $, $$, browser, expect } from '@wdio/globals';
 
 import {
   acquireState,
+  analyzerAtLaunch,
   byTestId,
   captureMode,
   chooseMode,
+  closeSourceMenu,
   ensureDisconnected,
   frameSeq,
   livenessKind,
   livenessText,
   runSimulator,
+  selectSource,
   sessionState,
   settledFrameSeq,
   setInput,
   sourceButtonText,
   statusBarText,
+  textOf,
   waitForGone,
   waitForLaunchSettled,
   waitForState,
 } from './helpers';
 
 describe('Simulator acquisition workflow', () => {
-  it('starts disconnected with no data shown as live', async () => {
-    // An attached analyzer connects by itself at launch (ADR 0014); this spec then releases it.
-    await waitForLaunchSettled();
-    const autoConnected = (await sessionState()) === 'Connected';
-    await ensureDisconnected();
-    expect(await sessionState()).toBe('Disconnected');
-    expect(await livenessKind()).toBe('noSource');
-    // First run (no analyzer attached): nothing remembered, so the button invites a choice.
-    if (!autoConnected) expect(await sourceButtonText()).toContain('Choose a source');
-    await expect(await byTestId('acquire-button')).toBeDisabled();
-    await expect(await byTestId('capture-mode-button')).toBeDisabled();
+  // A failed test can leave the source menu open, and then every later click is intercepted.
+  afterEach(async () => {
+    await closeSourceMenu();
+  });
+
+  it('starts with the simulator selected and connected, not acquiring', async function () {
+    // No analyzer at launch: the app connects the simulator by itself and selects it (ADR 0017).
+    // With an analyzer attached the launch connects that instead; this state cannot be produced
+    // then (unplug it, or see docs/testing.md), so the test is pending rather than failing.
+    if (await analyzerAtLaunch()) this.skip();
+    expect(await sourceButtonText()).toBe('Source: Signal simulator, Connected');
+    expect(await sessionState()).toBe('Connected');
+    expect(await acquireState()).toBe('idle');
+    expect(await livenessKind()).toBe('stopped');
+    expect(await textOf(byTestId('plot-hint'))).toBe(
+      'No trace yet. Press Continuous to start acquisition.',
+    );
+    await expect(await byTestId('acquire-button')).toBeEnabled();
+    await expect(await byTestId('capture-mode-button')).toBeEnabled();
     await expect(await byTestId('connect-button')).not.toBeExisting();
     // The simulator is labelled by its source name, not by a badge.
     await expect(await byTestId('simulated-badge')).not.toBeExisting();
   });
 
-  it('disables FFT size and Window with their reason while no source is connected, as Center and Span are', async () => {
+  it('keeps FFT size and Window disabled with their reason once disconnected, as Center and Span are', async () => {
+    // This test opens the simulator first, so its kind is known: its rows stay, disabled, while
+    // nothing is connected (DESIGN.md 3.6). A source never opened in this run shows no FFT rows.
+    await runSimulator();
     await ensureDisconnected();
     // The reason is in the tooltip and in the accessible description (DESIGN.md 5.4); the plot hint
     // also shows it on screen while nothing is connected.
@@ -60,7 +75,10 @@ describe('Simulator acquisition workflow', () => {
       expect(s.title).toBe('Connect a source first');
       expect(s.described).toBe('Connect a source first');
     }
+    // The last trace stays on screen, but nothing is connected: the tag says so (S13), and the
+    // selection is kept.
     expect(await livenessKind()).toBe('noSource');
+    expect(await livenessText()).toBe('No source connected');
   });
 
   it('connects to the simulator and shows a live, labelled spectrum', async () => {
@@ -88,23 +106,29 @@ describe('Simulator acquisition workflow', () => {
         (d) => d.querySelector('summary')?.textContent?.trim() === 'Measurement',
       );
       const body = measurement?.querySelector('.ui-section-body');
+      // The rows are wrapped in `.measurement-rows` (014 T3); the capture control is its last item.
+      const rows = body?.querySelector('.measurement-rows') ?? body;
       const labels = Array.from(measurement?.querySelectorAll('.ui-field__label') ?? []).map((l) =>
         l.textContent?.trim(),
       );
       const toolbar = document.querySelector('.toolbar');
+      const capture = rows
+        ?.querySelector('[data-testid="acquire-button"]')
+        ?.closest('[role="group"]');
       return {
         labels,
-        first: body?.firstElementChild?.querySelector('[data-testid="source-button"]')
+        first: rows?.firstElementChild?.querySelector('[data-testid="source-button"]')
           ? 'source'
           : '',
-        last: body?.lastElementChild?.getAttribute('role') === 'group' ? 'capture' : '',
-        captureName: body?.lastElementChild?.getAttribute('aria-label') ?? '',
+        last: capture && rows?.lastElementChild === capture ? 'capture' : '',
+        captureName: capture?.getAttribute('aria-label') ?? '',
         inToolbar: toolbar?.querySelectorAll(
           '[data-testid="center-frequency"], [data-testid="span-select"], [data-testid="source-button"], [data-testid="acquire-button"]',
         ).length,
       };
     });
-    expect(layout.labels.slice(0, 3)).toEqual(['Center', 'Span', 'FFT size']);
+    // A connected IQ source: its own rows only, no Frequency step or Reference level (DESIGN.md 3.6).
+    expect(layout.labels).toEqual(['Center', 'Span', 'FFT size', 'Window', 'Averaging']);
     expect(layout.first).toBe('source');
     expect(layout.last).toBe('capture');
     expect(layout.captureName).toBe('Capture');
@@ -424,12 +448,26 @@ describe('Simulator acquisition workflow', () => {
     await waitForState('Connected');
   });
 
-  it('disconnects and releases the source', async () => {
+  it('disconnect keeps the selection: the name stays, nothing is connected, capture needs a source', async () => {
+    await runSimulator();
     await ensureDisconnected();
     await expect(await byTestId('simulated-badge')).not.toBeExisting();
-    // The source stays selected, but the capture button needs a connected device, so it is disabled.
-    expect(await sourceButtonText()).toContain('Signal simulator');
+    // Disconnect releases the source but keeps it selected (ADR 0017): the name stays with the idle state.
+    expect(await sourceButtonText()).toBe('Source: Signal simulator, Disconnected');
+    expect(await sessionState()).toBe('Disconnected');
+    // The capture button needs a connected source: it is disabled and says why.
     await expect(await byTestId('acquire-button')).toBeDisabled();
     await expect(await byTestId('capture-mode-button')).toBeDisabled();
+    expect(await byTestId('acquire-button').getAttribute('title')).toBe('Connect a source first');
+
+    // The plot hint is for a selection with no trace: connecting clears the trace, and a disconnect
+    // without a capture leaves the hint (a trace on screen shows the tag instead, and no hint).
+    await selectSource('source-simulator');
+    await waitForState('Connected');
+    await ensureDisconnected();
+    expect(await sourceButtonText()).toBe('Source: Signal simulator, Disconnected');
+    expect(await textOf(byTestId('plot-hint'))).toBe(
+      'Not connected. Use the source button to connect.',
+    );
   });
 });

@@ -10,7 +10,7 @@ import { WaterfallView } from './components/WaterfallView';
 import { api } from './ipc/commands';
 import { startFramePump } from './state/framePump';
 import { frameStore } from './state/frames';
-import { useSession } from './state/session';
+import { selectStartup, useSession } from './state/session';
 import { useView } from './state/view';
 import { BannerRegion } from './ui/Banner';
 
@@ -43,6 +43,8 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+        // Nothing to choose from until start-up is done (the source button is not ready either).
+        if (selectStartup(useSession.getState()) !== 'ready') return;
         e.preventDefault();
         useSourceMenu.getState().setOpen(true);
       }

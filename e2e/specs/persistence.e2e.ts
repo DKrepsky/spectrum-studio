@@ -1,11 +1,13 @@
 import { $, browser, expect } from '@wdio/globals';
 
 import {
+  analyzerAtLaunch,
   byTestId,
   captureMode,
   chooseMode,
   closeSourceMenu,
   ensureDisconnected,
+  entryByName,
   fillDialog,
   openEditDialog,
   openSourceMenu,
@@ -22,7 +24,11 @@ import {
   waitForState,
 } from './helpers';
 
-/** The test id of the one remembered source (the simulator), once it has been remembered. */
+// Seeded (e2e/fixtures/seed/persistence/sources.json): one named simulator preset, "Bench FM setup".
+// A named preset is listed under Your sources; the unnamed simulator is not (ADR 0017), and the
+// fixed "Signal simulator" row of the menu is always offered.
+
+/** The test id of the one remembered source that is not the analyzer (the simulator preset). */
 async function simulatorEntryId(): Promise<string> {
   const entry = await simulatorEntry();
   return (await entry.getAttribute('data-testid')) ?? '';
@@ -34,20 +40,22 @@ async function simulatorEntryId(): Promise<string> {
  */
 async function simulatorEntry() {
   const entry = await $('[data-testid^="source-entry-"]:not([aria-label*="SA430"])');
-  await entry.waitForExist({ timeoutMsg: 'the simulator was not remembered' });
+  await entry.waitForExist({ timeoutMsg: 'the simulator preset is not listed' });
   return entry;
 }
 
 describe('Remembered sources and preferences', () => {
-  it('remembers a source automatically, with the settings it was last used with', async () => {
+  it('remembers the settings a source was last used with, and the fixed simulator row stays offered', async () => {
     await runSimulator();
     await setInput('input[aria-label="Center frequency"]', '99.5M');
     await browser.waitUntil(async () => (await statusBarText()).includes('Center 99.5'));
     await ensureDisconnected();
     await openSourceMenu();
-    expect(await textOf(simulatorEntry())).toContain('Signal simulator');
-    // Once remembered, the fixed "Signal simulator" row is gone.
-    await expect(await byTestId('source-simulator')).not.toBeExisting();
+    // The seeded preset is the remembered simulator: it is listed by its name, and the fixed row
+    // is still there. The unnamed simulator is not listed under Your sources.
+    expect(await textOf(simulatorEntry())).toContain('Bench FM setup');
+    await expect(await byTestId('source-simulator')).toBeDisplayed();
+    await expect(await entryByName('Signal simulator')).not.toBeExisting();
     await closeSourceMenu();
   });
 
@@ -97,19 +105,17 @@ describe('Remembered sources and preferences', () => {
     // The capture mode chosen before the restart is shown again (Single).
     expect(await captureMode()).toBe('single');
 
-    // An attached analyzer is connected by the launch auto-connect (ADR 0014) and then selected;
-    // without one the last source is selected again but not connected. Either way the simulator
-    // is connected by hand below, with the settings remembered for it.
-    if ((await sessionState()) === 'Connected') {
+    // The launch connects by itself (ADR 0014, 0017): an attached analyzer, else the remembered
+    // simulator preset with its settings. Either way the selection is the one that was in use.
+    // The preset is then connected by hand below if it is not connected yet.
+    if (await analyzerAtLaunch()) {
       expect(await sourceButtonText()).toContain('SA430');
       await ensureDisconnected();
     } else {
-      expect(await sessionState()).toBe('Disconnected');
-      await browser.waitUntil(async () => (await sourceButtonText()).includes('E2E FM setup'), {
-        timeoutMsg: 'the last source was not restored as the selection',
-      });
+      expect(await sourceButtonText()).toContain('E2E FM setup');
+      expect(await sessionState()).toBe('Connected');
+      await ensureDisconnected();
     }
-    // The capture button is disabled until a device is connected: connect the simulator first.
     await openSourceMenu();
     await selectSource(await simulatorEntryId());
     await waitForState('Connected');

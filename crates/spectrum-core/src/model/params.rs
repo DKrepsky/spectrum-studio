@@ -53,6 +53,21 @@ pub enum ParamKind {
     },
 }
 
+/// Where the UI shows a runtime parameter.
+///
+/// `Measurement` parameters appear in the Measurement group next to Center and Span; every other
+/// parameter stays in the source's settings. This is a placement hint only: validation and
+/// application do not depend on it. See ADR 0018.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "bindings", ts(export))]
+pub enum ParamPlacement {
+    #[default]
+    Source,
+    Measurement,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
@@ -67,6 +82,9 @@ pub struct ParamSpec {
     pub default: ParamValue,
     /// Required parameters must be provided explicitly (their default is only a placeholder).
     pub required: bool,
+    /// Where the UI shows the parameter. Missing in older payloads means `Source`.
+    #[serde(default)]
+    pub placement: ParamPlacement,
 }
 
 impl ParamSpec {
@@ -84,6 +102,7 @@ impl ParamSpec {
             },
             default: ParamValue::Number(default),
             required: false,
+            placement: ParamPlacement::Source,
         }
     }
 
@@ -96,6 +115,7 @@ impl ParamSpec {
             kind: ParamKind::Bool,
             default: ParamValue::Bool(default),
             required: false,
+            placement: ParamPlacement::Source,
         }
     }
 
@@ -116,6 +136,7 @@ impl ParamSpec {
             },
             default: ParamValue::Text(default.into()),
             required: false,
+            placement: ParamPlacement::Source,
         }
     }
 
@@ -138,6 +159,12 @@ impl ParamSpec {
 
     pub fn required(mut self) -> Self {
         self.required = true;
+        self
+    }
+
+    /// Shows this parameter in the Measurement group instead of the source's settings.
+    pub fn in_measurement(mut self) -> Self {
+        self.placement = ParamPlacement::Measurement;
         self
     }
 
@@ -306,6 +333,34 @@ mod tests {
     fn partial_checks_only_given_keys() {
         assert!(check_partial(&specs(), &map(&[("gain", ParamValue::Number(3.0))])).is_ok());
         assert!(check_partial(&specs(), &map(&[("gain", ParamValue::Number(-1.0))])).is_err());
+    }
+
+    #[test]
+    fn placement_defaults_to_source_and_in_measurement_sets_it() {
+        for spec in specs() {
+            assert_eq!(spec.placement, ParamPlacement::Source);
+        }
+        let spec = ParamSpec::choice("ref", "Ref", &[("a", "A")], "a").in_measurement();
+        assert_eq!(spec.placement, ParamPlacement::Measurement);
+        assert_eq!(
+            spec.clone().in_measurement().placement,
+            ParamPlacement::Measurement
+        );
+    }
+
+    #[test]
+    fn placement_round_trips_and_defaults_when_missing() {
+        let spec = ParamSpec::number("step", "Step", 10.0, 500.0, 5.0, 100.0).in_measurement();
+        let json = serde_json::to_value(&spec).unwrap();
+        assert_eq!(json["placement"], "measurement");
+        let back: ParamSpec = serde_json::from_value(json).unwrap();
+        assert_eq!(back, spec);
+
+        let mut json = serde_json::to_value(ParamSpec::boolean("agc", "AGC", false)).unwrap();
+        assert_eq!(json["placement"], "source");
+        json.as_object_mut().unwrap().remove("placement");
+        let legacy: ParamSpec = serde_json::from_value(json).unwrap();
+        assert_eq!(legacy.placement, ParamPlacement::Source);
     }
 
     #[test]

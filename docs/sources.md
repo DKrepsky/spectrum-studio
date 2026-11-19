@@ -53,6 +53,14 @@ enum SourceData { Iq(IqBlock), Trace(TraceBlock) }
 - **ParamSpec** describes device-specific settings (number with range/unit, choice, bool, text).
   The UI renders forms from them; the core validates submitted values against them
   (`model/params.rs`), so drivers receive only valid, complete parameter maps.
+- **Placement** (`ParamSpec.placement`, [ADR 0018](adr/0018-measurement-rows-from-param-placement.md)):
+  `source` (the default) keeps a parameter in the source's settings; `measurement`, set with
+  `ParamSpec::in_measurement()`, shows it in the Measurement group. Runtime parameters marked
+  `measurement` appear there after Center and Span, in the order the driver lists them; the
+  other runtime parameters stay in Source settings. Connection parameters ignore the placement.
+  FFT size and Window are not driver parameters: they are application processing settings and
+  appear in Measurement for IQ sources only. The placement is a display hint; validation and
+  application do not depend on it. The UI never checks a driver id.
 
 ### Device identity ([ADR 0010](adr/0010-stable-device-identity.md))
 
@@ -130,15 +138,21 @@ Disconnected ──connect──► Connecting ──ok──► Connected ─�
 Connecting always stops and joins the previous worker first. Settings and processing changes are
 queued to the worker and applied between reads.
 
-**Auto-connect** (`autoconnect.rs`, [ADR 0014](adr/0014-auto-connect-and-device-watch.md)). At
-launch the first discovered device is connected, paused, when nothing is connected. A device reported
-by a watching driver is connected when nothing is connected at that moment. The simulator is never
-auto-connected. The session guards that make this safe are `connect_if_idle` (never replaces a
-source, checked under the worker lock) and `device_removed` (closes the active source when its device
-is unplugged, also while paused, and reports `DeviceLost`). Auto-connect never starts acquisition and
-never retries on its own: a failed attempt shows the same `ConnectFailed` notice as a manual connect,
-and the next attempt is the next plug-in or launch. A successful one is remembered as a manual
-connect is.
+**Auto-connect** (`autoconnect.rs`, [ADR 0014](adr/0014-auto-connect-and-device-watch.md),
+[ADR 0017](adr/0017-simulator-fallback-and-idle-replacement.md)). At launch the first discovered
+device is connected, paused. When no device is found (or every scan failed), the simulator is
+connected instead, found by its kind, with its remembered settings, so a source is always selected.
+A device that is found but fails to connect is not followed by the simulator: it shows `ConnectFailed`
+and stays the selection. A device reported by a watching driver is connected unless a real device is
+connected or any source is acquiring; an idle simulator (connected at launch or picked by the user) is
+replaced by it. An acquisition is never interrupted. The session guards that make this safe are
+`connect_if_idle` (checked under the worker lock, with the rule in `may_replace`) and `device_removed`
+(closes the active source when its device is unplugged, also while paused, and reports `DeviceLost`,
+with no fallback). Auto-connect never starts acquisition and never retries on its own: a failed
+attempt shows the same `ConnectFailed` notice as a manual connect, and the next attempt is the next
+plug-in or launch. A successful one is remembered as a manual connect is. `SessionStatus.launching` is
+true from the start of auto-connect until its launch rule has finished, so the UI can show "Loading"
+rather than a stale selection.
 
 **Capture modes.** *Continuous* acquires until stopped. *Single* publishes exactly one frame and then
 returns the session to `Connected` without a Stop, so the UI learns the end from `SessionStatus`
@@ -189,6 +203,7 @@ author). Tested on an MSP-SA430-SUB1GHZ (hardware 2.0, core 2.10, spectrum firmw
   inside (the reported centre is the one actually swept). A centre between bands or a span wider
   than its band is rejected.
 - **Settings:** spans 1–149 MHz; *Frequency step* 10–500 kHz; *Reference level* −35…−70 dBm.
+  Both are `measurement` parameters, so they appear in the Measurement group with Center and Span.
 - **Sweep time** is ≈1.3 ms per point and a sweep cannot be interrupted, so requests above 800
   points (~1 s) are rejected with a hint to raise the step. Stop/Disconnect therefore take effect
   after the current sweep, which can exceed the usual 250 ms `read` budget for large sweeps.

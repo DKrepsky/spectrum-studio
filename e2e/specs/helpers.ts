@@ -72,7 +72,8 @@ const STATE_SUFFIX = /, (Disconnected|Connecting…|Connected|Acquiring|Disconne
 
 /**
  * The backend state as the UI shows it: the suffix of the source button's accessible name
- * ("Source: <name>, <state>"). Without a chosen source there is no state to show: Disconnected.
+ * ("Source: <name>, <state>"). A source is always selected once start-up is over (ADR 0017), so a
+ * name without a state suffix means Disconnected.
  */
 export async function sessionState(): Promise<string> {
   return (await sourceButtonText()).match(STATE_SUFFIX)?.[1] ?? 'Disconnected';
@@ -147,7 +148,10 @@ export async function textOf(
   return String((await (await element).getProperty('textContent')) ?? '');
 }
 
-/** The source button's accessible name: "Source: <name>, <state>" (or "Choose a source"). */
+/**
+ * The source button's accessible name: "Source: <name>, <state>" (or "Source: Loading…" or
+ * "Source: Status unavailable" during start-up). The selection is never empty after start-up.
+ */
 export async function sourceButtonText(): Promise<string> {
   return (await byTestId('source-button')).getAttribute('aria-label').then((v) => v ?? '');
 }
@@ -209,22 +213,15 @@ export async function settledFrameSeq(): Promise<number> {
 }
 
 /**
- * Picks the Signal simulator (when not connected yet) and presses the capture button: the first-run journey.
- * Once the simulator has been remembered it is listed under Your sources instead of the fixed
- * "Signal simulator" row, so either is accepted.
+ * Connects the Signal simulator from the fixed row of the source menu and presses the capture button:
+ * the first-run journey. The fixed row is always offered (ADR 0017); picking it connects the
+ * remembered unnamed simulator with its settings, so there is one path whether or not it was used before.
  */
 export async function runSimulator() {
   // An attached analyzer may have connected at launch (ADR 0014): release it before picking the
   // simulator, or the capture button would acquire from the wrong source.
   await ensureDisconnected();
-  await openSourceMenu();
-  const fixed = await byTestId('source-simulator');
-  if (await fixed.isExisting()) {
-    await fixed.click();
-  } else {
-    const own = await $('[data-testid^="source-entry-"][aria-label*="imulator"]');
-    await own.click();
-  }
+  await selectSource('source-simulator');
   await waitForState('Connected');
   await (await byTestId('acquire-button')).click();
   await waitForState('Acquiring');
@@ -234,8 +231,8 @@ export async function runSimulator() {
 }
 
 /**
- * Waits until a launch auto-connect (ADR 0014) has finished: with an analyzer attached the app
- * connects by itself at start, and `Connecting…` must not be acted on.
+ * Waits until a launch auto-connect (ADR 0014, 0017) has finished: the app connects an analyzer or,
+ * without one, the simulator by itself at start, and `Connecting…` must not be acted on.
  */
 export async function waitForLaunchSettled() {
   await browser.waitUntil(
@@ -245,8 +242,10 @@ export async function waitForLaunchSettled() {
 }
 
 /**
- * Returns to a disconnected state, whatever the current state is. With an analyzer attached the
- * app may have connected it by itself at launch, so this is also how a spec starts from nothing.
+ * Returns to a disconnected state, whatever the current state is, and keeps the selection (the
+ * selected source is not released from the list, Disconnect keeps it selected: ADR 0017). Used to
+ * start a spec from "nothing connected": the launch connect (ADR 0014, 0017) may have connected an
+ * analyzer or the simulator, and this releases it. Nothing is forgotten.
  */
 export async function ensureDisconnected() {
   await waitForLaunchSettled();
@@ -268,13 +267,51 @@ export async function setInput(selector: string, value: string) {
   await browser.keys(['Enter']);
 }
 
-/** Waits until the UI has loaded the backend state (the source button is rendered). */
+/**
+ * Waits until the UI has loaded the backend state: the source button is rendered, it no longer reads
+ * "Loading…" (start-up, ADR 0017), and the launch connect has finished.
+ */
 export async function waitForAppReady() {
   await byTestId('source-button').waitForExist({
     timeoutMsg: 'the application did not finish loading',
   });
-  await browser.waitUntil(async () => (await sourceButtonText()).length > 0);
+  await browser.waitUntil(
+    async () => {
+      const text = await sourceButtonText();
+      return text.length > 0 && !text.includes('Loading…');
+    },
+    { timeoutMsg: 'the source button still reads Loading…' },
+  );
   await waitForLaunchSettled();
+}
+
+/** The source button's accessible name ends in the outcome of a launch connect (or of a failed one). */
+const LAUNCH_OUTCOME = /, (Connected|Failed)$/;
+
+/**
+ * True when the launch connected an analyzer (a real device, not the simulator). Launch-state
+ * specs use it: with no device attached the app starts with the simulator (ADR 0017), but a
+ * machine with an analyzer plugged in starts with the analyzer, and the no-device launch cannot be
+ * produced without unplugging it (a manual test, docs/testing.md). Those tests are then pending.
+ * The simulator is identified by the `data-simulated` attribute of the source button (the session's
+ * `source.simulated`), not by its name, which comes from user names and device labels.
+ */
+export async function analyzerAtLaunch(): Promise<boolean> {
+  // The launch connect starts after the first status (Disconnected, then Connecting…), so the
+  // decision waits for its outcome: Connected, or Failed for a device that could not open. Bounded:
+  // without a device the simulator reaches Connected within about a second.
+  await browser
+    .waitUntil(async () => LAUNCH_OUTCOME.test(await sourceButtonText()), {
+      timeout: 10_000,
+      interval: 100,
+    })
+    .catch(() => {
+      // Not settled in time: decide on what the button shows now (a test then fails on its own
+      // expectation rather than being skipped).
+    });
+  const text = await sourceButtonText();
+  const simulated = await (await byTestId('source-button')).getAttribute('data-simulated');
+  return LAUNCH_OUTCOME.test(text) && simulated === null;
 }
 
 // ---- Add / Edit source dialog -----------------------------------------------------------------
@@ -434,6 +471,8 @@ export async function findOverflow(rootSelector: string): Promise<string[]> {
       const e = el as HTMLElement;
       if (e.scrollWidth <= e.clientWidth + 1 || e.clientWidth === 0) continue;
       if (e.hasAttribute('data-truncated')) continue;
+      // Visually hidden text (descriptions read by screen readers) is clipped on purpose.
+      if (e.classList.contains('visually-hidden') || e.closest('.visually-hidden')) continue;
       const cs = getComputedStyle(e);
       const clipsDeliberately = cs.textOverflow === 'ellipsis' && cs.overflow !== 'visible';
       const owner = e.closest('[title],[aria-label]');

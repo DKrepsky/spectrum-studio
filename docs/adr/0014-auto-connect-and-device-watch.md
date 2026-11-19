@@ -1,6 +1,7 @@
 # ADR 0014 — Auto-connect policy and the optional device watcher
 
-Status: accepted (2026-11-16); shutdown section amended 2026-11-16 (work 008)
+Status: accepted (2026-11-16); shutdown section amended 2026-11-16 (work 008); "never replace a source" and
+"the simulator is never auto-connected" superseded by [ADR 0017](0017-simulator-fallback-and-idle-replacement.md) (2026-11-19)
 
 ## Context
 

@@ -30,8 +30,8 @@ pub fn connect_remembered(
     Ok(status)
 }
 
-/// Connects a device the application found by itself (at launch or when it was plugged in), but
-/// only when no source is connected or connecting; returns `Ok(None)` otherwise.
+/// Connects a device the application found by itself (at launch or when it was plugged in), unless
+/// the session must keep its source (see `connect_if_idle`); returns `Ok(None)` then.
 ///
 /// The config is the remembered entry with the same identity, so its stored settings apply as they
 /// do after a manual pick, or else a fresh config for the device. On success the connection is
@@ -45,6 +45,17 @@ pub fn auto_connect(
         device_id: Some(device.device_id.clone()),
         ..SourceConfig::new(&device.driver_id)
     };
+    auto_connect_config(session, store, wanted)
+}
+
+/// [`auto_connect`] for an already built configuration: the remembered entry with the same
+/// identity supplies its stored settings, otherwise `wanted` is connected as given. Used for the
+/// launch fallback to the simulator (ADR 0017), which has no device to name.
+pub fn auto_connect_config(
+    session: &SessionManager,
+    store: &ConfigStore,
+    wanted: SourceConfig,
+) -> Result<Option<SessionStatus>, SessionError> {
     let remembered = store
         .sources_all()
         .into_iter()

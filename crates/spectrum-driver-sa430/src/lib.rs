@@ -20,8 +20,8 @@ use sa430::{Sa430, SweepRequest};
 use spectrum_core::model::params::resolve_params;
 use spectrum_core::model::{
     AmplitudeUnit, Capabilities, DataKind, DeviceDescriptor, DriverInfo, DriverStatus,
-    FrequencyRange, ParamKind, ParamMap, ParamMapExt, ParamSpec, ParamValue, SettingsPatch,
-    SourceConfig, SourceKind, SourceSettings, Transport,
+    FrequencyRange, ParamKind, ParamMap, ParamMapExt, ParamPlacement, ParamSpec, ParamValue,
+    SettingsPatch, SourceConfig, SourceKind, SourceSettings, Transport,
 };
 use spectrum_core::sources::{
     DeviceEvent, OpenedSource, Source, SourceData, SourceDriver, SourceError, TraceBlock,
@@ -329,6 +329,7 @@ fn connection_params() -> Vec<ParamSpec> {
         kind: ParamKind::Text { max_length: 256 },
         default: ParamValue::Text(String::new()),
         required: false,
+        placement: ParamPlacement::Source,
     }]
 }
 
@@ -347,11 +348,14 @@ fn runtime_params() -> Vec<ParamSpec> {
             .with_help(
                 "Distance between measured points. The resolution bandwidth is chosen \
                  automatically to be at least twice the step.",
-            ),
-        ParamSpec::choice("refLevelDbm", "Reference level", &level_options, "-35").with_help(
-            "Input level at the top of the measurement range. Lower levels are more sensitive \
-             but overload on strong signals.",
-        ),
+            )
+            .in_measurement(),
+        ParamSpec::choice("refLevelDbm", "Reference level", &level_options, "-35")
+            .with_help(
+                "Input level at the top of the measurement range. Lower levels are more sensitive \
+                 but overload on strong signals.",
+            )
+            .in_measurement(),
     ]
 }
 
@@ -1157,6 +1161,65 @@ mod tests {
 
     fn open(d: &Sa430Driver, c: &SourceConfig) -> Result<OpenedSource, SourceError> {
         d.open(c)
+    }
+
+    #[test]
+    fn runtime_params_are_step_and_level_in_measurement() {
+        let params = runtime_params();
+        let ids: Vec<&str> = params.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids, ["stepKhz", "refLevelDbm"]);
+        assert!(
+            params
+                .iter()
+                .all(|p| p.placement == ParamPlacement::Measurement)
+        );
+
+        let step = &params[0];
+        assert_eq!(step.label, "Frequency step");
+        assert_eq!(
+            step.kind,
+            ParamKind::Number {
+                min: 10.0,
+                max: 500.0,
+                step: 5.0,
+                unit: Some("kHz".into()),
+            }
+        );
+        assert_eq!(step.default, ParamValue::Number(100.0));
+        assert!(step.help.is_some());
+
+        let level = &params[1];
+        assert_eq!(level.label, "Reference level");
+        assert_eq!(level.default, ParamValue::Text("-35".into()));
+        assert!(level.help.is_some());
+    }
+
+    #[test]
+    fn connection_params_stay_in_source_settings() {
+        let params = connection_params();
+        assert_eq!(params.len(), 1);
+        assert_eq!(params[0].id, "port");
+        assert_eq!(params[0].placement, ParamPlacement::Source);
+    }
+
+    #[test]
+    fn opened_source_reports_step_and_level_as_capabilities() {
+        let (d, _) = Scripted::driver(vec![port("/dev/ttyACM0", Some(SN))]);
+        let opened = open(&d, &config(None, "/dev/ttyACM0")).unwrap();
+        let ids: Vec<(String, ParamPlacement)> = opened
+            .source
+            .capabilities()
+            .params
+            .iter()
+            .map(|p| (p.id.clone(), p.placement))
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                ("stepKhz".to_string(), ParamPlacement::Measurement),
+                ("refLevelDbm".to_string(), ParamPlacement::Measurement),
+            ]
+        );
     }
 
     #[test]

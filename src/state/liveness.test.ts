@@ -19,12 +19,26 @@ describe('liveness', () => {
     expect(liveness('acquiring', frame, STALE, undefined).kind).toBe('stale');
   });
 
-  it('marks retained frames as held when not acquiring', () => {
+  it('marks retained frames as held when connected but not acquiring', () => {
     expect(liveness('connected', frame, FRESH, 'continuous').kind).toBe('stopped');
     expect(liveness('connected', frame, FRESH, 'continuous').label).toMatch(/^HOLD/);
-    expect(liveness('disconnected', frame, FRESH, 'continuous').kind).toBe('stopped');
-    expect(liveness('disconnected', null, FRESH, 'continuous').kind).toBe('noSource');
     expect(liveness('connected', null, FRESH, 'continuous').label).toBe('Stopped');
+  });
+
+  it('says no source is connected after Disconnect, even while a held trace stays on screen (S13)', () => {
+    expect(liveness('disconnected', frame, FRESH, 'continuous')).toEqual({
+      kind: 'noSource',
+      label: 'No source connected',
+    });
+    expect(liveness('disconnected', null, FRESH, 'continuous')).toEqual({
+      kind: 'noSource',
+      label: 'No source connected',
+    });
+  });
+
+  it("keeps a lost device's trace as HOLD (S10), but not a disconnected one", () => {
+    expect(liveness('disconnected', frame, FRESH, 'continuous', true).label).toMatch(/^HOLD/);
+    expect(liveness('disconnected', frame, FRESH, 'continuous', false).kind).toBe('noSource');
   });
 
   describe('single capture', () => {

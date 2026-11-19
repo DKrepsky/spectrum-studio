@@ -115,6 +115,14 @@ fn retry_with_defaults<T>(
     }
 }
 
+/// Whether an automatic connect may replace the source of `status` (ADR 0017). Only an idle
+/// simulator may be replaced: the session is `Connected` (not acquiring) and its source is
+/// simulated. A real device, an acquisition, and a connect or disconnect in flight are never
+/// replaced. "No source" needs no rule here: the worker check in `connect_if_idle` covers it.
+pub(crate) fn may_replace(status: &SessionStatus) -> bool {
+    status.state == SessionState::Connected && status.source.as_ref().is_some_and(|s| s.simulated)
+}
+
 /// The first non-empty text value present in both maps, if any.
 fn shared_text_value<'a>(a: &'a ParamMap, b: &ParamMap) -> Option<&'a str> {
     a.values().find_map(|v| match v {
@@ -218,6 +226,11 @@ impl SessionManager {
 
     pub fn status(&self) -> SessionStatus {
         lock(&self.shared.status).clone()
+    }
+
+    /// Sets the start-up flag reported in [`SessionStatus::launching`] and publishes the change.
+    pub fn set_launching(&self, on: bool) {
+        self.shared.update(|s| s.launching = on);
     }
 
     pub fn drivers(&self) -> Vec<DriverInfo> {
@@ -384,8 +397,7 @@ impl SessionManager {
     }
 
     /// Like [`connect_with_default_fallback`](Self::connect_with_default_fallback), but only when
-    /// no source is connected. Returns `Ok(None)` without touching the session otherwise (see
-    /// [`connect_if_idle`](Self::connect_if_idle)).
+    /// the current source may be replaced (see [`connect_if_idle`](Self::connect_if_idle)).
     pub fn connect_if_idle_with_default_fallback(
         &self,
         config: SourceConfig,
@@ -402,9 +414,11 @@ impl SessionManager {
         self.open_locked(&mut worker, config)
     }
 
-    /// Opens `config` only when no source is connected or connecting, and returns `Ok(None)`
-    /// otherwise, leaving the current source alone. The check and the open happen under the worker
-    /// lock, so a manual connect can never be replaced by an automatic one racing it.
+    /// Opens `config` unless a source that must be kept is live: a real device (connected or
+    /// acquiring), or an acquiring simulator. An idle simulator is replaced (ADR 0017).
+    /// Returns `Ok(None)` when it leaves the current source alone. The check and the open happen
+    /// under the worker lock, so a manual connect can never be replaced by an automatic one racing
+    /// it.
     pub fn connect_if_idle(
         &self,
         config: SourceConfig,
@@ -413,6 +427,7 @@ impl SessionManager {
         if worker
             .as_ref()
             .is_some_and(|handle| !handle.thread.is_finished())
+            && !may_replace(&self.status())
         {
             return Ok(None);
         }

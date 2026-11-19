@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "sources": [
+    {
+      "id": "seed-fm",
+      "name": "Bench FM setup",
+      "label": "Signal simulator",
+      "config": {
+        "driverId": "simulator"
+      },
+      "createdMs": 1000,
+      "updatedMs": 1000,
+      "lastUsedMs": 1000
+    }
+  ]
+}

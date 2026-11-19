@@ -81,7 +81,7 @@ export const NoSource: Story = {
     <>
       <SplitButton {...args} />
       <InlineMessage id="capture-no-source" variant="hint">
-        Choose a source to begin…
+        Capture needs a connected source.
       </InlineMessage>
     </>
   ),

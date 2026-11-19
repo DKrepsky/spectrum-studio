@@ -132,6 +132,62 @@ describe('NumberField', () => {
     expect(screen.getByText('dB')).toHaveClass('ui-field__unit');
   });
 
+  it('shows an em dash placeholder and no value when there is no value', () => {
+    const { input } = renderField({ value: null });
+    expect(input).toHaveValue(null);
+    expect(input).toHaveAttribute('placeholder', '—');
+    expect(input).not.toHaveAttribute('aria-invalid');
+    expect(input).not.toHaveAttribute('title');
+  });
+
+  it('does not step with ArrowUp or ArrowDown when there is no value', async () => {
+    const { input, onCommit } = renderField({ value: null });
+    input.focus();
+    await userEvent.keyboard('{ArrowUp}{ArrowDown}');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(input).toHaveValue(null);
+  });
+
+  it('commits nothing on Enter or blur when there is no value and no draft', async () => {
+    const { input, onCommit } = renderField({ value: null });
+    input.focus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.tab();
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(input).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('still validates and commits a typed value when there is no value', async () => {
+    const { input, onCommit } = renderField({ value: null });
+    await userEvent.type(input, '5{Enter}');
+    expect(onCommit).toHaveBeenCalledWith(5);
+  });
+
+  it('marks an out-of-range typed value invalid when there is no value', async () => {
+    const { input, onCommit } = renderField({ value: null });
+    await userEvent.type(input, '50{Enter}');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('announces the unit as the accessible description', () => {
+    const { input } = renderField({ unit: 'kHz' });
+    expect(input).toHaveAccessibleDescription('kHz');
+  });
+
+  it('keeps a caller description and appends the unit to it', () => {
+    const { input } = renderField({ unit: 'kHz', 'aria-describedby': 'caller-hint' });
+    const ids = input.getAttribute('aria-describedby')?.split(' ') ?? [];
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toBe('caller-hint');
+    expect(document.getElementById(ids[1]!)).toHaveTextContent('kHz');
+  });
+
+  it('has no description without a unit', () => {
+    const { input } = renderField({ 'aria-describedby': 'caller-hint' });
+    expect(input).toHaveAttribute('aria-describedby', 'caller-hint');
+  });
+
   it('is disabled when asked', () => {
     const { input } = renderField({ disabled: true });
     expect(input).toBeDisabled();

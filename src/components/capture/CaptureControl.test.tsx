@@ -139,6 +139,37 @@ describe('CaptureControl', () => {
       expect(chevron()).toHaveAttribute('title', 'Connect a source first');
     });
 
+    it('says Loading… and disables the whole control before the first status (start-up)', () => {
+      render(<CaptureControl />);
+      expect(main()).toBeDisabled();
+      expect(main()).toHaveAttribute('title', 'Loading…');
+      expect(main()).toHaveAccessibleDescription('Loading…');
+      expect(chevron()).toBeDisabled();
+      expect(chevron()).toHaveAttribute('title', 'Loading…');
+      expect(chevron()).toHaveAccessibleDescription('Loading…');
+    });
+
+    it('says Loading… while the launch connect has not begun, then the connect reason', () => {
+      push({ state: 'disconnected', launching: true });
+      const { unmount } = render(<CaptureControl />);
+      expect(main()).toHaveAttribute('title', 'Loading…');
+      expect(chevron()).toHaveAccessibleDescription('Loading…');
+      unmount();
+      push({ state: 'disconnected', launching: false });
+      render(<CaptureControl />);
+      expect(main()).toHaveAttribute('title', 'Connect a source first');
+      expect(chevron()).toHaveAccessibleDescription('Connect a source first');
+    });
+
+    it('says Status unavailable, not Connect a source first, when start-up failed (S12)', () => {
+      useSession.setState({ status: null, startupFailed: true });
+      render(<CaptureControl />);
+      expect(main()).toBeDisabled();
+      expect(main()).toHaveAttribute('title', 'Status unavailable');
+      expect(main()).toHaveAccessibleDescription('Status unavailable');
+      expect(chevron()).toHaveAttribute('title', 'Status unavailable');
+    });
+
     it.each([
       ['connecting', 'Connecting…'],
       ['disconnecting', 'Disconnecting…'],
