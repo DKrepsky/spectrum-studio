@@ -1,3 +1,5 @@
+import { spawn, type ChildProcess } from 'node:child_process';
+
 import { $, $$, browser, expect } from '@wdio/globals';
 
 import {
@@ -7,6 +9,7 @@ import {
   chooseMode,
   closeSourceMenu,
   ensureDisconnected,
+  failureBanner,
   fillDialog,
   frameSeq,
   livenessKind,
@@ -17,6 +20,7 @@ import {
   selectSource,
   sessionState,
   setInput,
+  sourceButtonText,
   statusBarText,
   textOf,
   waitForAppReady,
@@ -27,7 +31,19 @@ import {
 
 /**
  * Real hardware: needs a TI SA430 on USB and `SPECTRUM_E2E_SA430=1`; skipped otherwise so the
- * suite stays runnable anywhere.
+ * suite stays runnable anywhere. The device is found on `/dev/ttyACM0`.
+ *
+ * Automated here: the launch connects an attached analyzer (not the simulator), and a device whose
+ * port is busy fails into Failed and stays selected, with no simulator fallback (ADR 0017).
+ *
+ * Manual (needs the cable, so not automated; ADR 0017 and docs/testing.md "Manual start-up checks"):
+ *  1. Unplug the SA430 with no source connected: the simulator is not connected by itself.
+ *  2. Plug it in again while the simulator is selected and idle: the device replaces it and is
+ *     connected; the fixed "Signal simulator" row is no longer current.
+ *  3. Start Single or Continuous on the simulator, then plug the SA430 in: the acquisition is not
+ *     interrupted and the device is not connected until the simulator is stopped.
+ *  4. Unplug the SA430 while it acquires: the banner says the device was lost, the device stays the
+ *     selection, and no simulator is connected.
  */
 const describeHardware = process.env.SPECTRUM_E2E_SA430 === '1' ? describe : describe.skip;
 
@@ -39,6 +55,9 @@ describeHardware('TI SA430 (real hardware)', () => {
     await waitForState('Connected', 20_000);
     expect(await acquireState()).toBe('idle');
     expect(await livenessKind()).not.toBe('live');
+    // The launch connected the analyzer, so the selection is the analyzer, not the simulator.
+    expect(await sourceButtonText()).toContain('SA430');
+    expect(await sourceButtonText()).not.toContain('Signal simulator');
     await openSourceMenu();
     const rows = await $$('[data-testid^="source-entry-"][aria-label*="SA430"]');
     expect(rows).toHaveLength(1);
@@ -122,6 +141,47 @@ describeHardware('TI SA430 (real hardware)', () => {
     await waitForState('Acquiring', 20_000);
     await browser.waitUntil(async () => /Center 434\.[45]/.test(await statusBarText()), {
       timeoutMsg: 'the remembered centre frequency was not restored',
+    });
+    await ensureDisconnected();
+  });
+
+  it('shows Frequency step and Reference level in Measurement, not in Source settings, and applies Frequency step', async () => {
+    await ensureDisconnected();
+    await openSourceMenu();
+    const id = (await (await $('[data-testid^="source-entry-"]')).getAttribute('data-testid'))!;
+    await selectSource(id);
+    await waitForState('Connected');
+
+    // The SA430's rows, in order: Center, Span, its two measurement settings, then Averaging (3.6).
+    const sections = () =>
+      browser.execute(() => {
+        const details = Array.from(document.querySelectorAll('.side-panel details'));
+        const named = (name: string) =>
+          details.find((d) => d.querySelector('summary')?.textContent?.trim() === name);
+        return {
+          measurement: Array.from(
+            named('Measurement')?.querySelectorAll('.ui-field__label') ?? [],
+          ).map((l) => l.textContent?.trim()),
+          source: named('Source settings')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        };
+      });
+    const rows = await sections();
+    expect(rows.measurement).toEqual([
+      'Center',
+      'Span',
+      'Frequency step',
+      'Reference level',
+      'Averaging',
+    ]);
+    expect(rows.source).toContain('This source has no additional settings.');
+
+    await setInput('#measurement-stepKhz', '50');
+    await browser.waitUntil(async () => (await $('#measurement-stepKhz').getValue()) === '50', {
+      timeoutMsg: 'the Frequency step did not apply from the Measurement row',
+    });
+    await setInput('#measurement-stepKhz', '100');
+    await browser.waitUntil(async () => (await $('#measurement-stepKhz').getValue()) === '100', {
+      timeoutMsg: 'the Frequency step did not return to 100 kHz',
     });
     await ensureDisconnected();
   });
@@ -227,4 +287,63 @@ describeHardware('TI SA430 (real hardware)', () => {
     await chooseMode('continuous');
     await ensureDisconnected();
   });
+
+  it('a device whose port is busy fails into Failed and stays selected, with no simulator fallback', async () => {
+    await ensureDisconnected();
+    await openSourceMenu();
+    const id = (await (
+      await $('[data-testid^="source-entry-"][aria-label*="SA430"]')
+    ).getAttribute('data-testid'))!;
+    await closeSourceMenu();
+
+    // Another process holds the port exclusively (TIOCEXCL, as the serial driver's own open does).
+    const holder = await holdPort(DEVICE_PORT);
+    try {
+      await selectSource(id);
+      await (await failureBanner()).waitForDisplayed();
+      expect(await sessionState()).toBe('Disconnected');
+      const name = await sourceButtonText();
+      expect(name).toContain('SA430');
+      expect(name).toMatch(/, Failed$/);
+      expect(name).not.toContain('Signal simulator');
+      await openSourceMenu();
+      expect(await textOf(byTestId(id))).toContain('Failed');
+      await closeSourceMenu();
+    } finally {
+      await releasePort(holder);
+    }
+
+    // Once the port is free the same row connects: nothing was forgotten or replaced.
+    await selectSource(id);
+    await waitForState('Connected', 20_000);
+    await ensureDisconnected();
+  });
 });
+
+const DEVICE_PORT = '/dev/ttyACM0';
+
+/** Opens the port with an exclusive lock in a helper process and resolves once it is held. */
+async function holdPort(port: string): Promise<ChildProcess> {
+  const script = `
+import fcntl, os, sys, termios, time
+fd = os.open(sys.argv[1], os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+fcntl.ioctl(fd, termios.TIOCEXCL)
+print("held", flush=True)
+time.sleep(600)
+`;
+  const child = spawn('python3', ['-I', '-c', script, port], { stdio: ['ignore', 'pipe', 'pipe'] });
+  await new Promise<void>((resolve, reject) => {
+    child.stdout!.once('data', () => resolve());
+    child.once('exit', (code) => reject(new Error(`the port holder exited with ${code}`)));
+  });
+  return child;
+}
+
+/** Stops the port holder and waits until the port is released. */
+async function releasePort(child: ChildProcess) {
+  if (child.exitCode !== null) return;
+  await new Promise<void>((resolve) => {
+    child.once('exit', () => resolve());
+    child.kill('SIGTERM');
+  });
+}

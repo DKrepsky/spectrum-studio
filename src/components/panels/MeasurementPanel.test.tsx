@@ -1,10 +1,13 @@
 import '../../test/mockApi';
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import type { ActiveSource } from '../../bindings/ActiveSource';
+import type { ParamSpec } from '../../bindings/ParamSpec';
 import type { DecodedFrame } from '../../ipc/frame';
 import { frameStore } from '../../state/frames';
+import { emptyConfig } from '../../state/sourceConfig';
 import { SIMULATOR_CONFIG, useSession } from '../../state/session';
 import { useSources } from '../../state/sources';
 import { activeSimulator, simulatorDriver, status } from '../../test/fixtures';
@@ -30,7 +33,12 @@ function connect(
 describe('MeasurementPanel: Center and Span rows', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useSession.setState({ status: null, drivers: [simulatorDriver], busy: null });
+    useSession.setState({
+      status: null,
+      drivers: [simulatorDriver],
+      busy: null,
+      capabilitiesByDriver: {},
+    });
     useSources.setState({
       drivers: [simulatorDriver],
       list: [],
@@ -181,7 +189,12 @@ describe('MeasurementPanel: Center and Span rows', () => {
 describe('MeasurementPanel: FFT size and Window availability', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useSession.setState({ status: null, drivers: [simulatorDriver], busy: null });
+    useSession.setState({
+      status: null,
+      drivers: [simulatorDriver],
+      busy: null,
+      capabilitiesByDriver: {},
+    });
     useSources.setState({
       drivers: [simulatorDriver],
       list: [],
@@ -189,10 +202,11 @@ describe('MeasurementPanel: FFT size and Window availability', () => {
     });
   });
 
-  it('disables FFT size and Window with the reason when no source is connected (issue 21)', () => {
+  it('disables FFT size and Window with the reason when the simulator was connected and is now not (issue 21)', () => {
+    connect(activeSimulator);
     useSession
       .getState()
-      .receiveStatus(status({ revision: 2, state: 'disconnected', source: null }));
+      .receiveStatus(status({ revision: 3, state: 'disconnected', source: null }));
     render(<MeasurementPanel />);
     for (const label of ['FFT size', 'Window']) {
       const control = screen.getByLabelText(label);
@@ -204,8 +218,62 @@ describe('MeasurementPanel: FFT size and Window availability', () => {
     expect(screen.getByLabelText('Center frequency')).toBeDisabled();
   });
 
+  it('removes FFT size and Window while no source has been opened in this run', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'disconnected', source: null }));
+    render(<MeasurementPanel />);
+    expect(screen.queryByLabelText('FFT size')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Window')).not.toBeInTheDocument();
+  });
+
+  it('says Loading… on the device rows while start-up has not finished', () => {
+    useSession.getState().receiveStatus(
+      status({
+        revision: 1,
+        state: 'disconnected',
+        source: null,
+        launching: true,
+        processing: undefined,
+      }),
+    );
+    render(<MeasurementPanel />);
+    expect(screen.getByLabelText('Center frequency')).toBeDisabled();
+    expect(screen.getByLabelText('Span')).toBeDisabled();
+    expect(screen.getByLabelText('Center frequency')).toHaveValue('—');
+    expect(screen.getByTestId('acquire-button')).toHaveAttribute('title', 'Loading…');
+    expect(screen.queryByLabelText('Averaging')).not.toBeInTheDocument();
+  });
+
+  it('says Status unavailable, not Connect a source first, on the device rows when start-up failed (S12)', () => {
+    useSession.setState({
+      status: null,
+      startupFailed: true,
+      capabilitiesByDriver: { sa430: TRACE_SOURCE.capabilities },
+    });
+    useSources.setState({ active: TRACE_ACTIVE });
+    render(<MeasurementPanel />);
+    for (const label of ['Frequency step', 'Reference level']) {
+      const control = screen.getByLabelText(label);
+      expect(control).toBeDisabled();
+      expect(control).toHaveAttribute('title', 'Status unavailable');
+      expect(control).toHaveAccessibleDescription(expect.stringContaining('Status unavailable'));
+      expect(control).not.toHaveAccessibleDescription(
+        expect.stringContaining('Connect a source first'),
+      );
+    }
+    // Center and Span are disabled and never say "Connect a source first" (S12).
+    for (const label of ['Center frequency', 'Span']) {
+      expect(screen.getByLabelText(label)).toBeDisabled();
+      expect(screen.getByLabelText(label)).not.toHaveAccessibleDescription(
+        expect.stringContaining('Connect a source first'),
+      );
+    }
+  });
+
   it('says Connecting… while the no-source reason is a connection in progress', () => {
-    useSession.getState().receiveStatus(status({ revision: 2, state: 'connecting', source: null }));
+    connect(activeSimulator);
+    useSession.getState().receiveStatus(status({ revision: 3, state: 'connecting', source: null }));
     render(<MeasurementPanel />);
     expect(screen.getByLabelText('FFT size')).toHaveAccessibleDescription('Connecting…');
   });
@@ -220,25 +288,26 @@ describe('MeasurementPanel: FFT size and Window availability', () => {
     }
   });
 
-  it('disables FFT size and Window with the trace reason for a trace source', () => {
+  it('removes FFT size and Window for a trace source', () => {
     connect({
       ...activeSimulator,
       capabilities: { ...activeSimulator.capabilities, dataKind: 'trace' },
     });
     render(<MeasurementPanel />);
-    for (const label of ['FFT size', 'Window']) {
-      expect(screen.getByLabelText(label)).toBeDisabled();
-      expect(screen.getByLabelText(label)).toHaveAccessibleDescription(
-        'The source supplies measured traces; no FFT is computed',
-      );
-    }
+    expect(screen.queryByLabelText('FFT size')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Window')).not.toBeInTheDocument();
   });
 });
 
 describe('MeasurementPanel: source button and capture control', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useSession.setState({ status: null, drivers: [simulatorDriver], busy: null });
+    useSession.setState({
+      status: null,
+      drivers: [simulatorDriver],
+      busy: null,
+      capabilitiesByDriver: {},
+    });
     useSources.setState({
       drivers: [simulatorDriver],
       list: [],
@@ -249,9 +318,10 @@ describe('MeasurementPanel: source button and capture control', () => {
   it('puts the source button first and the capture control last in the Measurement group', () => {
     connect(activeSimulator);
     const { container } = render(<MeasurementPanel />);
-    // The panel's rows are its direct children: the source control first, the capture group last.
-    expect(container.firstElementChild).toBe(screen.getByTestId('source-button').parentElement);
-    expect(container.lastElementChild).toBe(screen.getByRole('group', { name: 'Capture' }));
+    // The panel's rows are the children of the rows wrapper: the source control first, capture last.
+    const rows = container.querySelector('.measurement-rows');
+    expect(rows?.firstElementChild).toBe(screen.getByTestId('source-button').parentElement);
+    expect(rows?.lastElementChild).toBe(screen.getByRole('group', { name: 'Capture' }));
   });
 
   it('fills the column: the source button and the capture group are full width', () => {
@@ -391,5 +461,265 @@ describe('MeasurementPanel: source button and capture control', () => {
     expect(
       screen.getByRole('button', { name: 'Start continuous acquisition' }),
     ).toHaveAccessibleDescription('Connect a source first');
+  });
+});
+
+const stepSpec: ParamSpec = {
+  id: 'stepKhz',
+  label: 'Frequency step',
+  group: null,
+  help: 'Distance between measured points.',
+  kind: { type: 'number', min: 10, max: 500, step: 5, unit: 'kHz' },
+  default: 100,
+  required: false,
+  placement: 'measurement',
+};
+const levelSpec: ParamSpec = {
+  id: 'refLevelDbm',
+  label: 'Reference level',
+  group: null,
+  help: 'Input level at the top of the range.',
+  kind: {
+    type: 'choice',
+    options: [
+      { value: '-35', label: '-35 dBm' },
+      { value: '-40', label: '-40 dBm' },
+    ],
+  },
+  default: '-35',
+  required: false,
+  placement: 'measurement',
+};
+/** A trace source, as the SA430 reports itself: its two settings are measurement rows. */
+const TRACE_SOURCE: ActiveSource = {
+  ...activeSimulator,
+  config: emptyConfig('sa430'),
+  driverName: 'TI SA430 spectrum analyzer',
+  deviceLabel: 'SA430 08FF41E50F8B3A34',
+  kind: 'spectrumAnalyzer',
+  transport: 'usb',
+  simulated: false,
+  capabilities: {
+    dataKind: 'trace',
+    tuning: { minHz: 300e6, maxHz: 928e6 },
+    spanOptionsHz: [],
+    amplitudeUnit: 'dbm',
+    params: [stepSpec, levelSpec],
+  },
+  settings: { centerHz: 433.9e6, spanHz: 10e6, params: { stepKhz: 100, refLevelDbm: '-35' } },
+};
+const TRACE_ACTIVE = { id: null, title: 'SA430', config: TRACE_SOURCE.config };
+
+/** The visible labels of the Measurement rows, in DOM order. */
+function rowLabels(container: HTMLElement) {
+  return Array.from(container.querySelectorAll('.ui-field__label')).map((l) => l.textContent);
+}
+
+/** True when `a` comes before `b` in the document. */
+function precedes(a: Element, b: Element) {
+  return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+}
+
+describe('MeasurementPanel: rows follow the selected source', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSession.setState({
+      status: null,
+      drivers: [simulatorDriver],
+      busy: null,
+      capabilitiesByDriver: {},
+      commandError: null,
+    });
+    useSources.setState({
+      drivers: [simulatorDriver],
+      list: [],
+      active: { id: null, title: 'Signal simulator', config: SIMULATOR_CONFIG },
+    });
+  });
+
+  it('shows Frequency step and Reference level, not FFT size or Window, for a trace source', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: TRACE_SOURCE }));
+    useSources.setState({ active: TRACE_ACTIVE });
+    const { container } = render(<MeasurementPanel />);
+    expect(rowLabels(container)).toEqual([
+      'Center',
+      'Span',
+      'Frequency step',
+      'Reference level',
+      'Averaging',
+    ]);
+    expect(screen.getByLabelText('Frequency step')).toHaveValue(100);
+    expect(screen.getByLabelText('Frequency step')).toHaveAccessibleDescription(
+      'Distance between measured points. kHz',
+    );
+    expect(screen.getByLabelText('Reference level')).toHaveDisplayValue('-35 dBm');
+    expect(screen.getByLabelText('Frequency step')).toBeEnabled();
+  });
+
+  it('shows FFT size and Window, not the device rows, for an IQ source', () => {
+    connect(activeSimulator);
+    const { container } = render(<MeasurementPanel />);
+    expect(rowLabels(container)).toEqual(['Center', 'Span', 'FFT size', 'Window', 'Averaging']);
+    expect(screen.queryByLabelText('Frequency step')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Reference level')).not.toBeInTheDocument();
+  });
+
+  it('keeps the same rows and the same order as the flat list in DOM order, with hold and capture last', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: TRACE_SOURCE }));
+    useSources.setState({ active: TRACE_ACTIVE });
+    const { container } = render(<MeasurementPanel />);
+    const order = [
+      screen.getByTestId('source-button'),
+      screen.getByLabelText('Center frequency'),
+      screen.getByLabelText('Span'),
+      screen.getByLabelText('Frequency step'),
+      screen.getByLabelText('Reference level'),
+      screen.getByLabelText('Averaging'),
+      screen.getByRole('checkbox', { name: 'Max hold' }),
+      screen.getByRole('group', { name: 'Capture' }),
+    ];
+    for (let i = 0; i + 1 < order.length; i++) {
+      expect(precedes(order[i]!, order[i + 1]!)).toBe(true);
+    }
+    expect(container.querySelector('.measurement-rows')?.lastElementChild).toBe(
+      screen.getByRole('group', { name: 'Capture' }),
+    );
+  });
+
+  it('shows the trace rows with the device values as em dashes and disabled, with the reason, after the source closed', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: TRACE_SOURCE }));
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 3, state: 'disconnected', source: null }));
+    useSources.setState({ active: TRACE_ACTIVE });
+    const { container } = render(<MeasurementPanel />);
+    expect(rowLabels(container)).toEqual([
+      'Center',
+      'Span',
+      'Frequency step',
+      'Reference level',
+      'Averaging',
+    ]);
+    const step = screen.getByLabelText('Frequency step');
+    expect(step).toHaveValue(null);
+    expect(step).toHaveAttribute('placeholder', '—');
+    expect(step).toBeDisabled();
+    expect(step).toHaveAttribute('title', 'Connect a source first');
+    expect(step).toHaveAccessibleDescription(
+      'Distance between measured points. Connect a source first kHz',
+    );
+    const level = screen.getByLabelText<HTMLSelectElement>('Reference level');
+    expect(level).toHaveValue('');
+    expect(level).toHaveDisplayValue('—');
+    expect(level).toBeDisabled();
+    expect(screen.getByLabelText('Averaging')).toBeEnabled();
+  });
+
+  it('says Connecting… on the device rows while the remembered source connects', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: TRACE_SOURCE }));
+    useSession.getState().receiveStatus(status({ revision: 3, state: 'connecting', source: null }));
+    useSources.setState({ active: TRACE_ACTIVE });
+    render(<MeasurementPanel />);
+    expect(screen.getByLabelText('Reference level')).toHaveAccessibleDescription(
+      expect.stringContaining('Connecting…'),
+    );
+  });
+
+  it('shows no device rows for a source never opened in this run, and Center, Span, Averaging only', () => {
+    useSources.setState({ active: TRACE_ACTIVE });
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 1, state: 'disconnected', source: null }));
+    const { container } = render(<MeasurementPanel />);
+    expect(rowLabels(container)).toEqual(['Center', 'Span', 'Averaging']);
+    expect(screen.queryByLabelText('Frequency step')).not.toBeInTheDocument();
+  });
+
+  it('sends a typed Frequency step as a source setting, from the Measurement row', async () => {
+    apiMock.applySourceSettings.mockResolvedValue(TRACE_SOURCE.settings);
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: TRACE_SOURCE }));
+    useSources.setState({ active: TRACE_ACTIVE });
+    render(<MeasurementPanel />);
+    const step = screen.getByLabelText('Frequency step');
+    await userEvent.clear(step);
+    await userEvent.type(step, '50{Enter}');
+    expect(apiMock.applySourceSettings).toHaveBeenCalledWith({
+      centerHz: null,
+      spanHz: null,
+      params: { stepKhz: 50 },
+    });
+    expect(step).toHaveFocus();
+  });
+
+  it('does not send a Frequency step outside its range', async () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: TRACE_SOURCE }));
+    useSources.setState({ active: TRACE_ACTIVE });
+    render(<MeasurementPanel />);
+    const step = screen.getByLabelText('Frequency step');
+    await userEvent.clear(step);
+    await userEvent.type(step, '7{Enter}');
+    expect(step).toHaveAttribute('aria-invalid', 'true');
+    expect(apiMock.applySourceSettings).not.toHaveBeenCalled();
+  });
+
+  it('sends a picked Reference level as a source setting', async () => {
+    apiMock.applySourceSettings.mockResolvedValue(TRACE_SOURCE.settings);
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: TRACE_SOURCE }));
+    useSources.setState({ active: TRACE_ACTIVE });
+    render(<MeasurementPanel />);
+    await userEvent.selectOptions(screen.getByLabelText('Reference level'), '-40');
+    expect(apiMock.applySourceSettings).toHaveBeenCalledWith({
+      centerHz: null,
+      spanHz: null,
+      params: { refLevelDbm: '-40' },
+    });
+  });
+
+  it('makes a device row read-only, not disabled, while a change applies', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: TRACE_SOURCE }));
+    useSources.setState({ active: TRACE_ACTIVE });
+    useSession.setState({ busy: 'applying' });
+    render(<MeasurementPanel />);
+    const step = screen.getByLabelText('Frequency step');
+    expect(step).not.toBeDisabled();
+    expect(step).toHaveAttribute('readonly');
+  });
+
+  it('moves focus to Averaging when the focused kind row leaves the panel', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'connected', source: TRACE_SOURCE }));
+    useSources.setState({ active: TRACE_ACTIVE });
+    render(<MeasurementPanel />);
+    screen.getByLabelText('Frequency step').focus();
+    expect(screen.getByLabelText('Frequency step')).toHaveFocus();
+
+    // A device with an IQ kind replaces the trace source: the Frequency step row goes.
+    act(() => {
+      useSources.setState({
+        active: { id: null, title: 'Signal simulator', config: SIMULATOR_CONFIG },
+      });
+      useSession
+        .getState()
+        .receiveStatus(status({ revision: 3, state: 'connected', source: activeSimulator }));
+    });
+    expect(screen.queryByLabelText('Frequency step')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Averaging')).toHaveFocus();
   });
 });

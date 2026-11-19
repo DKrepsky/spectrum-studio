@@ -1,6 +1,7 @@
-//! Auto-connect: connects the first device found at launch, and a device plugged in while no source
-//! is connected. Nothing here names a device type. Drivers that can watch report hot-plug events
-//! through [`SourceDriver::watch`](crate::sources::SourceDriver::watch).
+//! Auto-connect: connects the first device found at launch (the simulator when there is none), and
+//! a device plugged in while the session has no real source. Nothing here names a device type: the
+//! simulator is found by its kind. Drivers that can watch report hot-plug events through
+//! [`SourceDriver::watch`](crate::sources::SourceDriver::watch). See ADR 0014 and ADR 0017.
 //!
 //! [`Policy`] holds the rules and is synchronous, so tests drive it directly. [`AutoConnect`] runs
 //! it: one coordinator thread makes every decision in order, and one watcher thread per watching
@@ -14,9 +15,9 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use crate::model::{DeviceDescriptor, SessionState};
+use crate::model::{DeviceDescriptor, DriverStatus, SessionState, SourceConfig, SourceKind};
 use crate::remember;
-use crate::session::{SessionManager, error_chain};
+use crate::session::{SessionManager, error_chain, may_replace};
 use crate::sources::{DeviceEvent, SourceDriver};
 use crate::store::ConfigStore;
 
@@ -37,9 +38,11 @@ impl Policy {
         }
     }
 
-    /// Launch rule: when nothing is connected, connects the first device discovered (registry
-    /// order, then the driver's own order). The simulator is never discovered, so never chosen. A
-    /// driver whose scan failed is skipped; the scan has already logged why.
+    /// Launch rule (ADR 0017): when nothing is connected, connects the first device discovered
+    /// (registry order, then the driver's own order). A driver whose scan failed is skipped; the
+    /// scan has already logged why. A device that was found but fails to connect is not followed
+    /// by a fallback: the failure stays the notice and the device the selection. Only when no
+    /// device was found is the simulator connected (see `launch_simulator`).
     pub fn launch(&self) {
         if self.is_stopped() || !self.is_idle() {
             return;
@@ -53,18 +56,42 @@ impl Policy {
             .next();
         match first {
             Some(device) => self.connect(&device),
-            None => tracing::debug!("no device found at launch; nothing to auto-connect"),
+            None => self.launch_simulator(),
+        }
+    }
+
+    /// Fallback of the launch rule: connects the first available simulator driver (found by its
+    /// kind, never by its id) with its remembered settings, so it becomes the selection. Nothing
+    /// acquires; the simulator stays idle until the user starts it.
+    fn launch_simulator(&self) {
+        let simulator = self
+            .session
+            .drivers()
+            .into_iter()
+            .find(|d| d.kind == SourceKind::Simulator && d.status == DriverStatus::Available);
+        let Some(simulator) = simulator else {
+            tracing::debug!("no simulator driver available; nothing to auto-connect");
+            return;
+        };
+        let config = SourceConfig::new(&simulator.id);
+        match remember::auto_connect_config(&self.session, &self.store, config) {
+            Ok(Some(_)) => tracing::info!(driver = %simulator.id, "simulator auto-connected"),
+            Ok(None) => tracing::debug!("a source is connected; not auto-connecting the simulator"),
+            Err(e) => {
+                tracing::warn!(driver = %simulator.id, error = %error_chain(&e), "simulator auto-connect failed")
+            }
         }
     }
 
     /// Reacts to a hot-plug event from driver `driver_id`.
     ///
-    /// `Added` connects the device at the reported location, unless a source is connected or
-    /// acquiring. A connect in flight (`Connecting`, or a manual one that may yet fail) does not
-    /// stop it: the attempt goes through `connect_if_idle`, which waits for that connect and then
-    /// connects only if it failed. The location is resolved with an enumerate-only scan; an event
-    /// with no location, or no matching device, does nothing. `Removed` closes the active source
-    /// when it is that device. Neither retries: a failed attempt waits for the next event.
+    /// `Added` connects the device at the reported location, unless a real device is connected or
+    /// any source is acquiring. An idle simulator is replaced (ADR 0017). A connect in flight
+    /// (`Connecting`, or a manual one that may yet fail) does not stop it: the attempt goes through
+    /// `connect_if_idle`, which waits for that connect and then decides. The location is resolved
+    /// with an enumerate-only scan; an event with no location, or no matching device, does nothing.
+    /// `Removed` closes the active source when it is that device and gives no fallback. Neither
+    /// retries: a failed attempt waits for the next event.
     pub fn on_event(&self, driver_id: &str, event: &DeviceEvent) {
         if self.is_stopped() {
             return;
@@ -78,7 +105,7 @@ impl Policy {
                     );
                     return;
                 };
-                if self.has_active_source() {
+                if self.keeps_source() {
                     return;
                 }
                 let devices = match self.session.discover(driver_id) {
@@ -121,13 +148,15 @@ impl Policy {
         self.session.status().state == SessionState::Disconnected
     }
 
-    /// A source is open. Only then does a plug-in leave the device alone; a connect in flight is
-    /// not a source yet (see `on_event`).
-    fn has_active_source(&self) -> bool {
+    /// A plug-in leaves the session alone when the open source must be kept: an acquisition, or a
+    /// connected real device. An idle simulator does not count (see `may_replace`), and neither
+    /// does a connect in flight (see `on_event`).
+    fn keeps_source(&self) -> bool {
+        let status = self.session.status();
         matches!(
-            self.session.status().state,
+            status.state,
             SessionState::Connected | SessionState::Acquiring
-        )
+        ) && !may_replace(&status)
     }
 
     fn connect(&self, device: &DeviceDescriptor) {
@@ -176,11 +205,14 @@ impl AutoConnect {
             .filter_map(|driver| spawn_watcher(policy.clone(), driver, tx.clone()))
             .collect();
         drop(tx);
+        // Set before the coordinator runs, so the UI never sees an unlaunched session as idle.
+        session.set_launching(true);
         let coordinator = policy.clone();
         let spawned = std::thread::Builder::new()
             .name("auto-connect".into())
             .spawn(move || coordinate(coordinator, rx));
         if let Err(e) = spawned {
+            session.set_launching(false);
             tracing::warn!(error = %e, "could not start auto-connect; connect a device manually");
         }
         Self {
@@ -223,6 +255,7 @@ impl AutoConnect {
 
 fn coordinate(policy: Policy, events: Receiver<(String, DeviceEvent)>) {
     contain("launch", || policy.launch());
+    policy.session.set_launching(false);
     while let Ok((driver_id, event)) = events.recv() {
         if policy.is_stopped() {
             break;

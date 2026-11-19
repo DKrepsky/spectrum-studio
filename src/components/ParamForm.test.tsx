@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import type { ParamSpec } from '../bindings/ParamSpec';
 import { formatFrequency } from '../format/frequency';
 import { rule } from '../test/css';
-import { ParamForm } from './ParamForm';
+import { ParamField, ParamForm } from './ParamForm';
 
 const css = readFileSync(resolve(__dirname, 'ParamForm.css'), 'utf8');
 
@@ -22,6 +22,7 @@ const specs: ParamSpec[] = [
     kind: { type: 'number', min: 0, max: 6e9, step: 1000, unit: 'Hz' },
     default: 100e6,
     required: false,
+    placement: 'source',
   },
   {
     id: 'level',
@@ -31,6 +32,7 @@ const specs: ParamSpec[] = [
     kind: { type: 'number', min: -140, max: 0, step: 1, unit: 'dBFS' },
     default: -20,
     required: false,
+    placement: 'source',
   },
   {
     id: 'mode',
@@ -46,6 +48,7 @@ const specs: ParamSpec[] = [
     },
     default: 'a',
     required: false,
+    placement: 'source',
   },
 ];
 
@@ -123,6 +126,7 @@ describe('ParamForm', () => {
         kind: { type: 'bool' },
         default: false,
         required: false,
+        placement: 'source',
       },
       {
         id: 'name',
@@ -132,6 +136,7 @@ describe('ParamForm', () => {
         kind: { type: 'text', maxLength: 16 },
         default: 'bench',
         required: false,
+        placement: 'source',
       },
     ];
     render(<ParamForm idPrefix="t" specs={all} values={{}} onChange={onChange} readOnly />);
@@ -155,6 +160,92 @@ describe('ParamForm', () => {
     await userEvent.keyboard('{Enter}');
     expect(freq).toHaveFocus();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('makes the driver help the accessible description, and keeps it as the tooltip', () => {
+    const withHelp: ParamSpec[] = [{ ...specs[1]!, help: 'Lower levels are more sensitive.' }];
+    const { container } = render(
+      <ParamForm idPrefix="t" specs={withHelp} values={{}} onChange={vi.fn()} layout="inline" />,
+    );
+    // The unit (dBFS) is appended to the help text.
+    expect(screen.getByLabelText('Level')).toHaveAccessibleDescription(
+      'Lower levels are more sensitive. dBFS',
+    );
+    expect(container.querySelector('.ui-field')).toHaveAttribute(
+      'title',
+      'Lower levels are more sensitive.',
+    );
+  });
+
+  it('adds no help description when the spec has none', () => {
+    render(<ParamForm idPrefix="t" specs={specs} values={{}} onChange={vi.fn()} />);
+    // The unit is the only description: no help text is added.
+    expect(screen.getByLabelText('Level')).toHaveAccessibleDescription('dBFS');
+  });
+
+  it('shows a number with no value as an em dash that cannot be edited', () => {
+    const onChange = vi.fn();
+    render(
+      <ParamField
+        spec={{
+          ...specs[0]!,
+          id: 'step',
+          label: 'Frequency step',
+          kind: { type: 'number', min: 10, max: 500, step: 5, unit: 'kHz' },
+        }}
+        value={100}
+        onChange={onChange}
+        id="m-step"
+        layout="inline"
+        noValue
+        disabled
+      />,
+    );
+    const step = screen.getByLabelText('Frequency step');
+    expect(step).toHaveValue(null);
+    expect(step).toHaveAttribute('placeholder', '—');
+    expect(step).toBeDisabled();
+    expect(screen.getByLabelText('Frequency step')).toHaveAccessibleDescription('kHz');
+  });
+
+  it('shows a choice with no value as one em dash option', () => {
+    render(
+      <ParamField
+        spec={specs[2]!}
+        value="a"
+        onChange={vi.fn()}
+        id="m-mode"
+        layout="inline"
+        noValue
+        disabled
+      />,
+    );
+    const select = screen.getByLabelText<HTMLSelectElement>('Mode');
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual(['—']);
+    expect(select).toHaveValue('');
+    expect(select).toBeDisabled();
+  });
+
+  it('gives the reason the tooltip and the accessible description when a field is unavailable', () => {
+    render(
+      <ParamField
+        spec={{ ...specs[1]!, help: 'Input level at the top of the range.' }}
+        value={-20}
+        onChange={vi.fn()}
+        id="m-level"
+        layout="inline"
+        disabled
+        reason="Connect a source first"
+      />,
+    );
+    const level = screen.getByLabelText('Level');
+    expect(level).toHaveAttribute('title', 'Connect a source first');
+    expect(
+      screen.getByText('Input level at the top of the range.', { selector: '.visually-hidden' }),
+    ).toBeInTheDocument();
+    expect(level).toHaveAccessibleDescription(
+      'Input level at the top of the range. Connect a source first dBFS',
+    );
   });
 
   it('removes the padding and the border of a bare group in its stylesheet', () => {

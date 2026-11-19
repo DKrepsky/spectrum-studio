@@ -249,6 +249,7 @@ impl SourceDriver for Scripted {
                 kind: ParamKind::Text { max_length: 256 },
                 default: ParamValue::Text(String::new()),
                 required: false,
+                placement: spectrum_core::model::ParamPlacement::Source,
             }],
         }
     }

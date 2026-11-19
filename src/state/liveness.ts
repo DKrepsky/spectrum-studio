@@ -30,6 +30,7 @@ export function liveness(
   frame: DecodedFrame | null,
   now: number,
   mode: CaptureMode | undefined,
+  deviceLost = false,
 ): Liveness {
   if (state === 'acquiring' && mode === 'single') {
     return { kind: 'capturing', label: 'CAPTURING' };
@@ -41,6 +42,11 @@ export function liveness(
       return { kind: 'stale', label: `No data for ${Math.floor(age / 1000)} s` };
     }
     return { kind: 'live', label: 'LIVE' };
+  }
+  // After Disconnect (S13) a held trace stays on screen, but nothing is connected: the tag says so.
+  // A device that was unplugged keeps its trace as HOLD instead (S10, DESIGN.md 5.2.7).
+  if (state === 'disconnected' && !deviceLost) {
+    return { kind: 'noSource', label: 'No source connected' };
   }
   if (frame) {
     return { kind: 'stopped', label: `HOLD · last data ${clock(frame.header.timestampMs)}` };
@@ -56,11 +62,12 @@ export function useLiveness(
   state: SessionState | undefined,
   frame: DecodedFrame | null,
   mode: CaptureMode | undefined,
+  deviceLost = false,
 ): Liveness {
   const [now, setNow] = useState(() => performance.now());
   useEffect(() => {
     const id = window.setInterval(() => setNow(performance.now()), 250);
     return () => window.clearInterval(id);
   }, []);
-  return liveness(state, frame, Math.max(now, frame?.receivedAt ?? 0), mode);
+  return liveness(state, frame, Math.max(now, frame?.receivedAt ?? 0), mode, deviceLost);
 }

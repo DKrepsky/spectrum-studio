@@ -32,6 +32,7 @@ export const simulatorDriver: DriverInfo = {
       kind: { type: 'bool' },
       default: false,
       required: false,
+      placement: 'source',
     },
   ],
 };
@@ -73,6 +74,7 @@ export function status(overrides: Partial<SessionStatus> = {}): SessionStatus {
     lastConfig: null,
     processing,
     captureMode: 'continuous',
+    launching: false,
     ...overrides,
   };
 }
@@ -111,6 +113,7 @@ export const sa430Driver: DriverInfo = {
       kind: { type: 'text', maxLength: 256 },
       default: '',
       required: false,
+      placement: 'source',
     },
   ],
 };

@@ -18,3 +18,4 @@
 - [Reconnect 011](project-reconnect-011.md) — #1 fixed; pre-existing red e2e fixed in same change; check port 1420 before human tests
 - [Center/Span move 012](project-measurement-012.md) — #38 accepted; brief QA on overflow/focus/DESIGN re-measure up front; probe file cleanup
 - [Source/capture move 013](project-source-capture-013.md) — #40 accepted; capture not sticky; one fix pass then accept; raw shots → evidence/
+- [Measurement rows + sim fallback 014/015](project-measurement-rows-014-015.md) — #45/#46 accepted; sim auto-connect reverses 007; never auto-acquire

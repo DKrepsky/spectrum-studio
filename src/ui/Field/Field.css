@@ -80,6 +80,12 @@
   width: 100%;
 }
 
+/* Placeholder text (the em dash of a field with no value) is secondary text, not the browser default. */
+.ui-field__input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 1;
+}
+
 .ui-field__input:hover:not(:disabled) {
   border-color: var(--color-border-hover);
 }

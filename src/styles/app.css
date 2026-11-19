@@ -205,6 +205,12 @@ select {
   align-items: center;
   gap: var(--space-5);
 }
+/* The Measurement rows: one column with the section's spacing (MeasurementPanel). */
+.measurement-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
 .table-actions {
   display: inline-flex;
   justify-content: flex-end;

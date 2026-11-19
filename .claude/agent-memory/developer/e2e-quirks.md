@@ -144,3 +144,18 @@ re-run unattended (or ask the PM to ask the human) before chasing them.
 ## Added in 012 fix pass (focus after Enter)
 - A commit that sets a global busy state disables its own field, and WebKit drops focus to BODY, even with the blur removed. Check `document.activeElement` after the commit in the real app. The fix used: `readOnly` while busy (DESIGN 4.4 read-only), not `disabled`. Span (a native select) still has this issue; not fixed in 012.
 - Probe recipe that worked: a throwaway `e2e/specs/<name>.e2e.ts` run with `npm run e2e:run -- --spec <abs path>`, `console.log('PROBE ...')` from the spec, read the log, delete the spec. Do not run `npx wdio` by hand.
+
+## Added in 015 T5 (launch state with the simulator fallback)
+- The app launches with the simulator connected when no analyzer is attached (ADR 0017), and with the
+  analyzer when one is plugged in: this machine always has the SA430, so no-device launch assertions
+  use `analyzerAtLaunch()` and go pending (`this.skip()`, needs a `function` callback). Do not weaken
+  them to pass with the analyzer.
+- Disconnect keeps the selection; the plot hint "Not connected…" only shows with no trace on screen
+  (a trace keeps HOLD). Connecting clears the trace, so check the hint after a connect + disconnect.
+- A visually hidden description (`.visually-hidden`) is clipped by design: `findOverflow` skips it.
+  Without that skip a help description read as overflow and cascaded (the open menu was intercepted
+  in later visual tests).
+- Busy-port test: a python3 helper holds `/dev/ttyACM0` with TIOCEXCL (`holdPort` in sa430 spec);
+  the serial open then fails and the row must read Failed.
+- Persistence spec seeds a named simulator preset ("Bench FM setup"): an unnamed simulator is never
+  listed under Your sources, so rename/forget need a named entry.

@@ -179,6 +179,47 @@ export const NumberFieldOutOfRange: Story = {
   },
 };
 
+/** No value (no source): an em dash placeholder, disabled, with the unit still announced (014). */
+export const NumberFieldNoValue: Story = {
+  render: () => (
+    <Field label="Frequency step" layout="inline">
+      {(control) => (
+        <NumberField
+          id={control.id}
+          label="Frequency step"
+          unit="kHz"
+          value={null}
+          min={1}
+          max={1000}
+          onCommit={fn()}
+          disabled
+          aria-describedby={control.describedBy}
+        />
+      )}
+    </Field>
+  ),
+};
+
+/** A unit and a caller's hint: both are the accessible description, the hint first (014). */
+export const NumberFieldUnitWithHint: Story = {
+  render: () => (
+    <Field label="Frequency step" layout="inline" hint="Step for the arrow keys.">
+      {(control) => (
+        <NumberField
+          id={control.id}
+          label="Frequency step"
+          unit="kHz"
+          value={10}
+          min={1}
+          max={1000}
+          onCommit={fn()}
+          aria-describedby={control.describedBy}
+        />
+      )}
+    </Field>
+  ),
+};
+
 /* FrequencyField. */
 
 export const FrequencyFieldDefault: Story = {

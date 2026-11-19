@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import type { Capabilities } from '../bindings/Capabilities';
 import type { CaptureMode } from '../bindings/CaptureMode';
 import type { DriverInfo } from '../bindings/DriverInfo';
 import type { ProcessingSettings } from '../bindings/ProcessingSettings';
@@ -25,6 +26,24 @@ export const SIMULATOR_CONFIG: SourceConfig = {
 export type ConnectTarget =
   { type: 'remembered'; id: string } | { type: 'config'; config: SourceConfig; title?: string };
 
+/**
+ * Start-up as the UI shows it (ADR 0017): `loading` until the first status, and while auto-connect
+ * has not begun its connect; `unavailable` when the backend could not be asked at start-up.
+ */
+export type Startup = 'loading' | 'ready' | 'unavailable';
+
+/** Pure start-up rule, see `Startup`. `failed` is set when the start-up commands failed. */
+export function startupOf(status: SessionStatus | null, failed: boolean): Startup {
+  if (status == null) return failed ? 'unavailable' : 'loading';
+  if (status.launching && status.state === 'disconnected') return 'loading';
+  return 'ready';
+}
+
+/** The start-up state of the store (`startupOf` of its status and failure flag). */
+export function selectStartup(state: Pick<SessionStore, 'status' | 'startupFailed'>): Startup {
+  return startupOf(state.status, state.startupFailed);
+}
+
 export type BusyOperation =
   'connecting' | 'disconnecting' | 'starting' | 'stopping' | 'applying' | 'settingMode';
 
@@ -37,6 +56,18 @@ export interface SessionStore {
   commandError: string | null;
   /** The operation whose failure produced `commandError` (null for other errors). */
   commandErrorFrom: BusyOperation | null;
+  /**
+   * The capabilities each driver reported when one of its sources was open in this run, by driver
+   * id. Kept while the source is closed, so its rows keep their kind (DESIGN.md 3.6).
+   */
+  capabilitiesByDriver: Record<string, Capabilities>;
+  /** Set when the start-up commands failed (`init`); see `startupOf`. */
+  startupFailed: boolean;
+  /**
+   * The identity of the live source whose missing entry already caused a list reload (see
+   * `receiveStatus`). Cleared when the live source is known or gone, so a source reloads at most once.
+   */
+  listReloadedFor: string | null;
 
   init: () => Promise<() => void>;
   receiveStatus: (status: SessionStatus) => void;
@@ -105,6 +136,9 @@ export const useSession = create<SessionStore>()((set, get) => {
     busy: null,
     commandError: null,
     commandErrorFrom: null,
+    capabilitiesByDriver: {},
+    startupFailed: false,
+    listReloadedFor: null,
 
     init: async () => {
       const unlisten = await api.onStatus((s) => get().receiveStatus(s));
@@ -128,7 +162,11 @@ export const useSession = create<SessionStore>()((set, get) => {
           set({ commandError: `Could not save display settings: ${errorMessage(e)}` }),
         );
       } catch (error) {
-        set({ commandError: errorMessage(error) });
+        set({
+          commandError: `Could not reach the backend: ${errorMessage(error)}`,
+          commandErrorFrom: null,
+          startupFailed: true,
+        });
       }
       return () => {
         unlisten();
@@ -139,13 +177,24 @@ export const useSession = create<SessionStore>()((set, get) => {
     receiveStatus: (status) => {
       const previous = get().status;
       if (previous && status.revision <= previous.revision) return; // out of order
+      const source = status.source;
       const switched =
         status.state === 'connecting' ||
         (previous?.source != null &&
           status.source != null &&
           JSON.stringify(previous.source.config) !== JSON.stringify(status.source.config));
       if (switched) frameStore.clear();
-      set({ status });
+      set({
+        status,
+        ...(source
+          ? {
+              capabilitiesByDriver: {
+                ...get().capabilitiesByDriver,
+                [source.config.driverId]: source.capabilities,
+              },
+            }
+          : {}),
+      });
       // A connect in progress or a live source supersedes the last failure: a Failed marker and the
       // error of a failed UI connect are stale. Other command errors are not touched.
       if (
@@ -157,23 +206,39 @@ export const useSession = create<SessionStore>()((set, get) => {
         if (get().commandErrorFrom === 'connecting')
           set({ commandError: null, commandErrorFrom: null });
       }
-      // An external reconnect (or a connection we did not start) changes the connected source:
-      // follow it. While we are connecting ourselves the target is already the active entry.
-      const source = status.source;
-      const { active, list } = useSources.getState();
-      if (
-        source != null &&
-        get().busy !== 'connecting' &&
-        !sameIdentity(active?.config, source.config)
-      ) {
-        const entry = list.find((e) => sameIdentity(e.config, source.config));
-        useSources
-          .getState()
-          .setActive(
-            entry
-              ? { id: entry.id, title: titleOf(entry), config: entry.config }
-              : { id: null, title: source.deviceLabel, config: source.config },
-          );
+      const sources = useSources.getState();
+      // The config the backend is connecting to, or failed to connect to (auto-connect at launch, an
+      // external reconnect): the selection follows it, and a failed one is marked Failed (R8).
+      const failedConnect =
+        status.state === 'disconnected' && status.lastNotice?.kind === 'connectFailed';
+      const attempt = status.state === 'connecting' || failedConnect ? status.lastConfig : null;
+      const target = source?.config ?? attempt;
+      const entry = target ? sources.list.find((e) => sameIdentity(e.config, target)) : undefined;
+      // While we are connecting ourselves the target is already the active entry.
+      if (target && get().busy !== 'connecting' && !sameIdentity(sources.active?.config, target)) {
+        sources.setActive(
+          entry
+            ? { id: entry.id, title: titleOf(entry), config: entry.config }
+            : source
+              ? { id: null, title: source.deviceLabel, config: source.config }
+              : { id: null, title: fallbackTitle(target, sources.drivers), config: target },
+        );
+      }
+      if (failedConnect && attempt) {
+        sources.setFailed(entry ? rowKey(entry) : configKey(attempt));
+      }
+      // A live source the remembered list does not know yet (the backend remembers it just after
+      // publishing it): reload the list once per source, so the selection can match its entry. A
+      // status repeats the same source many times, and a store that never remembers it must not
+      // reload on each of them; the mark is cleared once the source is known or gone.
+      if (source && !sources.list.some((e) => sameIdentity(e.config, source.config))) {
+        const key = JSON.stringify(source.config);
+        if (get().listReloadedFor !== key) {
+          set({ listReloadedFor: key });
+          void sources.refresh();
+        }
+      } else if (get().listReloadedFor !== null) {
+        set({ listReloadedFor: null });
       }
     },
 

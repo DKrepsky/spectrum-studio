@@ -22,10 +22,10 @@ import {
   waitForState,
 } from './helpers';
 
-// No seed: this is the first launch (nothing remembered). An attached analyzer is connected and
-// remembered by the launch auto-connect (ADR 0014), so the hardware block below forgets it first.
-// The untestable port is a path that
-// is not a serial device, so the backend's own failure text is shown and nothing is connected.
+// No seed: this is the first launch (nothing remembered). The launch connects an attached analyzer or,
+// without one, the simulator (ADR 0014, 0017); the first test releases it, and the hardware block
+// below forgets an analyzer it remembered. The untestable port is a path that is not a serial
+// device, so the backend's own failure text is shown and nothing is connected.
 const BAD_PORT = '/dev/spectrum-e2e-no-such-port';
 
 const describeHardware = process.env.SPECTRUM_E2E_SA430 === '1' ? describe : describe.skip;
@@ -119,7 +119,7 @@ describe('Add source', () => {
     await waitForGone('add-source-dialog');
   });
 
-  it('forgetting the selected, not connected source clears the source button (R2-3)', async () => {
+  it('forgetting the selected, not connected source selects the simulator instead (R2-3, ADR 0017)', async () => {
     // "Bench rig" is still selected after its failed connect: the button shows it.
     expect(await sourceButtonText()).toContain('Bench rig');
     await openSourceMenu();
@@ -129,7 +129,8 @@ describe('Add source', () => {
     await (await sourceRow(id)).$('[data-testid="source-forget"]').click();
     await expect(await byTestId('source-forgot-toast')).toBeDisplayed();
     await closeSourceMenu();
-    expect(await sourceButtonText()).toBe('Source: Choose a source');
+    // A source is always selected after start-up: the simulator takes the place of the forgotten one.
+    expect(await sourceButtonText()).toBe('Source: Signal simulator, Disconnected');
     expect(await sourceButtonText()).not.toContain('Bench rig');
     await expect(await byTestId('acquire-button')).toBeDisabled();
     expect(await sessionState()).toBe('Disconnected');

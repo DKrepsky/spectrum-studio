@@ -88,6 +88,7 @@ impl SourceDriver for Handle {
                 kind: ParamKind::Text { max_length: 64 },
                 default: ParamValue::Text(String::new()),
                 required: false,
+                placement: spectrum_core::model::ParamPlacement::Source,
             }],
         }
     }

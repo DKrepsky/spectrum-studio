@@ -34,6 +34,16 @@
   border-color: var(--color-border-hover);
   background: var(--color-surface-control-hover);
 }
+/* Start-up (Loading…, Status unavailable): secondary text, no hover, no attention outline; it has
+   focus like any control, but it opens nothing. */
+.source-button.pending {
+  color: var(--color-text-secondary);
+  cursor: default;
+}
+.source-button.pending:hover {
+  border-color: var(--color-border-default);
+  background: var(--color-surface-control);
+}
 .source-button:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus-ring);
   outline-offset: var(--focus-ring-offset);

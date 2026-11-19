@@ -7,7 +7,7 @@ metadata:
 
 Work 007 (accepted + committed 2026-11-16): auto-connect at launch and on plug-in while idle. Human chose: connect only
 (never auto-Play), first discovered device (not last-used), and event-driven via the sa430 udev `Monitor` ("use the
-watcher feature") instead of polling or a retry loop. Never replaces an active source; simulator never auto-connected.
+watcher feature") instead of polling or a retry loop. Never replaces an active source; simulator never auto-connected (SUPERSEDED 2026-11-19 by 015: simulator fallback + idle-simulator replacement, see [[project-measurement-rows-014-015]]).
 
 **Why:** human wants zero-click startup with real hardware but keeps control of acquisition; prefers using his own sa430
 lib's capabilities over app-side workarounds.

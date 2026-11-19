@@ -32,8 +32,9 @@ describe('SidePanel', () => {
     const { container } = render(<SidePanel />);
     const measurement = container.querySelector('details')!;
     const body = measurement.querySelector('.ui-section-body')!;
-    expect(body.firstElementChild).toBe(screen.getByTestId('source-button').parentElement);
-    expect(body.lastElementChild).toBe(screen.getByRole('group', { name: 'Capture' }));
+    const rows = body.querySelector('.measurement-rows')!;
+    expect(rows.firstElementChild).toBe(screen.getByTestId('source-button').parentElement);
+    expect(rows.lastElementChild).toBe(screen.getByRole('group', { name: 'Capture' }));
     expect(measurement.querySelector('summary')?.textContent).toBe('Measurement');
   });
 

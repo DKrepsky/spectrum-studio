@@ -2,8 +2,8 @@
 
 | | |
 | --- | --- |
-| Version | 1.0-draft.4 |
-| Last updated | 2026-11-16 |
+| Version | 1.0-draft.5 |
+| Last updated | 2026-11-19 |
 | Status | Implemented in 009; final QA pending (T13: visual QA, before and after screenshots, WebKitGTK re-measure, zoom check). The PM decided the open items (`decisions.md`; outcomes in sections 12.1 and 12.2). Every decision carries its own status (section 0.3). |
 | Scope | The visual and interaction rules for the screens that exist today: toolbar, notice stack, plot and waterfall chrome, side panel, source popover, capture mode menu, Add / Edit source dialog, status bar; the tokens they use; and the `src/ui/` component set that implements them. |
 | Out of scope | New screens, new features (listed as Deferred in section 12), plot canvas rendering internals, touch input, light theme. |
@@ -629,11 +629,15 @@ Other rules:
 - A stack of collapsible sections (`details` and `summary`). Default open: Measurement, Markers, Peaks, Display. Default closed: Source settings.
 - Width is 330px at every supported width (`--panel-width`). The panel never shrinks and never grows, so its minimum and maximum are both 330px. The plot takes the rest.
 - Section body padding `0 12px 12px`, gap 8px. Label column to the left of the control; label in secondary text; control right aligned at a fixed width (140px select, number and frequency, the same in every row so they align; 90px with a unit suffix).
-- **Measurement (since 040)** starts with the source button (the source control, full width: its name truncates with an ellipsis and the column is 305px at 330px panel width), then Center (frequency) and Span (select), then FFT size, Window, Averaging and the Max hold, Min hold and Reset row, and ends with the capture control (full width, 4.3). The source button and the capture control were in the toolbar before 040. Center and Span are rendered, disabled with their reasons, while no source is connected; FFT size and Window are disabled the same way, with the reason "Connect a source first" ("Connecting…" or "Disconnecting…" during a transition), and the trace reason for a trace source (issue 21, 4.5). The FFT rows appear once the processing settings are known. Averaging and the hold row stay enabled with no source (their values are kept for the next connection). Center and Span use the same `inline` field layout and non-toolbar sizes as the other rows. With no source, Center shows an em dash (`—`) and is disabled, as Span does; it never shows `0 Hz`. The widest frequency shown is `5.999000000 GHz` (15 characters, the simulator's range up to 6 GHz); it fits the 140px control with its padding, and the visual guard checks it at 1440, 1180 and 1024.
+- **Measurement (015 order, 014 rows; 2026-11-19; supersedes the 040 order).** Order: the source button (full width, 4.11; its name truncates with an ellipsis, 305px column at 330px panel width), Center, Span, the source's own measurement rows, Averaging, the hold row (Max hold, Min hold, Reset), and the capture control (full width, 4.3). The source button and the capture control were in the toolbar before 040.
+- **Rows a source does not use are hidden, not disabled (014, Approved).** Trace source (its data is measured traces): Center, Span, Frequency step (kHz), Reference level (dBm), Averaging, hold row. IQ source (its data is computed here): Center, Span, FFT size, Window, Averaging, hold row. Both kinds have two kind rows, so the block has the same height for either and the capture control does not move when the kind changes. Frequency step and Reference level are device settings and no longer appear in Source settings. The source reports which rows it uses; the UI never checks a device name (`docs/sources.md`).
+- **Kind rows with no source connected (014, 015; Proposed).** The kind rows follow the kind of the selected source as last reported (DESIGN.md 5.2.10). They are shown disabled with the reason "Connect a source first" ("Connecting…" or "Disconnecting…" during a transition; "Status unavailable" when start-up failed, S12). Device values show an em dash (`—`), as Center does, because no value is known from the device now. FFT size and Window keep their processing values (the app holds them). If no kind has been reported for the selected source in this run (start-up, or never connected), no kind rows are shown: a source not opened this run has its kind rows hidden (for example a device that failed at launch, or a remembered device after a restart), and only the rows every source has are shown. Showing those rows disabled is follow-up issue #47. Averaging and the hold row stay enabled with no source; they appear once the processing settings are known.
+- **Focus when a kind row disappears (014, Proposed).** Focus moves to the next control in Measurement in DOM order (Averaging), else to the source button. No live announcement is added.
+- **Measurement rows use the field components of 4.4 with the same commit, validation, error and focus rules as the Source settings they came from (014, Approved).** Center and Span keep their rules: with no source, Center shows an em dash (`—`) and is disabled, as Span is; it never shows `0 Hz`. The widest frequency shown is `5.999000000 GHz` (15 characters, the simulator's range up to 6 GHz); it fits the 140px control with its padding, and the visual guard checks it at 1440, 1180 and 1024.
 - A row whose label and control do not fit is a bug. At 330px the widest row has 305px of room (3.2).
 - **Popovers and menus from the panel** must fit the column. The panel is a scroll box (`overflow-y: auto`), which clips anything that extends past its left or right edge. The source popover is therefore as wide as the source button (305px, 4.11). The capture menu (280px) is right-aligned to the capture control. Both open below their trigger, and open above it when there is no room below inside the window or the panel (`usePopupFlip`, `.popover-up`; 4.11). Both are visible in the window at 100% and at 200% zoom (e2e: `acquisition.e2e.ts`).
 - **The capture control is not sticky (decided by the human in 013).** It scrolls with the side panel: with Source settings open it can be scrolled out of view. Its state stays visible in the plot tag and the status bar, and the mode and the start are reachable again by scrolling up. Pinning it, or moving Source settings, was considered and not chosen.
-- The panel scrolls vertically inside itself. Sections never hide controls.
+- The panel scrolls vertically inside itself. Sections never hide controls, except the Measurement rows a source does not use (014), which are removed, not disabled.
 - **Growth of the peak table** pushes the sections below it down, which is a layout shift (7.4). **Deferred (B5; backlog):** the peak table body has a maximum height of eight rows and scrolls inside.
 
 ### 3.7 Plot column (Approved; hide rule deferred to the backlog, Q-21)
@@ -739,7 +743,7 @@ Entries removed from draft 1: `EmptyState` (no definition existed; the empty sta
 - **Sizes:** height `--control-height`; chevron 26px; main 128px. Fixed. **Full width** (`fullWidth`, the side panel since 040): the group fills the column (305px at a 330px panel), the main segment takes the room (279px) and the chevron stays at the end. The segment widths and the group height do not change with mode or state.
 - **Not sticky (decided in 013):** the control scrolls with the side panel and is not pinned while the panel scrolls (3.6).
 - **Placement:** the side panel's Measurement group, last item, below Max hold and Min hold (3.6). Before 040 it was in the toolbar.
-- **States:** idle; acquiring; no source (main native-disabled, chevron native-disabled; the reason is in the plot hint: "Choose a source to begin…"); connecting or disconnecting (unavailable; the reason is the plot tag "Connecting…" (8.1)); busy (a command in flight: main `aria-disabled` with progress cursor, at full strength because busy is not unavailable (U1); chevron dimmed as unavailable, reason in its description; Q-23); locked chevron (acquiring: unavailable, focusable, description says "Pause or cancel acquisition to change the mode"); focus (group ring); menu open (chevron `aria-expanded="true"`, brightness 0.92).
+- **States:** idle; acquiring; no source (main native-disabled, chevron native-disabled; the reason is in the plot hint: "Not connected. Use the source button to connect." (015; was "Choose a source to begin…")); connecting or disconnecting (unavailable; the reason is the plot tag "Connecting…" (8.1)); busy (a command in flight: main `aria-disabled` with progress cursor, at full strength because busy is not unavailable (U1); chevron dimmed as unavailable, reason in its description; Q-23); locked chevron (acquiring: unavailable, focusable, description says "Pause or cancel acquisition to change the mode"); focus (group ring); menu open (chevron `aria-expanded="true"`, brightness 0.92).
 - **Keyboard:** Enter or Space on the main segment acts. Tab reaches the main segment, then the chevron. Arrow Down or Up on the chevron opens the mode menu. Escape or Tab closes it and returns focus to the chevron (Tab then continues in document order, 5.1).
 - **ARIA:** the main segment's name is the action ("Start continuous acquisition", "Pause continuous acquisition", "Cancel single capture"). The chevron's name is "Capture mode: Continuous". The group is `role="group"` labelled "Capture". The chevron has `aria-haspopup="menu"` and `aria-expanded`. Its reason, when unavailable, is in `aria-describedby`.
 - **Live region:** a finished or cancelled single capture is announced once, polite (9.6). A failure is not announced here (the alert banner says it). Continuous acquisition is not announced.
@@ -754,12 +758,13 @@ Entries removed from draft 1: `EmptyState` (no definition existed; the empty sta
 - **Sizes:** toolbar `--control-height` (30px); the side panel's source button and capture control also `--control-height` (30px); panel and dialog `--field-height-compact` (28px).
 - **Value text (F17):** the Center and Span values use `--color-text-primary` (they were not primary before 009).
 - **Boundary:** `1px solid var(--color-border-input)` (3:1 on every surface it sits on; F15). Focus-visible replaces the border with the ring, offset 1px.
-- **States:** default; hover (border `--color-border-hover`); focus-visible (ring); invalid (border `--color-danger` plus the message; never colour alone); unavailable (`--opacity-unavailable`, reason in the description); read-only in use (`--opacity-read-only`, value visible); empty (placeholder in secondary text, e.g. "e.g. Bench SA430"; a placeholder is never the label); no value (Center with no source: the em dash `—`, disabled).
+- **States:** default; hover (border `--color-border-hover`); focus-visible (ring); invalid (border `--color-danger` plus the message; never colour alone); unavailable (`--opacity-unavailable`, reason in the description); read-only in use (`--opacity-read-only`, value visible); empty (placeholder in secondary text, e.g. "e.g. Bench SA430"; a placeholder is never the label); no value (Center with no source: the em dash `—`, disabled). Measurement with no source connected: Frequency step and Reference level show `—` and are disabled, like Center (014). A NumberField with no value (`value` null, 014) is an empty control with the em dash placeholder: it is not stepped, commits nothing until a value is typed, and is not marked invalid.
 - **Commit rules** (all numeric and frequency fields): Enter commits and keeps focus in the field (9.8); blur commits; Escape reverts to the stored value. An invalid entry is not sent: Enter keeps it visible so it can be corrected; blur reverts it. Commit only when the value changed.
 - **While a commit applies** (Source settings parameters in the side panel, Center, Span): the control is read-only (`readonly` on inputs, `aria-readonly` on selects and checkboxes), not native-disabled, so focus stays on it (9.8). ParamForm passes this for every control type (number, frequency, choice, bool, text).
 - **Stepping:** ArrowUp and ArrowDown step the value (frequency: a tenth of the span; number: its step). Stepping works only when the field has no draft.
-- **Range message:** the tooltip and the inline text say the allowed range in the field's units (for example "Allowed range: 70 MHz – 6 GHz").
+- **Range message:** the tooltip and the inline text say the allowed range in the field's units (for example "Allowed range: 70 MHz – 6 GHz"). Known gap (SA430 run, 015): today an invalid NumberField shows the border and the tooltip only, with no visible message and no range in kHz; the visible message is follow-up issue #48.
 - **ARIA:** `aria-label` or a `<label for>`; `aria-invalid` when invalid; `aria-describedby` pointing to the hint or error.
+- **Unit announced (014, Approved and implemented; applies to every NumberField with a unit).** The unit is shown after the control and linked to it with `aria-describedby` (visually hidden text, for example `kHz`), so a screen reader announces "Frequency step, kHz". The same applies to Averaging (`traces`) and Range (`dB`). A `choice` option carries its unit in its own text (`-35 dBm`).
 - **Do:** show the unit next to every number that has one (dB, traces, MHz). Use mono for frequencies and levels.
 - **Don't:** clamp silently; accept a value and show a different one; show a unit that the value does not have.
 
@@ -843,6 +848,8 @@ Two different things. Draft 1 used one name for both, which is why the source se
 - Target size: the actions are real 24 x 24 buttons. The spacing exception (9.9) is not available: the select button's box lies under the actions, so a 24px circle around an action overlaps another target.
 - The active source's select button has `aria-current="true"`. It is not a radio: there is no checked state to announce, and a second selection model is not needed.
 - Fixed actions (Signal simulator, Add source…, Disconnect) are ordinary buttons in their own group, a `role="group"` named by `aria-label` ("Add a source", "Connection") with a divider above it.
+- **The Signal simulator is always offered (015, Proposed).** It is in the fixed block whatever has been used, because it is the fallback source (5.2.10). It is not listed under Your sources. Its row shows the same state words as any row (Connected, Acquiring, Connecting…, Disconnected).
+- **Current row while disconnected (015, Proposed).** The selected source's line 2 reads "Disconnected" (state S13). Picking the row connects it again.
 - **Ruling (work 009, 2026-11-16): the fixed blocks have no visible heading.** This stays as it was before 009 (no visible change in 009). The list groups ("Your sources", "Detected devices") keep their visible caps label. A visible label for the fixed blocks is a visible change: Deferred to a later work item, not part of 009.
 - Keyboard: 5.1 and 5.10. Summary: Tab and Shift+Tab move through the controls in document order; Enter and Space activate; Escape closes and returns focus to the trigger; leaving the popover by Tab or Shift+Tab closes it without moving focus back; Up and Down move between rows and stop at the first and last row (no wrap, accepted T5); Home and End go to the first and last row (implemented in 009, B1; a convenience, not a trap).
 - Focus on open: the active row, else the first row (Implemented).
@@ -933,26 +940,27 @@ Rules:
 | New (detected, not remembered) | UI-derived from the scan | Offered to Connect; it becomes remembered only when saved. |
 | Your sources | Backend list (`listSources`), changed only by add, edit, forget and undo commands | |
 | Detected devices | Backend scan (`discoverAll`), every 3 seconds while the popover is open | One scan at a time. |
-| Choose a source | UI: no active entry | Shown only when there is no active entry after the backend has answered (see Loading). |
-| Loading | UI: before the first status and the first list have arrived | Deferred (B3, backlog). Today the button shows "Choose a source" briefly at start-up. |
+| Choose a source | Retired (015). Not shown after start-up: a source is always selected (5.2.10). | Not reachable in the shipped app. Not designed further. |
+| Loading | UI: before the first status and the first list have arrived | Proposed for 015 (B3 pulled in): the button shows "Loading…". |
 
 **5.2.2 Lifecycle states.**
 
 | State | Button (side panel) | Popover | Plot | Banner |
 | --- | --- | --- | --- | --- |
-| S0 Loading (start-up; Deferred, B3) | "Loading…" in secondary text; no attention outline; capture unavailable | n/a | Empty; no hint | None |
-| S1 Nothing chosen | "Choose a source" with the 2px attention outline | Lists remembered sources (none) and detected devices | Hint: "Choose a source to begin. Try Signal simulator." | None |
+| S0 Loading (start-up; Proposed for 015, B3 pulled in) | "Loading…" in secondary text; no attention outline; capture unavailable, reason "Loading…" | n/a | Empty; no hint | None |
+| S1 Nothing chosen (retired, 015) | Not reachable after start-up: the fallback (5.2.10) always selects a source. | n/a | n/a | n/a |
 | S2 Discovering | Unchanged | "Scanning for devices…" line, only until the first scan result when nothing is detected yet. Remembered rows are shown at once. | Unchanged | None |
 | S3 Empty | Unchanged | "No new devices found. Plug one in; this list updates automatically." | Unchanged | None |
-| S4 Populated | Unchanged | Your sources (present, absent or unknown), New devices, the simulator until it has been used, Add source…, Disconnect (when connected) | Unchanged | None |
+| S4 Populated | Unchanged | Your sources (present, absent or unknown), New devices, the Signal simulator (always, 015), Add source…, Disconnect (when connected) | Unchanged | None |
 | S5 Connecting | Name, glyph pulsing blue, "Connecting…" in the name and tooltip; capture unavailable | Closes when a row is picked (the button shows the state) | Tag "Connecting…" (B8); no trace | None |
 | S6 Connected | Name, teal dot, "Connected" in the name | Current row: "Connected" | Hint or held trace, per 6.8 | None |
 | S7 Acquiring | Name, teal dot, "Acquiring" in the name | Current row: "Acquiring" | Live, waiting, stale or capturing (6.8) | None |
 | S8 Disconnecting | Name, pulsing blue, "Disconnecting…" | Rows unavailable | Tag "Disconnecting…" (B8) | None |
-| S9 Connect failed | Name of the requested source, red cross, "Failed" in the name | Row line 2 "Failed" until the next pick | Hint; the last trace, if any, held (HOLD) | `error`, polite: "Could not connect to <driver>: <reason>" with Reconnect when a last configuration exists |
-| S10 Device lost | "Not detected" (empty ring) | Current row "Not detected" | Last trace held (HOLD), not cleared | `warning`, assertive: "<device> was unplugged." with Reconnect when possible |
+| S9 Connect failed (also at launch, 015) | Name of the requested source, red cross, "Failed" in the name | Row line 2 "Failed" until the next pick | Hint: "Not connected. Use the source button to connect." (S13 copy); the last trace, if any, held (HOLD) | `error`, polite: "Could not connect to <driver>: <reason>" with Reconnect when a last configuration exists. At launch the device stays selected; no simulator is connected in its place (5.2.10, Proposed) |
+| S10 Device lost | "Not detected" (empty ring) | Current row "Not detected" | Last trace held (HOLD), not cleared | `warning`, assertive: "<device> was unplugged." with Reconnect when possible. The source stays selected; no other source is connected in its place (5.2.10) |
 | S11 Scan error | Unchanged | Note "Could not scan for devices: <reason>" for that driver; other drivers still listed | Unchanged | None |
-| S12 Backend unavailable (start-up) | "Status unavailable" (Deferred, B3) | Remembered list shown only if it loaded | Empty | `error`, polite, with the reason. The button never shows "Choose a source" as if the list were empty. |
+| S12 Backend unavailable (start-up; Proposed for 015, B3 pulled in) | "Status unavailable" | Remembered list shown only if it loaded | Empty | `error`, polite, with the reason. The button never shows "Choose a source" as if the list were empty. |
+| S13 Selected, not connected (new in 015, Proposed) | Name of the selected source, idle dot; accessible name "Source: <name>, Disconnected" | Current row line 2 "Disconnected"; picking it connects | Tag "No source connected" (also over a held trace); hint "Not connected. Use the source button to connect." only while no trace is shown | None |
 
 Note: the cells that cite B3 or B8 (S0, S5, S8, S12 and the plot and status copy) describe the target. The shipped copy and states are recorded in section 14 until those backlog items ship.
 
@@ -995,11 +1003,12 @@ Devices without a serial number, and two devices that report the same id, are de
 - A fatal read error or the device watcher ends the session: the backend reports `deviceLost` and state `disconnected`. The plot keeps the last trace with the HOLD tag (it is not cleared). The button shows "Not detected". The assertive banner says "<device> was unplugged." and offers Reconnect when possible.
 - A non-fatal read error stops the acquisition and keeps the connection (state `connected`): the banner says "Acquisition stopped: <reason>" (or "Single capture failed: <reason>") and offers Restart. (Assertive, see 9.6, because the acquisition stopped unexpectedly.)
 - The popover, if open, closes when the state becomes locked (5.1).
+- A device that is lost stays the selected source (Not detected). The app does not connect the simulator in its place (5.2.10).
 
 **5.2.8 Forget and undo.**
 
 - Forget removes the entry from Your sources and shows an Undo toast for 5 seconds (`UNDO_FORGET_MS`). Undo restores the entry. Forget is not confirmed, because it is undoable (5.5).
-- Forgetting the connected source keeps the connection and its name until another source is picked. Forgetting a source that is not connected clears the active name.
+- Forgetting the connected source keeps the connection and its name until another source is picked (as today). Forgetting a selected source that is not connected selects the Signal simulator, not connected (Proposed, 015; 5.2.10).
 - The Undo button is a normal button in a polite status region (9.6).
 
 **5.2.9 Connect form (inline in the popover).**
@@ -1007,6 +1016,24 @@ Devices without a serial number, and two devices that report the same id, are de
 - Opened from a detected device that needs parameters, or from an edit. The first required empty field gets focus, else the first field, else Connect.
 - Escape goes back to the list, unless a connect is in progress.
 - Connect is unavailable until the required fields have a value. A connect error is a polite message beside the form (B2).
+
+### 5.2.10 Start-up and the selected source (015)
+
+- **A source is always selected after start-up (Approved, #46).** The button never reads "Choose a source" after start-up. The selection is the connected source, or the remembered selection while disconnected.
+- **Launch with a detected device (Approved, #46).** The device is selected and connected (Connecting… then Connected). The simulator is not connected.
+- **Launch with no device (Approved, #46).** The Signal simulator is selected and connected, not acquiring. Nothing starts acquisition (ADR 0014: auto-connect only connects).
+- **Launch order.** Loading (S0) until the backend answers, then the connect. The simulator is the fallback only when no device is detected at launch.
+- **A device plugged in later replaces a simulator only while it is connected and idle (Approved, #46; human decision at the design gate, Q-28).** Any idle simulator is replaced, whether the launch rule connected it or the user picked it. The device goes through Connecting… to Connected. No banner: the button name and state are the feedback (5.7).
+- **A device plugged in while the simulator is acquiring does not interrupt (Approved, #46).** The device appears under Detected devices as New (S4); the user picks it to switch (Q-22).
+- **A simulator that is acquiring is never replaced (Approved, #46).** The device appears under Detected devices as New.
+- **A detected device that fails at launch stays selected, in Failed (S9, Proposed; Q-27).** No simulator is connected in its place.
+- **Disconnect keeps the source selected (Approved, #46).** State S13. Pick the row to connect again.
+- **Forget of a selected source that is not connected selects the Signal simulator, not connected (Proposed).** The connected one keeps its name until another pick (5.2.8).
+- **The Signal simulator is always offered in the popover's fixed block and is never listed under Your sources (Proposed).** It is the fallback, so it must always be reachable.
+- **Focus and popovers.** Auto-connect never moves focus and never closes an open popover; rows update in place (Proposed).
+- **Announcements.** Auto-connect is not announced: it is not the user's action (9.6). The source button's name and state are current when focused (Proposed).
+- **Start-up copy (Proposed, B3 pulled into 015; Q-30).** "Loading…" while the backend has not answered; "Status unavailable" with its reason when it never does (S12).
+- **Measurement and Source settings** while the source is selected but not connected: 3.6 (kind rows), 8.2 (copy).
 
 ### 5.3 Readout tables and measurement selection (Approved for single selection; B4 and the peak coupling, Q-7, are deferred to the backlog)
 
@@ -1096,14 +1123,15 @@ Every screen answers the question "what is happening and what can I do" in words
 
 | Area | State | Shown | Copy (exact) | Rule |
 | --- | --- | --- | --- | --- |
-| Source button | Loading (start-up) | Secondary text | Loading… | Deferred, B3 |
-| Source button | Nothing chosen | Attention outline (2px teal) | Choose a source | Not a red state |
+| Source button | Loading (start-up) | Secondary text | Loading… | Proposed for 015 (B3 pulled in) |
+| Source button | Nothing chosen | (retired, 015) | Not reachable after start-up | 5.2.10 |
 | Source button | Connecting | Pulsing blue dot | Connecting… | Name and tooltip carry the state |
 | Source button | Connected | Teal dot | Connected (in the name) | |
 | Source button | Acquiring | Teal dot | Acquiring (in the name) | |
 | Source button | Failed | Red cross | Failed (in the name) | Reason in the banner |
 | Source button | Not detected | Empty ring | Not detected (in the name) | |
-| Capture | No source | Unavailable, native disabled | Reason: plot hint "Choose a source to begin…" | Visible reason exists (4.3) |
+| Source button | Selected, not connected (S13, 015) | Idle dot, name | Disconnected (popover row line 2; accessible name) | Proposed (015). The plot tag and the status bar carry "No source connected" on screen |
+| Capture | No source | Unavailable, native disabled | Reason: plot hint "Not connected. Use the source button to connect." (S13), or "Connect a source first" in the control's description | Visible reason exists (4.3). The old hint "Choose a source to begin…" is retired (015) |
 | Capture | Connecting or disconnecting | Unavailable | Reason: plot tag "Connecting…" / "Disconnecting…" (B8) | |
 | Capture | Busy (a command) | Main `aria-disabled`, progress cursor, full strength (U1); chevron dimmed (Q-23) | Tooltip: "Wait for the current change to finish" (chevron); description on both | |
 | Plot | Connected, continuous, no frame | Hint, centred | "No trace yet. Press Continuous to start acquisition." (was "Press Play to start continuous acquisition.") | C1 (Q-2), implemented in 009 |
@@ -1133,8 +1161,8 @@ Every screen answers the question "what is happening and what can I do" in words
 | Banner | Connection failed | Red banner, Reconnect | Connection failed: <reason> | Polite |
 | Banner | Device unplugged | Warning banner, Reconnect | <device> was unplugged. | Assertive |
 | Banner | Acquisition failed | Amber banner, Restart | The backend's message, shown as received | Assertive. The UI does not rewrite the text. |
-| Panel | No source | Hint | Choose a source to see its settings. | |
-| Panel | Source has no settings | Hint | This source has no additional settings. | |
+| Panel | No source (Source settings) | Hint | Connect a source to see its settings. | Proposed (015); replaces "Choose a source to see its settings." |
+| Panel | Source has no settings (for example, a connected SA430 after 014: its settings are in Measurement) | Hint | This source has no additional settings. | Unchanged (Q-26) |
 | Peaks | Nothing above criteria | Muted row | No peaks above the detection criteria. | |
 | Peaks | Peak detection off | Note | Peak detection is off. | Today: the table is hidden. No change (Q-19). |
 
@@ -1503,8 +1531,11 @@ No animation on data (6.1 rule 5). The only animations are the spinner, the conn
 | Mode words in the hints and status bar | "press Play" | "press Continuous" / "press Single" | Done in 009 (Q-2): the button shows the mode name, so the copy matches it |
 | Connecting, disconnecting in the plot tag | "No source connected" | "Connecting…" / "Disconnecting…" | Backlog (B8), a bug |
 | Connecting, disconnecting in the status bar | "No source connected." | "Connecting…" / "Disconnecting…" | Backlog (B8), a bug |
-| Start-up before the first status | "Choose a source" | "Loading…" | Backlog (B3) |
-| Backend unavailable at start-up | "Choose a source" | "Status unavailable" | Backlog (B3) |
+| Start-up before the first status | "Choose a source" | "Loading…" | Proposed for 015 (B3 pulled in, Q-30) |
+| Backend unavailable at start-up | "Choose a source" | "Status unavailable" | Proposed for 015 (B3, Q-30) |
+| Selected, not connected: plot hint (015) | "Choose a source to begin. Try Signal simulator." | "Not connected. Use the source button to connect." | Proposed (015, S13) |
+| Source settings with no source (015) | "Choose a source to see its settings." | "Connect a source to see its settings." | Proposed (015) |
+| Frequency step, Reference level with no source (014) | (in Source settings) | Em dash, disabled, in Measurement, when the source was opened this run; otherwise hidden (follow-up #47) | Proposed (014) |
 | Peak detection off | Table hidden | Note: "Peak detection is off." | No change (Q-19: kept hidden) |
 
 ### 8.3 Button and menu labels (Approved)
@@ -1539,6 +1570,11 @@ No animation on data (6.1 rule 5). The only animations are the spinner, the conn
 | LIVE, HOLD, CAPTURING, Stopped | Plot state tags |
 | Uncalibrated | Amplitudes are not calibrated (dBFS only) |
 | Averaging | Number of sweeps combined into one trace |
+| Selected source | The source the app uses. Always one after start-up (015): the connected one, or the last one while disconnected |
+| Disconnected | A selected source with no link. Not Stopped, not No source connected (015) |
+| Reference level (Measurement) | The SA430 device input level, dBm. It is the device's setting (014) |
+| Reference level (Display) | The plot's reference level, in the Display group. It is not the device's setting (014) |
+| Frequency step | The SA430's distance between measured points, kHz (014) |
 
 Do not use "Play" in new copy (the button has a Play icon and the mode name; Q-2). Do not use "Stop" for a continuous capture (it is Pause). Do not add a "Scan" button: the popover looks for devices by itself while it is open. Do not write "Live" in lower case as a state.
 
@@ -1763,7 +1799,7 @@ The app is a desktop window. Layout is tested at the CSS widths in 3.9. Desktop 
 | --- | --- | --- |
 | Toolbar | `<header>` with `aria-label="Main toolbar"`. Not `role="toolbar"`: no roving focus is implemented, and a toolbar role without arrow-key navigation is misleading. | Implemented in 009 (B7) |
 | Notice stack | Live regions per 9.6 | Implemented in 009 (B2) |
-| Source button | Button, `aria-haspopup="dialog"`, `aria-expanded`, `aria-controls` the popover, name `Source: <name>, <state>` or `Source: Choose a source`. `<state>` is the status word the row shows (Connected, Acquiring, Connecting…, Failed, Not detected); Disconnected when the row shows none (fixed in 013, F4: a failed source is `Failed`, not `Disconnected`) | Implemented in 009 (B1): dialog, not menu |
+| Source button | Button, `aria-haspopup="dialog"`, `aria-expanded`, `aria-controls` the popover, name `Source: <name>, <state>` or `Source: Choose a source` (the latter retired in 015: a source is always selected). `<state>` is the status word the row shows (Connected, Acquiring, Connecting…, Failed, Not detected); Disconnected when the row shows none (fixed in 013, F4: a failed source is `Failed`, not `Disconnected`) | Implemented in 009 (B1): dialog, not menu |
 | Source popover | `role="dialog"`, `aria-label="Sources"`, groups with visible labels, lists | Implemented in 009 (B1) |
 | Source rows | Button in a list item; `aria-current="true"` on the active row; the name includes the status word | Implemented in 009 (B1) |
 | Row actions | Ordinary buttons "Edit <name>", "Forget <name>" | Implemented in 009 (B1); was `role="menuitem"` |
@@ -1961,6 +1997,16 @@ Status values are defined in 0.3. "Where" gives the section of this file or the 
 | U1 | Busy is not unavailable: a busy button, the busy Save and the busy capture main keep full strength; a control is dimmed only when its action cannot run | Accepted (PM, T11); implemented in 009 | 2.15, 4.1, 4.3, 4.12 |
 | I19 | Popover list keys stop at the first and last row (no wrap); leaving the popover by Tab closes it | Implemented in 009 (B1; T5 accepted) | 4.11, 5.1 |
 | A10 | Accepted deviation: Peak search, Next peak and + Marker use native `disabled` (T6); 9.10 needs their reason visible on the same screen | Implemented in 009 (T6 accepted); QA to confirm the reason is visible | 9.10 |
+| M14 | Measurement rows a source does not use are hidden, not disabled; the order is fixed (source button, Center, Span, source rows, Averaging, hold row, capture) | Approved and implemented (014) | 3.6 |
+| M15 | Frequency step and Reference level move from Source settings to Measurement with the same commit rules | Approved and implemented (014) | 3.6, 5.8 |
+| M16 | Unit announced for NumberField (`aria-describedby`); device values show an em dash with no source | Approved and implemented (014) | 4.4, 9.6 |
+| M17 | A source is always selected; the Signal simulator is the launch fallback | Approved (015, #46) | 5.2.10 |
+| M18 | "Loading…" and "Status unavailable" at start-up (B3 pulled into 015) | Proposed (015, Q-30) | 5.2, 8.2 |
+| M19 | Selected, not connected state S13, its copy and the disconnected hint | Proposed (015) | 5.2.2, 5.8, 8.2 |
+| M20 | Launch failure of a detected device keeps the device selected, no simulator fallback | Proposed (015, Q-27) | 5.2.10 |
+| M21 | Forgetting a selected source that is not connected selects the Signal simulator | Proposed (015) | 5.2.8, 5.2.10 |
+| M22 | A device replaces any idle simulator (auto-started or picked by the user); never while acquiring. ADR 0017 amends ADR 0014 | Approved (015, #46; Q-28 decided at the design gate) | 5.2.10 |
+| M23 | The Signal simulator is always in the popover's fixed block, never under Your sources | Proposed (015) | 4.11, 5.2.10 |
 
 ### 12.2 Questions and decisions (product decisions)
 
@@ -1991,6 +2037,14 @@ The designer's recommendation is kept for the record. The last column is the PM'
 | Q-21 | Waterfall hidden automatically below 240px total plot height (W7): accept? | Yes. | Human | Backlog (W7) |
 | Q-22 | Switching source while acquiring (5.2.6): A keep and state the consequence, B other rows unavailable while acquiring with the reason shown, or C an inline confirmation? | B. The user pauses first, and the trace is not lost by accident. | Human | Backlog as option B, with B3 and B8. Option A stays until then |
 | Q-23 | Capture chevron while a command runs (2.5): dimmed as built, or full strength like the busy Save (U1)? | Full strength with `aria-disabled` and the reason in its description, so it matches U1. It still refuses the click. | Human, PM | Open. Built dimmed in 009; not changed in 009 |
+| Q-24 | Label of the device step: "Freq. step" (approved order) or "Frequency step" (the driver's label, the story's name)? | "Frequency step". The full word fits; the UI does not rename device labels. | Human, PM | Open (014) |
+| Q-25 | Two "Reference level" labels (Measurement device level, Display plot level): keep both, or rename the device row to "Input level" (a driver label change)? | Keep both (minimal copy). They differ by group, value (dBm) and description; 8.5 defines both. | Human | Open (014) |
+| Q-26 | A connected SA430 has no rows in Source settings: keep the section with "This source has no additional settings." or hide the section? | Keep it. The section order stays stable and the hint is accurate. | Human | Open (014) |
+| Q-27 | A detected device fails to connect at launch: stay on it (Failed, banner, Reconnect) or fall back to the simulator? | Stay on it. The fallback is for "no device found" (#46). | Human | Open (015) |
+| Q-28 | What is "auto-started"? Is a simulator the user picked ever replaced by a device? | A user's pick is never replaced. | Human | Decided (design gate): any idle simulator is replaced; the designer's recommendation is overridden |
+| Q-29 | Hold row (Max hold, Min hold, Reset) for a trace source: shown? | Shown for both kinds (the trace pipeline applies holds to trace sources). The approved per-source lists omit it. | Human, PM | Open (014; assumption) |
+| Q-30 | Pull B3 (start-up "Loading…" and "Status unavailable") into 015? | Yes. Without it the button shows "Choose a source" at start-up. | PM, human | Open (015) |
+| Q-31 | Selected but not connected (S13): add a visible word ("Disconnected") to the source button's name? | No. The name and the idle dot; the plot tag and the status bar say "No source connected". | Human | Open (015) |
 
 ### 12.3 Engineering items (staff engineer; design.md section 6)
 
@@ -2015,6 +2069,14 @@ Status after 009: E1 to E7 are implemented. E1 is the token file and its tests, 
 ---
 
 ## 13. Changelog
+
+### 13.0b Draft 5 (2026-11-19): work 014 (#45) and work 015 (#46)
+
+- **Status.** Version 1.0-draft.5 (was 1.0-draft.4). Design delta only; no prototype (minor layout change in 014; no new screen in 015). The work folders hold `design.md`.
+- **014.** Frequency step and Reference level move from Source settings to Measurement, after Span. Rows a source does not use are hidden (3.6, 12.1 M14 and M15). Unit announced for NumberField (4.4, M16). Glossary entries for the two "Reference level" meanings (8.5).
+- **015.** A source is always selected; the Signal simulator is the launch fallback; a device replaces any idle simulator (5.2.10, M17, M22). New state S13 (selected, not connected), its copy (5.2.2, 5.8, 8.2, M19). "Choose a source" is retired. B3 ("Loading…", "Status unavailable") is pulled into 015 as Proposed (M18, Q-30).
+- **ADR amendment.** ADR 0014 said "never replace a source"; M22 changes that for an idle simulator. Done in ADR 0017.
+- **Open for the human.** Q-24 to Q-31 (12.2).
 
 ### 13.0 Draft 4 (2026-11-16): reconciliation with the shipped work 009
 
@@ -2155,6 +2217,12 @@ Each gap is either a small fix (`design.md` F-list), a behaviour change (B-list)
 | Checkbox accent is the WebKit default blue | Yes | `--color-accent` (teal) | F16 | Resolved in 009 (F16) |
 | Center and Span values inherit the secondary colour | Yes | Primary text | F17 | Resolved in 009 (F17) |
 | Peak Search, Next peak and + Marker are native-disabled | Yes | Reason visible on the same screen (9.10) | A10 | Accepted deviation (T6); QA to confirm |
+| Frequency step and Reference level are in Source settings, not Measurement | Yes (`SourcePanel.tsx`, `ParamForm.tsx`) | In Measurement, after Span, for a trace source (014) | 014 | Target (draft 5); not yet implemented |
+| FFT size and Window shown disabled for a trace source | Yes (013) | Hidden for a trace source (014) | 014 | Target (draft 5) |
+| Unit of a NumberField is visible only | Yes (`NumberField.tsx`) | Linked by `aria-describedby` (4.4) | 014 | Target (draft 5) |
+| Start-up shows "Choose a source" | Yes (`SourceButton.tsx`) | "Loading…" (B3 pulled into 015) | 015 | Target (draft 5); Proposed |
+| No source selected after disconnect or forget | Yes (`sources.ts`, `SourceButton.tsx`) | A source is always selected (5.2.2 S13, 5.2.10) | 015 | Target (draft 5); Approved (#46) |
+| Auto-connect never replaces a source (ADR 0014) | Yes | Any idle simulator is replaced (015, M22) | 015 | Target (draft 5); ADR 0017 |
 
 ---
 

@@ -1,6 +1,7 @@
 import '../../test/mockApi';
 
 import { act, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import { useSession } from '../../state/session';
 import { emptyConfig } from '../../state/sourceConfig';
@@ -39,6 +40,7 @@ describe('source button', () => {
     useSession.setState({ status: status({ revision: 1 }), busy: null, commandError: null });
   });
 
+  // Only reachable where no simulator driver is registered: after start-up a source is always selected.
   it('has no status dot and the attention outline while nothing is chosen', () => {
     setup(null);
     const button = screen.getByTestId('source-button');
@@ -90,6 +92,28 @@ describe('source button', () => {
     expect(button).toHaveAccessibleName('Source: Bench, Connected');
   });
 
+  it('marks the button data-simulated only while the live source is the simulator', () => {
+    setup('Bench');
+    const button = screen.getByTestId('source-button');
+    expect(button).not.toHaveAttribute('data-simulated');
+    act(() =>
+      useSession.setState({
+        status: status({ revision: 2, state: 'connected', source: activeSimulator }),
+      }),
+    );
+    expect(button).toHaveAttribute('data-simulated', 'true');
+    act(() =>
+      useSession.setState({
+        status: status({
+          revision: 3,
+          state: 'connected',
+          source: { ...activeSimulator, simulated: false },
+        }),
+      }),
+    );
+    expect(button).not.toHaveAttribute('data-simulated');
+  });
+
   it('announces a popover (dialog), not a menu', () => {
     setup('Bench');
     expect(screen.getByTestId('source-button')).toHaveAttribute('aria-haspopup', 'dialog');
@@ -130,5 +154,65 @@ describe('source button', () => {
     setup('Bench');
     act(() => useSession.setState({ status: status({ revision: 3, state }) }));
     expect(screen.getByTestId('source-button-status')).toHaveAttribute('data-status', glyph);
+  });
+
+  describe('start-up (ADR 0017)', () => {
+    it('reads Loading… with no dot, not as a choice, before the first status', () => {
+      setup('Bench');
+      act(() => useSession.setState({ status: null }));
+      const button = screen.getByTestId('source-button');
+      expect(button).toHaveTextContent('Loading…');
+      expect(button).not.toHaveTextContent('Bench');
+      expect(within(button).queryByTestId('source-button-status')).toBeNull();
+      expect(button).not.toHaveClass('attention');
+      expect(button).toHaveAccessibleName('Source: Loading…');
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      expect(button).not.toBeDisabled();
+    });
+
+    it('stays Loading… while a launch has not begun its connect, then shows the source', () => {
+      setup('Bench');
+      act(() => useSession.setState({ status: status({ revision: 1, launching: true }) }));
+      expect(screen.getByTestId('source-button')).toHaveTextContent('Loading…');
+      act(() => useSession.setState({ status: status({ revision: 2, launching: false }) }));
+      const button = screen.getByTestId('source-button');
+      expect(button).toHaveAccessibleName('Source: Bench, Disconnected');
+      expect(within(button).getByTestId('source-button-status')).toHaveAttribute(
+        'data-status',
+        'idle',
+      );
+    });
+
+    it('shows the connecting source while a launch connects it', () => {
+      setup('Bench');
+      act(() =>
+        useSession.setState({
+          status: status({ revision: 2, state: 'connecting', launching: true }),
+        }),
+      );
+      expect(screen.getByTestId('source-button')).toHaveAccessibleName(
+        'Source: Bench, Connecting…',
+      );
+    });
+
+    it('does not open the menu on click or ArrowDown while loading', async () => {
+      setup('Bench');
+      act(() => useSession.setState({ status: null }));
+      await userEvent.click(screen.getByTestId('source-button'));
+      screen.getByTestId('source-button').focus();
+      await userEvent.keyboard('{ArrowDown}');
+      expect(useSourceMenu.getState().open).toBe(false);
+      expect(screen.queryByTestId('source-menu')).toBeNull();
+    });
+
+    it('reads Status unavailable when the start-up commands failed', () => {
+      setup('Bench');
+      act(() => useSession.setState({ status: null, startupFailed: true }));
+      const button = screen.getByTestId('source-button');
+      expect(button).toHaveTextContent('Status unavailable');
+      expect(button).toHaveAccessibleName('Source: Status unavailable');
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      expect(within(button).queryByTestId('source-button-status')).toBeNull();
+    });
   });
 });

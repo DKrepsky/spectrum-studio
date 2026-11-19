@@ -88,6 +88,10 @@ pub struct SessionStatus {
     /// The selected capture mode. Always set; the backend refuses to change it while acquiring,
     /// so while acquiring it is also the running mode.
     pub capture_mode: CaptureMode,
+    /// True from the start of auto-connect until its launch rule has finished (ADR 0017), so the UI
+    /// can show "Loading" instead of a stale selection. Always false for a session that auto-connect
+    /// never started.
+    pub launching: bool,
 }
 
 impl SessionStatus {
@@ -100,6 +104,7 @@ impl SessionStatus {
             last_config: None,
             processing,
             capture_mode,
+            launching: false,
         }
     }
 }

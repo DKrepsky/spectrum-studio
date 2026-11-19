@@ -82,6 +82,7 @@ const networkDriver: DriverInfo = {
       kind: { type: 'text', maxLength: 100 },
       default: '',
       required: true,
+      placement: 'source',
     },
     {
       id: 'port',
@@ -91,6 +92,7 @@ const networkDriver: DriverInfo = {
       kind: { type: 'number', min: 1, max: 65535, step: 1, unit: null },
       default: 1234,
       required: false,
+      placement: 'source',
     },
   ],
 };
@@ -211,11 +213,45 @@ describe('source button and menu', () => {
       expect(button()).toHaveAccessibleName('Source: Signal simulator, Connecting…');
     });
 
-    it('hides the fixed simulator row once the simulator is remembered', async () => {
+    it('keeps the fixed simulator row when a named preset is remembered, and lists the preset', async () => {
       setup({ list: [alpha] });
       await openMenu();
-      expect(screen.queryByTestId('source-simulator')).not.toBeInTheDocument();
+      expect(screen.getByTestId('source-simulator')).toBeInTheDocument();
       expect(screen.getByTestId('source-entry-a')).toHaveTextContent('Alpha');
+    });
+
+    it('does not list an unnamed remembered simulator under Your sources; the fixed row connects it', async () => {
+      apiMock.connectRemembered.mockResolvedValue(status({ revision: 2, state: 'connected' }));
+      const unnamed = savedSource({ id: 'u', name: '', lastUsedMs: 9 });
+      setup({ list: [unnamed] });
+      await openMenu();
+      expect(screen.queryByRole('group', { name: 'Your sources' })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('source-entry-u')).not.toBeInTheDocument();
+      expect(screen.getByTestId('source-simulator')).toBeInTheDocument();
+      await userEvent.click(screen.getByTestId('source-simulator'));
+      expect(apiMock.connectRemembered).toHaveBeenCalledWith('u');
+      expect(apiMock.connectSource).not.toHaveBeenCalled();
+    });
+
+    it('refreshes the remembered list each time the menu opens', async () => {
+      setup({ list: [alpha] });
+      apiMock.listSources.mockClear();
+      await openMenu();
+      expect(apiMock.listSources).toHaveBeenCalled();
+    });
+
+    it('a refresh while open never moves focus', async () => {
+      setup({ list: [alpha, charlie] });
+      await openMenu();
+      await userEvent.keyboard('{ArrowDown}');
+      expect(screen.getByTestId('source-entry-c')).toHaveFocus();
+      const delta = savedSource({ id: 'd', name: 'Delta', lastUsedMs: 4 });
+      apiMock.listSources.mockResolvedValue({ sources: [alpha, charlie, delta], activeId: null });
+      await act(async () => {
+        await useSources.getState().refresh();
+      });
+      expect(screen.getByTestId('source-entry-d')).toBeInTheDocument();
+      expect(screen.getByTestId('source-entry-c')).toHaveFocus();
     });
 
     it('connects a remembered entry by id and ignores clicks while busy', async () => {
@@ -380,6 +416,8 @@ describe('source button and menu', () => {
       await userEvent.keyboard('{ArrowDown}');
       expect(screen.getByTestId('source-add')).toHaveFocus(); // no wrap
       await userEvent.keyboard('{ArrowUp}');
+      expect(screen.getByTestId('source-simulator')).toHaveFocus();
+      await userEvent.keyboard('{ArrowUp}');
       expect(screen.getByTestId('source-entry-c')).toHaveFocus();
       await userEvent.keyboard('{Home}');
       expect(screen.getByTestId('source-entry-a')).toHaveFocus();
@@ -394,7 +432,9 @@ describe('source button and menu', () => {
       expect(screen.queryAllByRole('menuitemradio')).toHaveLength(0);
       const group = screen.getByRole('group', { name: 'Your sources' });
       expect(within(group).getAllByRole('list')).toHaveLength(1);
-      expect(within(group).getByRole('button', { name: 'Alpha' })).toHaveAttribute('aria-current');
+      expect(within(group).getByRole('button', { name: 'Alpha, Disconnected' })).toHaveAttribute(
+        'aria-current',
+      );
     });
 
     it('marks the active row with aria-current, not a checked state', async () => {
@@ -818,6 +858,94 @@ describe('source button and menu', () => {
       );
       expect(new Set(labels).size).toBe(labels.length);
       expect(labels).not.toContain(`SA430 ${SA430_SERIAL}`);
+    });
+  });
+
+  describe('the fixed simulator row and the selected source', () => {
+    const simRow = () => screen.getByTestId('source-simulator');
+
+    it('is current with "Disconnected" on line 2 when the simulator is selected but not connected', async () => {
+      setup();
+      act(() =>
+        useSources.setState({
+          active: { id: null, title: 'Signal simulator', config: SIMULATOR_CONFIG },
+        }),
+      );
+      await openMenu();
+      expect(simRow()).toHaveAttribute('aria-current', 'true');
+      expect(simRow()).toHaveAccessibleName('Signal simulator, Disconnected');
+      expect(screen.getByTestId('source-sub-simulator')).toHaveTextContent(/^Disconnected$/);
+      expect(screen.getByTestId('source-status-simulator')).toHaveAttribute('data-status', 'idle');
+      expect(screen.getByTestId('source-badge-simulator')).toHaveTextContent('Built-in');
+    });
+
+    it('shows the backend state of the selected simulator: Connected, then Acquiring', async () => {
+      setup();
+      act(() =>
+        useSession
+          .getState()
+          .receiveStatus(status({ revision: 3, state: 'connected', source: activeSimulator })),
+      );
+      act(() =>
+        useSources.setState({
+          active: { id: null, title: 'Signal simulator', config: SIMULATOR_CONFIG },
+        }),
+      );
+      await openMenu();
+      expect(simRow()).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByTestId('source-sub-simulator')).toHaveTextContent(/^Connected$/);
+      expect(screen.getByTestId('source-status-simulator')).toHaveAttribute(
+        'data-status',
+        'connected',
+      );
+      await userEvent.keyboard('{Escape}');
+
+      act(() =>
+        useSession
+          .getState()
+          .receiveStatus(status({ revision: 4, state: 'acquiring', source: activeSimulator })),
+      );
+      await openMenu();
+      expect(screen.getByTestId('source-sub-simulator')).toHaveTextContent(/^Acquiring$/);
+    });
+
+    it('is not current, and has no word, when another source is selected', async () => {
+      setup({ list: [alpha], activeId: 'a' });
+      await openMenu();
+      expect(simRow()).not.toHaveAttribute('aria-current');
+      expect(simRow()).toHaveAccessibleName('Signal simulator');
+      expect(screen.getByTestId('source-entry-a')).toHaveAttribute('aria-current', 'true');
+    });
+
+    it('a remembered simulator entry that is selected is current in the fixed row', async () => {
+      const unnamed = savedSource({ id: 'u', name: '' });
+      setup({ list: [unnamed], activeId: 'u' });
+      await openMenu();
+      expect(simRow()).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByTestId('source-sub-simulator')).toHaveTextContent(/^Disconnected$/);
+    });
+
+    it('reads Failed after a failed pick of the simulator, and picking it again connects', async () => {
+      apiMock.connectSource.mockRejectedValueOnce({ message: 'Simulated failure.' });
+      setup();
+      await openMenu();
+      await userEvent.click(simRow());
+      await waitFor(() => expect(useSession.getState().commandError).toBe('Simulated failure.'));
+      await openMenu();
+      expect(simRow()).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByTestId('source-sub-simulator')).toHaveTextContent(/^Failed$/);
+      apiMock.connectSource.mockResolvedValueOnce(status({ revision: 5, state: 'connected' }));
+      await userEvent.click(simRow());
+      expect(apiMock.connectSource).toHaveBeenCalledTimes(2);
+      expect(apiMock.connectSource).toHaveBeenLastCalledWith(SIMULATOR_CONFIG);
+    });
+
+    it('a selected named row shows Disconnected; an idle row that is not selected shows no word', async () => {
+      setup({ list: [alpha, charlie], activeId: 'a' });
+      await openMenu();
+      expect(screen.getByTestId('source-entry-a')).toHaveTextContent('Disconnected');
+      expect(screen.getByTestId('source-entry-c').textContent).not.toMatch(/Disconnected/);
+      expect(screen.getByTestId('source-sub-entry-c').textContent).toBe('');
     });
   });
 

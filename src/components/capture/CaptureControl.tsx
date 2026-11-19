@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { CaptureMode } from '../../bindings/CaptureMode';
 import type { SessionState } from '../../bindings/SessionState';
 import { frameStore } from '../../state/frames';
-import { useSession } from '../../state/session';
+import { selectStartup, useSession, type Startup } from '../../state/session';
 import { LiveRegion } from '../../ui/LiveRegion';
 import { SplitButton } from '../../ui/SplitButton';
 import { CaptureModeMenu } from './CaptureModeMenu';
@@ -32,8 +32,13 @@ const MODE_LABEL: Record<CaptureMode, string> = { continuous: 'Continuous', sing
 const BUSY_REASON = 'Wait for the current change to finish';
 const LOCKED_REASON = 'Pause or cancel acquisition to change the mode';
 
-/** Why the source cannot start or change anything, in the words of the tooltip. */
-function noSourceTitle(state: SessionState): string {
+/**
+ * Why the source cannot start or change anything, in the words of the tooltip. Start-up (`loading`)
+ * comes first: nothing is known yet, so it is not a missing connection (ADR 0017).
+ */
+function noSourceTitle(state: SessionState, startup: Startup): string {
+  if (startup === 'loading') return 'Loading…';
+  if (startup === 'unavailable') return 'Status unavailable';
   if (state === 'connecting') return 'Connecting…';
   if (state === 'disconnecting') return 'Disconnecting…';
   return 'Connect a source first';
@@ -46,7 +51,7 @@ interface MainView {
 }
 
 /** The main button's icon, accessible name and tooltip for the backend state (design.md 5, 6). */
-function mainView(mode: CaptureMode, state: SessionState): MainView {
+function mainView(mode: CaptureMode, state: SessionState, startup: Startup): MainView {
   if (state === 'acquiring') {
     return mode === 'single'
       ? {
@@ -60,7 +65,7 @@ function mainView(mode: CaptureMode, state: SessionState): MainView {
           title: 'Pause acquisition: the last trace stays on screen',
         };
   }
-  const title = state === 'connected' ? undefined : noSourceTitle(state);
+  const title = state === 'connected' ? undefined : noSourceTitle(state, startup);
   return mode === 'single'
     ? {
         icon: 'play',
@@ -83,6 +88,7 @@ function mainView(mode: CaptureMode, state: SessionState): MainView {
 export function CaptureControl() {
   const status = useSession((s) => s.status);
   const busy = useSession((s) => s.busy);
+  const startup = useSession(selectStartup);
   const { start, stop, setCaptureMode } = useSession.getState();
 
   const state: SessionState = status?.state ?? 'disconnected';
@@ -106,9 +112,13 @@ export function CaptureControl() {
   const chevron = useRef<HTMLButtonElement>(null);
   // The reasons the main and chevron are unavailable, read through aria-describedby (DESIGN.md 9.12).
   const reasonId = useId();
-  const mainReason = !canAcquire ? noSourceTitle(state) : busyNow ? BUSY_REASON : undefined;
+  const mainReason = !canAcquire
+    ? noSourceTitle(state, startup)
+    : busyNow
+      ? BUSY_REASON
+      : undefined;
   const chevronReason = !canAcquire
-    ? noSourceTitle(state)
+    ? noSourceTitle(state, startup)
     : acquiring
       ? LOCKED_REASON
       : busyNow
@@ -195,7 +205,7 @@ export function CaptureControl() {
     if (refocus) chevron.current?.focus();
   };
 
-  const main = mainView(mode, state);
+  const main = mainView(mode, state, startup);
 
   return (
     <SplitButton

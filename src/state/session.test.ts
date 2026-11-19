@@ -2,7 +2,7 @@ import { apiMock } from '../test/mockApi';
 
 import type { SessionStatus } from '../bindings/SessionStatus';
 import { activeSimulator, savedSource, simulatorDriver, status } from '../test/fixtures';
-import { type BusyOperation, useSession } from './session';
+import { type BusyOperation, selectStartup, startupOf, useSession } from './session';
 import { emptyConfig } from './sourceConfig';
 import { useSources } from './sources';
 
@@ -11,7 +11,13 @@ const entry = savedSource({ id: 'e1' });
 describe('session store', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useSession.setState({ status: null, busy: null, commandError: null, commandErrorFrom: null });
+    useSession.setState({
+      status: null,
+      busy: null,
+      commandError: null,
+      commandErrorFrom: null,
+      listReloadedFor: null,
+    });
     useSources.setState({
       list: [entry],
       activeId: 'e1',
@@ -339,5 +345,201 @@ describe('session store start and stop while a start is in flight (BUG-1)', () =
   it('stops directly when no start is in flight', async () => {
     expect(await useSession.getState().stop()).toBe(true);
     expect(apiMock.stopAcquisition).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('session store capabilities per driver', () => {
+  const trace = {
+    ...activeSimulator,
+    config: emptyConfig('sa430'),
+    capabilities: { ...activeSimulator.capabilities, dataKind: 'trace' as const },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSession.setState({
+      status: null,
+      busy: null,
+      commandError: null,
+      commandErrorFrom: null,
+      capabilitiesByDriver: {},
+    });
+    useSources.setState({ list: [], activeId: null, active: null, failed: null, drivers: [] });
+  });
+
+  it('remembers the capabilities of an open source by its driver', () => {
+    useSession.getState().receiveStatus(status({ revision: 2, state: 'connected', source: trace }));
+    expect(useSession.getState().capabilitiesByDriver).toEqual({ sa430: trace.capabilities });
+  });
+
+  it('keeps what a driver reported after its source closes, and adds other drivers', () => {
+    const { receiveStatus } = useSession.getState();
+    receiveStatus(status({ revision: 2, state: 'connected', source: trace }));
+    receiveStatus(status({ revision: 3, state: 'disconnected', source: null }));
+    receiveStatus(status({ revision: 4, state: 'connected', source: activeSimulator }));
+    expect(useSession.getState().capabilitiesByDriver).toEqual({
+      sa430: trace.capabilities,
+      simulator: activeSimulator.capabilities,
+    });
+    expect(useSession.getState().status?.source).toBe(activeSimulator);
+  });
+
+  it('records nothing for a status without a source', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 2, state: 'disconnected', source: null }));
+    expect(useSession.getState().capabilitiesByDriver).toEqual({});
+  });
+});
+
+describe('session store start-up and the selection (015, ADR 0017)', () => {
+  const remembered = savedSource({
+    id: 'sa',
+    name: 'Bench',
+    config: { ...emptyConfig('sa430'), deviceId: 'SN1', connection: { port: '/dev/ttyACM0' } },
+  });
+  const failure = {
+    kind: 'connectFailed' as const,
+    message: 'Could not open /dev/ttyACM0',
+    timestampMs: 0,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSession.setState({
+      status: null,
+      busy: null,
+      commandError: null,
+      commandErrorFrom: null,
+      capabilitiesByDriver: {},
+      startupFailed: false,
+    });
+    useSources.setState({
+      list: [entry, remembered],
+      activeId: 'e1',
+      active: { id: 'e1', title: 'Signal simulator', config: entry.config },
+      failed: null,
+      drivers: [simulatorDriver],
+    });
+  });
+
+  it('is loading until the first status, and while a launch has not connected yet', () => {
+    expect(startupOf(null, false)).toBe('loading');
+    expect(startupOf(status({ launching: true }), false)).toBe('loading');
+    expect(startupOf(status({ launching: true, state: 'connecting' }), false)).toBe('ready');
+    expect(startupOf(status({ launching: false }), false)).toBe('ready');
+    expect(startupOf(status({ state: 'connected', launching: true }), false)).toBe('ready');
+    const { receiveStatus } = useSession.getState();
+    receiveStatus(status({ revision: 1, launching: true }));
+    expect(selectStartup(useSession.getState())).toBe('loading');
+    receiveStatus(status({ revision: 2, launching: false }));
+    expect(selectStartup(useSession.getState())).toBe('ready');
+  });
+
+  it('is unavailable when the start-up commands fail, with the reason as the banner', async () => {
+    apiMock.getStatus.mockRejectedValueOnce(new Error('the backend did not answer'));
+    await useSession.getState().init();
+    expect(selectStartup(useSession.getState())).toBe('unavailable');
+    expect(startupOf(null, true)).toBe('unavailable');
+    expect(useSession.getState().commandError).toBe(
+      'Could not reach the backend: the backend did not answer',
+    );
+    expect(useSession.getState().commandErrorFrom).toBeNull();
+  });
+
+  it('adopts the remembered source the backend is connecting to at launch', () => {
+    useSession
+      .getState()
+      .receiveStatus(status({ revision: 1, state: 'connecting', lastConfig: remembered.config }));
+    expect(useSources.getState().active).toMatchObject({ id: 'sa', title: 'Bench' });
+  });
+
+  it('keeps a failed device selected and marks it Failed, with no simulator in its place', () => {
+    useSession.getState().receiveStatus(
+      status({
+        revision: 2,
+        state: 'disconnected',
+        lastNotice: failure,
+        lastConfig: remembered.config,
+      }),
+    );
+    expect(useSources.getState().active).toMatchObject({ id: 'sa', title: 'Bench' });
+    expect(useSources.getState().failed).toBe('source-entry-sa');
+    expect(useSession.getState().status?.source).toBeNull();
+  });
+
+  it('selects a failed config that is not remembered by its own name and marks it by config key', () => {
+    const unknown = {
+      ...emptyConfig('sa430'),
+      deviceId: 'SN9',
+      connection: { port: '/dev/ttyUSB0' },
+    };
+    useSession
+      .getState()
+      .receiveStatus(
+        status({ revision: 3, state: 'disconnected', lastNotice: failure, lastConfig: unknown }),
+      );
+    expect(useSources.getState().active).toMatchObject({
+      id: null,
+      title: 'sa430 · SN9',
+      config: unknown,
+    });
+    expect(useSources.getState().failed).toBe('sa430/SN9');
+  });
+
+  it('does not move the selection for a failed connect while the UI is connecting itself', () => {
+    useSession.setState({ busy: 'connecting' });
+    useSession.getState().receiveStatus(
+      status({
+        revision: 2,
+        state: 'disconnected',
+        lastNotice: failure,
+        lastConfig: remembered.config,
+      }),
+    );
+    expect(useSources.getState().active).toMatchObject({ id: 'e1' });
+    expect(useSources.getState().failed).toBe('source-entry-sa');
+  });
+
+  it('keeps the selection when the source disconnects', () => {
+    const { receiveStatus } = useSession.getState();
+    receiveStatus(status({ revision: 1, state: 'connected', source: activeSimulator }));
+    receiveStatus(status({ revision: 2, state: 'disconnected', source: null }));
+    expect(useSources.getState().active).toMatchObject({ id: 'e1', title: 'Signal simulator' });
+  });
+
+  it('reloads the list when a live source is not in it yet, and not again once it is', async () => {
+    const sa = { ...activeSimulator, config: { ...emptyConfig('sa430'), deviceId: 'SN7' } };
+    const found = savedSource({ id: 'sa7', name: 'Roof', config: sa.config });
+    apiMock.listSources.mockResolvedValue({ sources: [entry, remembered, found], activeId: 'sa7' });
+    useSession.getState().receiveStatus(status({ revision: 1, state: 'connected', source: sa }));
+    expect(apiMock.listSources).toHaveBeenCalledTimes(1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(useSources.getState().active).toMatchObject({ id: 'sa7', title: 'Roof' });
+    useSession.getState().receiveStatus(status({ revision: 2, state: 'acquiring', source: sa }));
+    expect(apiMock.listSources).toHaveBeenCalledTimes(1);
+  });
+
+  it('reloads the list once per unknown live source, not on every status that repeats it', () => {
+    const { receiveStatus } = useSession.getState();
+    const other = { ...activeSimulator, config: { ...emptyConfig('sa430'), deviceId: 'SN9' } };
+    receiveStatus(status({ revision: 1, state: 'connected', source: other }));
+    receiveStatus(status({ revision: 2, state: 'acquiring', source: other }));
+    receiveStatus(status({ revision: 3, state: 'acquiring', source: other }));
+    expect(apiMock.listSources).toHaveBeenCalledTimes(1);
+    // A different unknown source is a new identity, so it reloads once more.
+    const third = { ...activeSimulator, config: { ...emptyConfig('sa430'), deviceId: 'SN10' } };
+    receiveStatus(status({ revision: 4, state: 'connected', source: third }));
+    receiveStatus(status({ revision: 5, state: 'acquiring', source: third }));
+    expect(apiMock.listSources).toHaveBeenCalledTimes(2);
+  });
+
+  it('reloads again after the live source is gone and comes back unknown', () => {
+    const { receiveStatus } = useSession.getState();
+    const other = { ...activeSimulator, config: { ...emptyConfig('sa430'), deviceId: 'SN11' } };
+    receiveStatus(status({ revision: 1, state: 'connected', source: other }));
+    receiveStatus(status({ revision: 2, state: 'disconnected', source: null }));
+    receiveStatus(status({ revision: 3, state: 'connected', source: other }));
+    expect(apiMock.listSources).toHaveBeenCalledTimes(2);
   });
 });

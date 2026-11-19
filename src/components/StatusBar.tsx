@@ -5,7 +5,7 @@ import { formatFrequency, formatLevel } from '../format/frequency';
 import { formatFrameRate } from '../format/rate';
 import { UNIT_DESCRIPTION, UNIT_SYMBOL } from '../format/units';
 import { frameStore } from '../state/frames';
-import { useSession } from '../state/session';
+import { selectStartup, useSession } from '../state/session';
 import { useFrameTick } from '../state/useFrameTick';
 import { StatusStrip, type MeasureFn, type StatusItem } from '../ui/StatusStrip';
 
@@ -108,9 +108,13 @@ export function StatusBar({ measure }: StatusBarProps) {
   const source = useSession((s) => s.status?.source);
   const state = useSession((s) => s.status?.state);
   const mode = useSession((s) => s.status?.captureMode);
+  const startup = useSession(selectStartup);
+  // During start-up (and when the backend is silent) the bar is empty: nothing is known yet (S0, S12).
   const items = frame
     ? frameItems(frame.header, frameStore.rate)
-    : [{ id: 'no-data', value: noDataText(source != null, state, mode) }];
+    : startup !== 'ready'
+      ? []
+      : [{ id: 'no-data', value: noDataText(source != null, state, mode) }];
   return (
     <footer className="status-bar" data-testid="status-bar">
       <StatusStrip items={items} measure={measure} />

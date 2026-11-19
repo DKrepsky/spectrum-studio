@@ -148,6 +148,28 @@ describe('StatusBar', () => {
       render(<StatusBar />);
       expect(screen.getByTestId('status-bar')).toHaveTextContent('No source connected.');
     });
+
+    it('is empty during start-up, before the first status (S0)', () => {
+      useSession.setState({ status: null, startupFailed: false });
+      render(<StatusBar />);
+      expect(screen.getByTestId('status-bar').textContent).toBe('');
+    });
+
+    it('is empty while the launch connect has not begun (S0), then says no source is connected', () => {
+      useSession.getState().receiveStatus(status({ revision: 1, launching: true }));
+      const { unmount } = render(<StatusBar />);
+      expect(screen.getByTestId('status-bar').textContent).toBe('');
+      unmount();
+      useSession.getState().receiveStatus(status({ revision: 2, launching: false }));
+      render(<StatusBar />);
+      expect(screen.getByTestId('status-bar')).toHaveTextContent('No source connected.');
+    });
+
+    it('is empty when the backend could not be reached (S12)', () => {
+      useSession.setState({ status: null, startupFailed: true });
+      render(<StatusBar />);
+      expect(screen.getByTestId('status-bar').textContent).toBe('');
+    });
   });
 
   describe('with a frame', () => {

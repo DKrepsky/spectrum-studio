@@ -21,12 +21,14 @@ import { Spinner } from '../../ui/Spinner';
 import { StatusDot } from '../../ui/StatusDot';
 import { SIMULATOR_CONFIG, useSession } from '../../state/session';
 import {
+  SIMULATOR_ID,
   TRANSPORT_LABEL,
   configKey,
   dialogDrivers,
   menuModel,
   rowKey,
   rowTitle,
+  simulatorEntry,
   type DetectedRow,
   type YourRow,
 } from '../../state/sourceEntries';
@@ -105,6 +107,12 @@ export function SourceMenu({ buttonRef, onClose }: Props) {
   );
   const canAdd = useMemo(() => dialogDrivers(drivers).length > 0, [drivers]);
   const driverOf = (id: string) => drivers.find((d) => d.id === id);
+
+  // The backend remembers an auto-connect after it publishes Connected, so the list can be one step
+  // behind: refresh it once each time the menu opens, before the first scan.
+  useEffect(() => {
+    void useSources.getState().refresh();
+  }, []);
 
   // Scan only while the list is shown (not while the Add/Edit dialog covers it).
   const dialogOpen = dialog !== null;
@@ -251,6 +259,27 @@ export function SourceMenu({ buttonRef, onClose }: Props) {
 
   const connectedNow = state === 'connected' || state === 'acquiring';
 
+  // The fixed simulator row (R11). It is the selected source when the active source is the
+  // simulator and no listed row is; then it shows the source's state, with its line 2 word.
+  const simEntry = simulatorEntry(list);
+  const simulatorCurrent =
+    active?.config.driverId === SIMULATOR_ID && !model.yours.some((r) => r.active);
+  const simulatorFailed =
+    failed === configKey(SIMULATOR_CONFIG) || (simEntry != null && failed === rowKey(simEntry));
+  const simulatorStatus: EntryStatus = simulatorCurrent
+    ? activeStatus(state, busy, simulatorFailed, lost)
+    : 'idle';
+  const pickSimulator = () =>
+    pick(() =>
+      simEntry
+        ? useSession.getState().connectTo({ type: 'remembered', id: simEntry.id })
+        : useSession.getState().connectTo({
+            type: 'config',
+            config: SIMULATOR_CONFIG,
+            title: driverOf(SIMULATOR_ID)?.name,
+          }),
+    );
+
   if (view.kind === 'form') {
     const form = view;
     return (
@@ -396,19 +425,12 @@ export function SourceMenu({ buttonRef, onClose }: Props) {
             {model.simulatorInFixedBlock && (
               <FixedRow
                 testId="source-simulator"
-                label={driverOf('simulator')?.name ?? 'Signal simulator'}
+                label={driverOf(SIMULATOR_ID)?.name ?? 'Signal simulator'}
                 disabled={transitioning}
-                status="idle"
-                badge={TRANSPORT_LABEL[driverOf('simulator')?.transport ?? 'internal']}
-                onSelect={() =>
-                  pick(() =>
-                    useSession.getState().connectTo({
-                      type: 'config',
-                      config: SIMULATOR_CONFIG,
-                      title: driverOf('simulator')?.name,
-                    }),
-                  )
-                }
+                status={simulatorStatus}
+                current={simulatorCurrent}
+                badge={TRANSPORT_LABEL[driverOf(SIMULATOR_ID)?.transport ?? 'internal']}
+                onSelect={pickSimulator}
               />
             )}
             {canAdd && (
@@ -447,11 +469,28 @@ interface RowBodyProps {
   detail: string | null;
   /** Detected but not remembered: line 2 starts with `New` while nothing else applies. */
   isNew?: boolean;
+  /** The selected source: an idle one reads "Disconnected" (015, S13). */
+  current?: boolean;
+}
+
+/**
+ * The state word of a row: the status text; "New" for a detected device not yet remembered; and
+ * "Disconnected" for the selected source while it is idle. Idle rows that are not selected have none.
+ */
+function stateWord(
+  status: EntryStatus,
+  { isNew, current }: { isNew?: boolean; current?: boolean },
+) {
+  const word = STATUS_TEXT[status];
+  if (word) return word;
+  if (isNew) return 'New';
+  if (current) return 'Disconnected';
+  return null;
 }
 
 /** The content of a two-line row: glyph | name | badge on line 1; status word and port on line 2. */
-function RowBody({ testId, label, status, badge, detail, isNew }: RowBodyProps) {
-  const text = STATUS_TEXT[status] ?? (isNew ? 'New' : null);
+function RowBody({ testId, label, status, badge, detail, isNew, current }: RowBodyProps) {
+  const text = stateWord(status, { isNew, current });
   const part = (name: string) => `source-${name}-${testId.replace(/^source-/, '')}`;
   return (
     <span className="source-row">
@@ -514,7 +553,7 @@ function SourceRow({
   onEdit,
   onForget,
 }: SourceRowProps) {
-  const text = STATUS_TEXT[status] ?? (isNew ? 'New' : null);
+  const text = stateWord(status, { isNew, current });
   return (
     <li>
       <ListRow
@@ -560,6 +599,7 @@ function SourceRow({
           badge={badge}
           detail={detail}
           isNew={isNew}
+          current={current}
         />
       </ListRow>
     </li>
@@ -572,12 +612,40 @@ interface FixedRowProps {
   badge?: string;
   /** The simulator has a status dot; Add and Disconnect have none (the glyph column stays empty). */
   status?: EntryStatus;
+  /** The selected source: a two-line row whose line 2 carries the state word. */
+  current?: boolean;
   disabled: boolean;
   onSelect: () => void;
 }
 
-/** A one-line item of the fixed block: the simulator, Add source…, Disconnect. */
-function FixedRow({ testId, label, badge, status, disabled, onSelect }: FixedRowProps) {
+/**
+ * An item of the fixed block: the simulator, Add source…, Disconnect. One line, unless it is the
+ * selected source, which is two lines (the state word on line 2, as the other rows).
+ */
+function FixedRow({ testId, label, badge, status, current, disabled, onSelect }: FixedRowProps) {
+  if (current && status) {
+    const text = stateWord(status, { current });
+    return (
+      <li>
+        <ListRow
+          testId={testId}
+          label={text ? `${label}, ${text}` : label}
+          current
+          unavailable={disabled}
+          onSelect={onSelect}
+        >
+          <RowBody
+            testId={testId}
+            label={label}
+            status={status}
+            badge={badge ?? ''}
+            detail={null}
+            current
+          />
+        </ListRow>
+      </li>
+    );
+  }
   return (
     <li>
       <ListRow
